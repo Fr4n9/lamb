@@ -44,6 +44,12 @@ backend/pipelines/*
 backend/lamb_assistants/*
 backend/static/public
 backend/timelog.md
+# File evaluation module: student submission files (runtime; do not commit)
+# Ignores this directory and everything under it recursively.
+backend/uploads/file-eval/
+# Local DB dump and module dev snapshot (do not commit)
+lamb_v4_dump.sql
+backend/file_eval_snapshot.txt
 
 # Database
 *.db
@@ -74,6 +80,28 @@ config.json
 !/frontend/.env.example
 /frontend/vite.config.js.timestamp-*
 /frontend/vite.config.ts.timestamp-*
+
+# pnpm store and lockfiles
+.pnpm-store/
+frontend/.pnpm-store/
+**/.pnpm-store/
+pnpm-lock.yaml
+frontend/pnpm-lock.yaml
+frontend/packages/**/pnpm-lock.yaml
+
+# SvelteKit generated files (all packages)
+frontend/packages/**/.svelte-kit/
+frontend/svelte-app/.svelte-kit/
+
+# package-lock.json files (using pnpm instead)
+frontend/package-lock.json
+frontend/packages/**/package-lock.json
+frontend/svelte-app/package-lock.json
+
+aac_logs/
+frontend/packages/creator-app/src/lib/version.js
+frontend/packages/module-chat/src/lib/version.js
+frontend/svelte-app/src/lib/version.js
 
 # Allow committing Svelte/Vite config for the frontend app
 !frontend/svelte-app/svelte.config.js
@@ -114,6 +142,9 @@ lerna-debug.log*
 coverage/
 .nyc_output/
 .pytest_cache/
+
+# Local planning / superpowers docs (do not commit)
+docs/superpowers/
 
 # Temporary files
 *.tmp
@@ -166,9 +197,18 @@ static/
 data/
 Documentation/test-scripts/package-lock.json
 testing/package-lock.json
-testing/playwright/test-results/.last-run.json
+test-results/
+.last-run.json
 backend/static/cache
 docker-compose.yaml
+
+#OPENCODE
+.opencode/                # Carpeta de skills y caché local
+opencode.json             # Tu configuración con paths absolutos
+.env                      # SIEMPRE ignora esto (aquí van las API keys)
+AGENTS.md                 # Tu archivo de contexto (si quieres que sea privado)
+CONTEXT.md
+
 
 
 ./clinerules
