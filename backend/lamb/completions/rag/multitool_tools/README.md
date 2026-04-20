@@ -35,14 +35,16 @@ The multitool RAG processor plugs into the existing pipeline at the RAG slot. No
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `multitool_rag.py` | Main RAG processor: orchestrator call, parallel tool execution, context aggregation |
-| `multitool_schema.py` | Pydantic models (`RawToolCall`, `RawOrchestratorPlan`) + parsing functions for metadata and orchestrator JSON |
-| `multitool_tools/registry.py` | `ToolRegistry` class mapping tool names to async callables |
-| `multitool_tools/kb_query.py` | KB query tool — queries one or more KB Server collections via HTTP |
-| `multitool_tools/rubric.py` | Rubric tool — fetches a rubric from the DB and formats it for evaluation |
-| `multitool_tools/__init__.py` | Package marker |
+
+| File                          | Purpose                                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `multitool_rag.py`            | Main RAG processor: orchestrator call, parallel tool execution, context aggregation                           |
+| `multitool_schema.py`         | Pydantic models (`RawToolCall`, `RawOrchestratorPlan`) + parsing functions for metadata and orchestrator JSON |
+| `multitool_tools/registry.py` | `ToolRegistry` class mapping tool names to async callables                                                    |
+| `multitool_tools/kb_query.py` | KB query tool — queries one or more KB Server collections via HTTP                                            |
+| `multitool_tools/rubric.py`   | Rubric tool — fetches a rubric from the DB and formats it for evaluation                                      |
+| `multitool_tools/__init__.py` | Package marker                                                                                                |
+
 
 ## Metadata contract
 
@@ -71,10 +73,10 @@ Configuration lives in the assistant's `api_callback` JSON column (accessed as `
 
 ### Fields
 
-- **`enabled_tools`**: allowlist of tool names the orchestrator may select. Must exist in the `ToolRegistry`. Tools not in this list are never executed, even if the orchestrator hallucinates them.
-- **`per_tool`**: per-tool configuration merged with orchestrator-provided arguments. Server-side values take precedence for security.
-- **`orchestrator.per_tool_timeout_sec`**: maximum seconds per individual tool (default: 12).
-- **`orchestrator.total_timeout_sec`**: maximum wall-clock seconds for all tools combined (default: 25).
+- `**tenabled_tools**`: allowlist of tool names the orchestrator may select. Must exist in the `ToolRegistry`. Tools not in this list are never executed, even if the orchestrator hallucinates them.
+- `**per_tool**`: per-tool configuration merged with orchestrator-provided arguments. Server-side values take precedence for security.
+- `**orchestrator.per_tool_timeout_sec**`: maximum seconds per individual tool (default: 12).
+- `**orchestrator.total_timeout_sec**`: maximum wall-clock seconds for all tools combined (default: 25).
 
 ## rag_context output shape
 
@@ -120,13 +122,13 @@ Unknown tool names in the response are silently filtered and logged. Invalid JSO
 ## Adding a new tool
 
 1. Create `multitool_tools/your_tool.py` with:
-   - `ALLOWED_ARGS = frozenset({"arg1", "arg2"})` 
-   - `async def execute(*, arg1, assistant_owner, **_extra) -> Dict[str, Any]`
-   - Return `{"ok": True, "tool": "your_tool", "context": "...", "sources": [...]}`
+  - `ALLOWED_ARGS = frozenset({"arg1", "arg2"})` 
+  - `async def execute(*, arg1, assistant_owner, **_extra) -> Dict[str, Any]`
+  - Return `{"ok": True, "tool": "your_tool", "context": "...", "sources": [...]}`
 2. Register it in `multitool_rag.py`:
-   - `from lamb.completions.rag.multitool_tools import your_tool`
-   - `_registry.register("your_tool", your_tool.execute)`
-   - Add to `_tool_modules` dict inside `rag_processor`
+  - `from lamb.completions.rag.multitool_tools import your_tool`
+  - `_registry.register("your_tool", your_tool.execute)`
+  - Add to `_tool_modules` dict inside `rag_processor`
 3. Add a description in `_build_orchestrator_prompt`
 4. Configure in assistant metadata: add to `enabled_tools` and `per_tool`
 
@@ -139,20 +141,22 @@ PYTHONPATH=backend:$PYTHONPATH backend/.venv/bin/python -m pytest testing/unit-t
 
 15 tests covering:
 
-| Category | Tests |
-|----------|-------|
-| Schema parsing | `test_parse_metadata_multitool_*` (2) |
-| Hallucination filter | `test_parse_orchestrator_response_filters_unknown_tool` |
-| Timeout handling | `test_run_tool_with_timeout_*` (3) |
-| Orchestrator wiring | `test_orchestrate_tool_plan_calls_small_fast_model` |
-| Happy path integration | `test_rag_processor_happy_path_two_tools` |
-| Missing metadata | `test_rag_processor_missing_multitool_metadata` |
-| Invalid tools | `test_rag_processor_no_valid_tools_enabled` |
-| Invalid orchestrator JSON | `test_rag_processor_orchestrator_returns_invalid_json` |
-| Empty tool selection | `test_rag_processor_orchestrator_returns_empty_tool_list` |
-| Tool timeout propagation | `test_rag_processor_tool_timeout_surfaces_error` |
-| JSON decode error | `test_parse_orchestrator_response_invalid_json_raises` |
-| Missing required tool args | `test_rag_processor_rubric_missing_required_key` |
+
+| Category                   | Tests                                                     |
+| -------------------------- | --------------------------------------------------------- |
+| Schema parsing             | `test_parse_metadata_multitool_*` (2)                     |
+| Hallucination filter       | `test_parse_orchestrator_response_filters_unknown_tool`   |
+| Timeout handling           | `test_run_tool_with_timeout_*` (3)                        |
+| Orchestrator wiring        | `test_orchestrate_tool_plan_calls_small_fast_model`       |
+| Happy path integration     | `test_rag_processor_happy_path_two_tools`                 |
+| Missing metadata           | `test_rag_processor_missing_multitool_metadata`           |
+| Invalid tools              | `test_rag_processor_no_valid_tools_enabled`               |
+| Invalid orchestrator JSON  | `test_rag_processor_orchestrator_returns_invalid_json`    |
+| Empty tool selection       | `test_rag_processor_orchestrator_returns_empty_tool_list` |
+| Tool timeout propagation   | `test_rag_processor_tool_timeout_surfaces_error`          |
+| JSON decode error          | `test_parse_orchestrator_response_invalid_json_raises`    |
+| Missing required tool args | `test_rag_processor_rubric_missing_required_key`          |
+
 
 ## Manual testing (no frontend)
 
@@ -173,3 +177,4 @@ curl -X POST "http://localhost:9099/lamb/v1/completions/?assistant=<ID>" \
   -H "Content-Type: application/json" \
   -d '{"messages": [{"role": "user", "content": "Explain the second law of Newton"}], "stream": false}'
 ```
+
