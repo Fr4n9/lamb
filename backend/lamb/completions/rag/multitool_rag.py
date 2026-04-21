@@ -62,6 +62,8 @@ def _extract_content(result: Any) -> str:
 
 def _build_orchestrator_prompt(allowed_tools: List[str]) -> str:
     descriptions = {
+         # "kb_query": "Use ONLY to search for theoretical knowledge when the user asks a question. Arguments: query (str).",
+        #"rubric": "MANDATORY to use whenever the user submits an essay, assignment, or asks to be evaluated/graded. No extra arguments needed.",
         "kb_query": "Search knowledge-base collections for relevant context. Arguments: query (str).",
         "rubric": "Fetch a rubric and format it as evaluation context. No extra arguments needed.",
     }
@@ -115,7 +117,7 @@ def _strip_extra_args(arguments: Dict[str, Any], allowed: frozenset) -> Dict[str
 # ---------------------------------------------------------------------------
 
 
-async def rag_processor(
+async def _rag_processor_internal(
     messages: List[Dict[str, Any]],
     assistant=None,
     request: Optional[Dict[str, Any]] = None,
@@ -246,9 +248,33 @@ async def rag_processor(
         else:
             context_parts.append(f"=== Tool: {name} (error) ===\n{res.get('error', 'unknown error')}")
 
+    final_context = "\n\n".join(context_parts)
+
     return {
-        "context": "\n\n".join(context_parts),
+        "context": final_context,
         "sources": all_sources,
         "tool_results": tool_results,
         "orchestrator_raw": plan.model_dump(),
     }
+
+
+async def rag_processor(
+    messages: List[Dict[str, Any]],
+    assistant=None,
+    request: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Async RAG processor wrapper that intercepts and dumps all returned contexts."""
+    result = await _rag_processor_internal(messages, assistant, request)
+    
+    try:
+        import os, time
+        dump_dir = "testing/context_dumps"
+        os.makedirs(dump_dir, exist_ok=True)
+        dump_path = os.path.join(dump_dir, f"context_dump_{int(time.time())}.md")
+        with open(dump_path, "w", encoding="utf-8") as f:
+            f.write(f"# Final RAG Context Dump ({time.strftime('%Y-%m-%d %H:%M:%S')})\n\n")
+            f.write(result.get("context", "NO CONTEXT GENERATED"))
+    except Exception as e:
+        logger.error("Failed to write context dump: %s", e)
+        
+    return result

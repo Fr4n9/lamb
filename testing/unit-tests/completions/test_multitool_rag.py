@@ -7,11 +7,15 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from backend.lamb.completions.rag.multitool_schema import (
+#import may change depending where are you executing the tests
+#backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
+from lamb.completions.rag.multitool_schema import (
     parse_metadata_multitool,
     parse_orchestrator_response,
 )
-from backend.lamb.completions.rag.multitool_rag import (
+#import may change depending where are you executing the tests
+#backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
+from lamb.completions.rag.multitool_rag import (
     run_tool_with_timeout,
     orchestrate_tool_plan,
     rag_processor,
@@ -23,10 +27,18 @@ from backend.lamb.completions.rag.multitool_rag import (
 # ---------------------------------------------------------------------------
 
 def test_parse_metadata_multitool_missing_returns_none():
+    """
+    Action: Tests the metadata parser when the 'multitool' json block is completely empty or missing.
+    Guarantees: Proves that missing database configurations are handled gracefully without throwing unhandled KeyErrors.
+    """
     assert parse_metadata_multitool("{}") is None
 
 
 def test_parse_metadata_multitool_returns_dict_when_present():
+    """
+    Action: Tests the parser with a valid multitool configuration string containing enabled tools.
+    Guarantees: Confirms the JSON decoder successfully extracts the user's settings into a Python dictionary.
+    """
     raw = '{"multitool":{"enabled_tools":["kb_query"]}}'
     mt = parse_metadata_multitool(raw)
     assert mt is not None
@@ -38,6 +50,10 @@ def test_parse_metadata_multitool_returns_dict_when_present():
 # ---------------------------------------------------------------------------
 
 def test_parse_orchestrator_response_filters_unknown_tool():
+    """
+    Action: Simulates the LLM orchestrator hallucinating an unregistered tool ('ghost_tool').
+    Guarantees: Proves that only safely allowed tools are permitted to pass, preventing arbitrary execution bugs.
+    """
     raw = '{"tools":[{"name":"kb_query","arguments":{}},{"name":"ghost_tool","arguments":{}}]}'
     plan, rejected = parse_orchestrator_response(raw, allowed_names=["kb_query"])
     assert [t.name for t in plan.tools] == ["kb_query"]
@@ -49,6 +65,10 @@ def test_parse_orchestrator_response_filters_unknown_tool():
 # ---------------------------------------------------------------------------
 
 def test_run_tool_with_timeout_marks_error():
+    """
+    Action: Simulates a tool taking 10 seconds while the strict code timeout is set to 0.05 seconds.
+    Guarantees: Proves the async code successfully halts hanging API calls, preventing server deadlock.
+    """
     async def slow():
         await asyncio.sleep(10)
         return {"ok": True}
@@ -59,6 +79,10 @@ def test_run_tool_with_timeout_marks_error():
 
 
 def test_run_tool_with_timeout_happy_path():
+    """
+    Action: Tests a tool that executes quickly and successfully within the time limit.
+    Guarantees: Assures that normal, fast responses are properly extracted and marked as successful (ok=True).
+    """
     async def fast():
         return {"ok": True, "context": "hello"}
 
@@ -68,6 +92,10 @@ def test_run_tool_with_timeout_happy_path():
 
 
 def test_run_tool_with_timeout_catches_exception():
+    """
+    Action: Forces the simulated tool to crash internally by raising a RuntimeError ('boom').
+    Guarantees: Proves that internal tool crashes are caught and stringified securely instead of crashing the endpoint.
+    """
     async def broken():
         raise RuntimeError("boom")
 
@@ -81,6 +109,10 @@ def test_run_tool_with_timeout_catches_exception():
 # ---------------------------------------------------------------------------
 
 def test_orchestrate_tool_plan_calls_small_fast_model():
+    """
+    Action: Mocks the small fast model (OpenAI) to return a valid JSON requesting the kb_query tool.
+    Guarantees: Validates the core integration pipeline successfully sends the query and extracts the tool plan.
+    """
     fake_response = {
         "choices": [
             {
@@ -90,8 +122,11 @@ def test_orchestrate_tool_plan_calls_small_fast_model():
             }
         ]
     }
+    #import may change depending where are you executing the tests
+    #backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
+
     with patch(
-        "backend.lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
         new=AsyncMock(return_value=fake_response),
     ) as m:
         plan, rejected = asyncio.run(
@@ -125,6 +160,10 @@ def _fake_orchestrator_response(tool_names):
 
 
 def test_rag_processor_happy_path_two_tools():
+    """
+    Action: Runs the full RAG processor simulating a request where both KB and Rubric tools are triggered successfully.
+    Guarantees: The ultimate validation test. Proves parallel execution generates a correctly formatted multi-tool context string.
+    """
     assistant = _make_assistant({
         "multitool": {
             "enabled_tools": ["kb_query", "rubric"],
@@ -143,14 +182,16 @@ def test_rag_processor_happy_path_two_tools():
     async def fake_rubric(**kw):
         return {"ok": True, "tool": "rubric", "context": "Criteria 1", "sources": [{"type": "rubric"}]}
 
+    #import may change depending where are you executing the tests
+    #backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
     with patch(
-        "backend.lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
         new=AsyncMock(return_value=_fake_orchestrator_response(["kb_query", "rubric"])),
     ), patch(
-        "backend.lamb.completions.rag.multitool_rag.kb_query.execute",
+        "lamb.completions.rag.multitool_rag.kb_query.execute",
         side_effect=fake_kb,
     ), patch(
-        "backend.lamb.completions.rag.multitool_rag.rubric.execute",
+        "lamb.completions.rag.multitool_rag.rubric.execute",
         side_effect=fake_rubric,
     ):
         ctx = asyncio.run(rag_processor(messages, assistant))
@@ -163,6 +204,10 @@ def test_rag_processor_happy_path_two_tools():
 
 
 def test_rag_processor_missing_multitool_metadata():
+    """
+    Action: Dispatches a message to the processor but strips the database completely of any tool configuration.
+    Guarantees: Ensures the processor fails gracefully and returns an empty context instead of breaking the chat flow.
+    """
     assistant = _make_assistant({"connector": "openai"})
     messages = [{"role": "user", "content": "hi"}]
     ctx = asyncio.run(rag_processor(messages, assistant))
@@ -174,6 +219,10 @@ def test_rag_processor_missing_multitool_metadata():
 # ---------------------------------------------------------------------------
 
 def test_rag_processor_no_valid_tools_enabled():
+    """
+    Action: Triggers the processor when the DB metadata is misconfigured with non-existent tools.
+    Guarantees: Confirms the system detects the anomaly immediately and returns an explicit safe error message.
+    """
     assistant = _make_assistant({
         "multitool": {"enabled_tools": ["nonexistent_tool"]}
     })
@@ -183,6 +232,10 @@ def test_rag_processor_no_valid_tools_enabled():
 
 
 def test_rag_processor_orchestrator_returns_invalid_json():
+    """
+    Action: Mocks the OpenAI API orchestrator to return total garbage text ("NOT JSON AT ALL").
+    Guarantees: Proves that JSON syntax errors from unpredictable LLMs are safely caught without triggering HTTP 500 crashes.
+    """
     assistant = _make_assistant({
         "multitool": {
             "enabled_tools": ["kb_query"],
@@ -192,8 +245,12 @@ def test_rag_processor_orchestrator_returns_invalid_json():
     messages = [{"role": "user", "content": "hi"}]
 
     bad_response = {"choices": [{"message": {"content": "NOT JSON AT ALL"}}]}
+    
+    #import may change depending where are you executing the tests
+#backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
+
     with patch(
-        "backend.lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
         new=AsyncMock(return_value=bad_response),
     ):
         ctx = asyncio.run(rag_processor(messages, assistant))
@@ -202,6 +259,10 @@ def test_rag_processor_orchestrator_returns_invalid_json():
 
 
 def test_rag_processor_orchestrator_returns_empty_tool_list():
+    """
+    Action: The orchestrator model decides it doesn't need any external tools for the user query and returns an empty array.
+    Guarantees: Ensures that a no-op decision correctly bypasses tool execution loops smoothly.
+    """
     assistant = _make_assistant({
         "multitool": {
             "enabled_tools": ["kb_query"],
@@ -211,8 +272,11 @@ def test_rag_processor_orchestrator_returns_empty_tool_list():
     messages = [{"role": "user", "content": "hi"}]
 
     empty_response = {"choices": [{"message": {"content": '{"tools":[]}'}}]}
+    
+    #import may change depending where are you executing the tests
+    #backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
     with patch(
-        "backend.lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
         new=AsyncMock(return_value=empty_response),
     ):
         ctx = asyncio.run(rag_processor(messages, assistant))
@@ -221,6 +285,10 @@ def test_rag_processor_orchestrator_returns_empty_tool_list():
 
 
 def test_rag_processor_tool_timeout_surfaces_error():
+    """
+    Action: Simulates the entire RAG pipeline where one tool takes too long (10s) and breaches the 1s timeout limit.
+    Guarantees: Verifies that the final returned context properly tags the lagging tool with an '(error)' fallback message.
+    """
     assistant = _make_assistant({
         "multitool": {
             "enabled_tools": ["kb_query"],
@@ -234,11 +302,13 @@ def test_rag_processor_tool_timeout_surfaces_error():
         await asyncio.sleep(10)
         return {"ok": True}
 
+    #import may change depending where are you executing the tests
+    #backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
     with patch(
-        "backend.lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
         new=AsyncMock(return_value=_fake_orchestrator_response(["kb_query"])),
     ), patch(
-        "backend.lamb.completions.rag.multitool_rag.kb_query.execute",
+        "lamb.completions.rag.multitool_rag.kb_query.execute",
         side_effect=slow_kb,
     ):
         ctx = asyncio.run(rag_processor(messages, assistant))
@@ -249,12 +319,20 @@ def test_rag_processor_tool_timeout_surfaces_error():
 
 
 def test_parse_orchestrator_response_invalid_json_raises():
+    """
+    Action: Triggers the lower-level parsing function directly with broken JSON data.
+    Guarantees: Ensures the fundamental parsing function correctly bubbles up native JSONDecodeError exceptions to be caught higher up.
+    """
     import pytest
     with pytest.raises(json.JSONDecodeError):
         parse_orchestrator_response("NOT JSON", allowed_names=["kb_query"])
 
 
 def test_rag_processor_rubric_missing_required_key():
+    """
+    Action: rubric tool called without rubric_id in per_tool config → error block.
+    Guarantees: Verifies argument stripping and missing parameter validation works correctly to prevent arbitrary errors.
+    """
     """rubric tool called without rubric_id in per_tool config → error block."""
     assistant = _make_assistant({
         "multitool": {
@@ -270,11 +348,13 @@ def test_rag_processor_rubric_missing_required_key():
             return {"ok": False, "error": "rubric_id is required", "tool": "rubric"}
         return {"ok": True}
 
+    #import may change depending where are you executing the tests
+    #backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
     with patch(
-        "backend.lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
         new=AsyncMock(return_value=_fake_orchestrator_response(["rubric"])),
     ), patch(
-        "backend.lamb.completions.rag.multitool_rag.rubric.execute",
+        "lamb.completions.rag.multitool_rag.rubric.execute",
         side_effect=rubric_needs_id,
     ):
         ctx = asyncio.run(rag_processor(messages, assistant))
