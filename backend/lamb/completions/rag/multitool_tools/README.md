@@ -14,12 +14,14 @@ User message
 │  1. Parse metadata.multitool     │
 │  2. Intersect enabled_tools      │
 │     with ToolRegistry            │
-│  3. Call small-fast-model        │
+│  3. If kb_query: fetch collection│
+│     descriptions (KB Server GET) │
+│  4. Call small-fast-model        │
 │     (orchestrator)               │
-│  4. Filter hallucinated tools    │
-│  5. Execute tools in parallel    │
+│  5. Filter hallucinated tools    │
+│  6. Execute tools in parallel    │
 │     (asyncio.gather + timeouts)  │
-│  6. Aggregate into rag_context   │
+│  7. Aggregate into rag_context   │
 └──────────────┬───────────────────┘
                │
                ▼
@@ -105,6 +107,26 @@ It returns strict JSON: `{"tools": [{"name": "...", "arguments": {...}}], "ratio
 
 Unknown tool names in the response are silently filtered and logged. Invalid JSON causes the processor to return an error in `context` (no tools are executed).
 
+## Smart KB Routing (Prototype 2)
+
+When `kb_query` is enabled, the processor fetches semantic descriptions for each configured collection from the KB server (`GET /collections/{id}`) before calling the orchestrator. These descriptions are injected into the orchestrator's system prompt, enabling it to select only the relevant collections.
+
+The orchestrator can return a `target_collections` argument:
+
+```json
+{"tools": [{"name": "kb_query", "arguments": {"query": "Newton's laws", "target_collections": ["95"]}}]}
+```
+
+If `target_collections` is provided, `kb_query` only queries those specific collection IDs. If omitted or empty, it falls back to querying all configured collections (backward compatible with Prototype 1).
+
+### Metadata contract (unchanged for routing)
+
+The `per_tool.kb_query` block remains the same. The `target_collections` argument is provided by the orchestrator at runtime; it is not part of the static metadata configuration.
+
+### Requirements for administrators
+
+Collection descriptions should be meaningful and precise. The orchestrator relies on these descriptions to make routing decisions. Vague or missing descriptions can lead to suboptimal routing (the orchestrator may skip useful collections or include irrelevant ones).
+
 ## Concurrency and timeouts
 
 - Tools run in parallel via `asyncio.gather`.
@@ -139,15 +161,19 @@ cd /home/franpv2004/proyecto/lamb
 PYTHONPATH=backend:$PYTHONPATH backend/.venv/bin/python -m pytest testing/unit-tests/completions/test_multitool_rag.py -v
 ```
 
-15 tests covering:
+23 tests covering:
 
 
 | Category                   | Tests                                                     |
 | -------------------------- | --------------------------------------------------------- |
+| KB description fetch      | `test_fetch_collection_descriptions_*` (3)                |
+| KB target filter           | `test_kb_query_execute_*` (2)                           |
+| Orchestrator prompt (KB)  | `test_build_orchestrator_prompt_*` (2)                  |
 | Schema parsing             | `test_parse_metadata_multitool_*` (2)                     |
 | Hallucination filter       | `test_parse_orchestrator_response_filters_unknown_tool`   |
 | Timeout handling           | `test_run_tool_with_timeout_*` (3)                        |
 | Orchestrator wiring        | `test_orchestrate_tool_plan_calls_small_fast_model`       |
+| Smart KB routing (e2e)     | `test_rag_processor_smart_routing_queries_only_targeted_collections` |
 | Happy path integration     | `test_rag_processor_happy_path_two_tools`                 |
 | Missing metadata           | `test_rag_processor_missing_multitool_metadata`           |
 | Invalid tools              | `test_rag_processor_no_valid_tools_enabled`               |
