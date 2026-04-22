@@ -15,6 +15,7 @@ class RawToolCall(BaseModel):
 class RawOrchestratorPlan(BaseModel):
     tools: List[RawToolCall] = Field(default_factory=list)
     rationale: Optional[str] = None
+    intent: Optional[str] = None
 
 
 def parse_metadata_multitool(metadata_json: str) -> Optional[Dict[str, Any]]:
@@ -52,5 +53,9 @@ def parse_orchestrator_response(
         else:
             rejected.append(tc.name)
 
-    filtered = RawOrchestratorPlan(tools=kept, rationale=full_plan.rationale)
+    filtered = RawOrchestratorPlan(
+        tools=kept,
+        rationale=full_plan.rationale,
+        intent=full_plan.intent,
+    )
     return filtered, rejected

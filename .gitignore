@@ -217,5 +217,6 @@ CONTEXT.md
 
 .playwright-mcp
 backend/testing/context_dumps/
+testing/context_dumps/
 
 aac_logs/

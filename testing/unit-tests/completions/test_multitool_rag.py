@@ -21,8 +21,9 @@ from lamb.completions.rag.multitool_rag import (
     orchestrate_tool_plan,
     rag_processor,
 )
-from lamb.completions.rag.multitool_tools import kb_query
+from lamb.completions.rag.multitool_tools import kb_query, rubric
 from lamb.completions.rag.multitool_tools.kb_query import fetch_collection_descriptions
+from lamb.completions.rag.multitool_tools.rubric import fetch_rubric_descriptions
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +183,123 @@ def test_build_orchestrator_prompt_without_kb_descriptions():
     assert "target_collections" not in prompt
 
 
+def test_build_orchestrator_prompt_has_intent_classification():
+    """
+    Action: Verifies the CoT (Chain-of-Thought) prompt structure includes intent classification steps.
+    Guarantees: The prompt forces the orchestrator to classify intent (SEARCH/EVALUATE/BOTH/NONE) before selecting tools.
+    """
+    prompt = _build_orchestrator_prompt(allowed_tools=["kb_query", "rubric"])
+    assert "STEP 1" in prompt
+    assert "STEP 2" in prompt
+    assert "SEARCH" in prompt
+    assert "EVALUATE" in prompt
+    assert "BOTH" in prompt
+    assert "intent" in prompt
+
+
+def test_build_orchestrator_prompt_includes_rubric_descriptions():
+    """
+    Action: Calls _build_orchestrator_prompt with rubric_descriptions.
+    Guarantees: The orchestrator prompt includes rubric IDs, titles, descriptions, and the rubric_id argument.
+    """
+    prompt = _build_orchestrator_prompt(
+        allowed_tools=["rubric"],
+        rubric_descriptions={"r1": "Rubric for Roman Empire essays — Evaluates historical accuracy and argumentation"},
+    )
+    assert "r1" in prompt
+    assert "Roman Empire" in prompt
+    assert "rubric_id" in prompt
+    assert "evaluate" in prompt.lower() or "correct" in prompt.lower()
+
+
+def test_build_orchestrator_prompt_rubric_without_descriptions():
+    """
+    Action: Calls _build_orchestrator_prompt with rubric enabled but no descriptions.
+    Guarantees: Rubric tool still appears with a generic description, no crash.
+    """
+    prompt = _build_orchestrator_prompt(allowed_tools=["rubric"])
+    assert "rubric" in prompt
+    assert "rubric_id" in prompt
+
+
+def test_build_orchestrator_prompt_important_rules():
+    """
+    Action: Verifies the prompt includes IMPORTANT RULES for tool selection.
+    Guarantees: The orchestrator has explicit instructions to MUST use rubric for evaluation requests.
+    """
+    prompt = _build_orchestrator_prompt(allowed_tools=["kb_query", "rubric"])
+    assert "IMPORTANT RULES" in prompt
+    assert "MUST" in prompt
+
+
+# ---------------------------------------------------------------------------
+# Rubric description fetching
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_rubric_descriptions_returns_title_and_description():
+    """
+    Action: Mocks the rubric database to return a rubric with title and description.
+    Guarantees: The function correctly maps rubric IDs to their "title — description" format.
+    """
+    mock_rubric = {
+        "rubric_id": "r1",
+        "title": "Roman Empire Essay Rubric",
+        "description": "Evaluates historical accuracy",
+    }
+
+    with patch(
+        "lamb.evaluaitor.rubric_database.RubricDatabaseManager"
+    ) as MockDB:
+        MockDB.return_value.get_rubric_by_id.return_value = mock_rubric
+        result = asyncio.run(fetch_rubric_descriptions(
+            rubric_ids=["r1"],
+            assistant_owner="teacher@school.edu",
+        ))
+
+    assert result == {"r1": "Roman Empire Essay Rubric \u2014 Evaluates historical accuracy"}
+
+
+def test_fetch_rubric_descriptions_handles_missing_rubric():
+    """
+    Action: Rubric not found in database.
+    Guarantees: Missing rubrics get empty descriptions, no crash.
+    """
+    with patch(
+        "lamb.evaluaitor.rubric_database.RubricDatabaseManager"
+    ) as MockDB:
+        MockDB.return_value.get_rubric_by_id.return_value = None
+        result = asyncio.run(fetch_rubric_descriptions(
+            rubric_ids=["missing"],
+            assistant_owner="teacher@school.edu",
+        ))
+
+    assert result == {"missing": ""}
+
+
+def test_fetch_rubric_descriptions_title_only_no_description():
+    """
+    Action: Rubric has title but empty description.
+    Guarantees: Returns just the title without the ' — ' separator.
+    """
+    mock_rubric = {
+        "rubric_id": "r2",
+        "title": "Math Exam Rubric",
+        "description": "",
+    }
+
+    with patch(
+        "lamb.evaluaitor.rubric_database.RubricDatabaseManager"
+    ) as MockDB:
+        MockDB.return_value.get_rubric_by_id.return_value = mock_rubric
+        result = asyncio.run(fetch_rubric_descriptions(
+            rubric_ids=["r2"],
+            assistant_owner="teacher@school.edu",
+        ))
+
+    assert result == {"r2": "Math Exam Rubric"}
+
+
 # ---------------------------------------------------------------------------
 # Task 1: Schema + metadata parsing
 # ---------------------------------------------------------------------------
@@ -218,6 +336,22 @@ def test_parse_orchestrator_response_filters_unknown_tool():
     plan, rejected = parse_orchestrator_response(raw, allowed_names=["kb_query"])
     assert [t.name for t in plan.tools] == ["kb_query"]
     assert "ghost_tool" in rejected
+
+
+def test_parse_orchestrator_response_preserves_intent_after_filtering():
+    """
+    Action: JSON includes intent; one tool is filtered as unknown.
+    Guarantees: Filtered plan still has the same ``intent`` (CoT preserved for orchestrator_raw).
+    """
+    raw = (
+        '{"intent":"SEARCH","rationale":"x","tools":['
+        '{"name":"kb_query","arguments":{}},'
+        '{"name":"ghost_tool","arguments":{}}'
+        "]}"
+    )
+    plan, _rejected = parse_orchestrator_response(raw, allowed_names=["kb_query"])
+    assert plan.intent == "SEARCH"
+    assert [t.name for t in plan.tools] == ["kb_query"]
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +423,7 @@ def test_orchestrate_tool_plan_calls_small_fast_model():
         "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
         new=AsyncMock(return_value=fake_response),
     ) as m:
-        plan, rejected = asyncio.run(
+        plan, rejected, raw_text = asyncio.run(
             orchestrate_tool_plan(
                 user_query="hello",
                 assistant_owner="a@b.com",
@@ -299,6 +433,7 @@ def test_orchestrate_tool_plan_calls_small_fast_model():
     assert m.await_count == 1
     assert plan.tools[0].name == "kb_query"
     assert rejected == []
+    assert "kb_query" in raw_text
 
 
 # ---------------------------------------------------------------------------
@@ -585,3 +720,99 @@ def test_rag_processor_rubric_missing_required_key():
 
     assert ctx["tool_results"]["rubric"]["ok"] is False
     assert "rubric_id" in ctx["tool_results"]["rubric"]["error"]
+
+
+def test_multitool_debug_includes_orchestrator_raw_and_timings():
+    """
+    Action: End-to-end with mocked orchestrator + kb_query.
+    Guarantees: ``multitool_debug`` includes raw LLM string, parsed plan, and timings.
+    """
+    assistant = _make_assistant({
+        "multitool": {
+            "enabled_tools": ["kb_query"],
+            "per_tool": {"kb_query": {"collections": ["c1"]}},
+            "orchestrator": {"per_tool_timeout_sec": 5, "total_timeout_sec": 10},
+        }
+    })
+    messages = [{"role": "user", "content": "hi"}]
+    payload = {
+        "intent": "SEARCH",
+        "rationale": "r",
+        "tools": [{"name": "kb_query", "arguments": {}}],
+    }
+    content = json.dumps(payload)
+    fake_response = {"choices": [{"message": {"content": content}}]}
+
+    async def fake_kb(**kw):
+        return {"ok": True, "tool": "kb_query", "context": "ctx", "sources": []}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(return_value=fake_response),
+    ), patch(
+        "lamb.completions.rag.multitool_rag.kb_query.execute",
+        side_effect=fake_kb,
+    ), patch(
+        "lamb.completions.rag.multitool_rag.OrganizationConfigResolver",
+    ) as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        ctx = asyncio.run(rag_processor(messages, assistant))
+
+    md = ctx["multitool_debug"]
+    assert md["orchestrator"]["raw_llm_text"] == content
+    assert md["orchestrator"]["parsed"]["intent"] == "SEARCH"
+    assert "orchestrate_ms" in md["timings_ms"]
+    assert "tools_total_ms" in md["timings_ms"]
+
+
+def test_debug_dump_always_writes_and_contains_enriched_sections(tmp_path, monkeypatch):
+    """
+    Action: Patch _default_multitool_dump_dir to tmp_path; run with empty tool plan.
+    Guarantees: Dump is always written (no env needed) and has enriched sections.
+    """
+    monkeypatch.setattr(
+        "lamb.completions.rag.multitool_rag._default_multitool_dump_dir",
+        lambda: tmp_path,
+    )
+
+    assistant = _make_assistant({
+        "multitool": {
+            "enabled_tools": ["kb_query"],
+            "per_tool": {"kb_query": {"collections": ["c1"]}},
+        }
+    })
+    messages = [{"role": "user", "content": "hi"}]
+    empty_plan = json.dumps({
+        "intent": "BOTH",
+        "rationale": "none",
+        "tools": [],
+    })
+    empty_response = {"choices": [{"message": {"content": empty_plan}}]}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(return_value=empty_response),
+    ), patch(
+        "lamb.completions.rag.multitool_rag.OrganizationConfigResolver",
+    ) as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        asyncio.run(rag_processor(messages, assistant))
+
+    written = list(tmp_path.glob("context_dump_*.md"))
+    assert len(written) == 1
+    body = written[0].read_text(encoding="utf-8")
+    assert "## Orchestrator raw" in body
+    assert "BOTH" in body
+    assert "## Parsed plan" in body
+    assert "## Tool execution" in body
+    assert "## Full multitool_debug (JSON)" in body
+    assert "## Final injected context" in body
+    assert "allowed_tools" in body
+    assert "user_query_stats" in body
+
