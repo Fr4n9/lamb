@@ -20,6 +20,139 @@ from lamb.completions.rag.multitool_rag import (
     orchestrate_tool_plan,
     rag_processor,
 )
+from lamb.completions.rag.multitool_tools import kb_query
+from lamb.completions.rag.multitool_tools.kb_query import fetch_collection_descriptions
+
+
+# ---------------------------------------------------------------------------
+# Smart KB routing: fetch_collection_descriptions
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_collection_descriptions_returns_id_description_map():
+    """
+    Action: Mocks the KB server to return collection details with descriptions for two collection IDs.
+    Guarantees: Proves that the function correctly maps collection IDs to their semantic descriptions.
+    """
+    def mock_get(url, **kwargs):
+        cid = url.rsplit("/", 1)[-1]
+        resp = SimpleNamespace(
+            status_code=200,
+            json=lambda: {"id": int(cid), "name": f"col-{cid}", "description": f"Desc for {cid}"},
+        )
+        return resp
+
+    with patch("lamb.completions.rag.multitool_tools.kb_query.requests.get", side_effect=mock_get):
+        result = asyncio.run(fetch_collection_descriptions(
+            collection_ids=["10", "20"],
+            kb_url="http://fake-kb:9090",
+            kb_token="tok",
+        ))
+
+    assert result == {"10": "Desc for 10", "20": "Desc for 20"}
+
+
+def test_fetch_collection_descriptions_handles_missing_description():
+    """
+    Action: KB returns a collection with no description field (None).
+    Guarantees: Collections without descriptions are still included with an empty string fallback.
+    """
+    def mock_get(url, **kwargs):
+        return SimpleNamespace(
+            status_code=200,
+            json=lambda: {"id": 10, "name": "col-10", "description": None},
+        )
+
+    with patch("lamb.completions.rag.multitool_tools.kb_query.requests.get", side_effect=mock_get):
+        result = asyncio.run(fetch_collection_descriptions(
+            collection_ids=["10"],
+            kb_url="http://fake-kb:9090",
+            kb_token="tok",
+        ))
+
+    assert result == {"10": ""}
+
+
+def test_fetch_collection_descriptions_handles_http_error():
+    """
+    Action: KB server returns 404 for a collection.
+    Guarantees: HTTP errors are handled gracefully; missing collections get empty descriptions.
+    """
+    def mock_get(url, **kwargs):
+        return SimpleNamespace(status_code=404, json=lambda: {})
+
+    with patch("lamb.completions.rag.multitool_tools.kb_query.requests.get", side_effect=mock_get):
+        result = asyncio.run(fetch_collection_descriptions(
+            collection_ids=["99"],
+            kb_url="http://fake-kb:9090",
+            kb_token="tok",
+        ))
+
+    assert result == {"99": ""}
+
+
+def test_kb_query_execute_filters_by_target_collections():
+    """
+    Action: Calls kb_query.execute with 3 collections but target_collections limits to just 1.
+    Guarantees: Only the targeted collection is queried, the others are skipped entirely.
+    """
+    queried_cids = []
+
+    def mock_post(url, **kwargs):
+        cid = url.split("/collections/")[1].split("/")[0]
+        queried_cids.append(cid)
+        return SimpleNamespace(
+            status_code=200,
+            json=lambda: {"results": [{"data": f"content-{cid}", "metadata": {}}]},
+        )
+
+    with patch("lamb.completions.rag.multitool_tools.kb_query.requests.post", side_effect=mock_post), \
+         patch("lamb.completions.rag.multitool_tools.kb_query.OrganizationConfigResolver") as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        result = asyncio.run(kb_query.execute(
+            query="test query",
+            collections=["10", "20", "30"],
+            target_collections=["20"],
+            assistant_owner="a@b.com",
+        ))
+
+    assert result["ok"] is True
+    assert queried_cids == ["20"]
+    assert "content-20" in result["context"]
+
+
+def test_kb_query_execute_without_target_collections_queries_all():
+    """
+    Action: Calls kb_query.execute without target_collections argument.
+    Guarantees: All configured collections are queried (backward compatibility with Prototype 1).
+    """
+    queried_cids = []
+
+    def mock_post(url, **kwargs):
+        cid = url.split("/collections/")[1].split("/")[0]
+        queried_cids.append(cid)
+        return SimpleNamespace(
+            status_code=200,
+            json=lambda: {"results": [{"data": f"content-{cid}", "metadata": {}}]},
+        )
+
+    with patch("lamb.completions.rag.multitool_tools.kb_query.requests.post", side_effect=mock_post), \
+         patch("lamb.completions.rag.multitool_tools.kb_query.OrganizationConfigResolver") as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        result = asyncio.run(kb_query.execute(
+            query="test query",
+            collections=["10", "20"],
+            assistant_owner="a@b.com",
+        ))
+
+    assert result["ok"] is True
+    assert sorted(queried_cids) == ["10", "20"]
 
 
 # ---------------------------------------------------------------------------
