@@ -16,6 +16,7 @@ from lamb.completions.rag.multitool_schema import (
 #import may change depending where are you executing the tests
 #backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
 from lamb.completions.rag.multitool_rag import (
+    _build_orchestrator_prompt,
     run_tool_with_timeout,
     orchestrate_tool_plan,
     rag_processor,
@@ -155,6 +156,32 @@ def test_kb_query_execute_without_target_collections_queries_all():
     assert sorted(queried_cids) == ["10", "20"]
 
 
+def test_build_orchestrator_prompt_includes_kb_descriptions():
+    """
+    Action: Calls _build_orchestrator_prompt with kb_descriptions for two collections.
+    Guarantees: The orchestrator prompt includes the collection IDs, their descriptions, and the target_collections argument.
+    """
+    prompt = _build_orchestrator_prompt(
+        allowed_tools=["kb_query"],
+        kb_descriptions={"10": "Physics course materials", "20": "History exam notes"},
+    )
+    assert "10" in prompt
+    assert "Physics course materials" in prompt
+    assert "20" in prompt
+    assert "History exam notes" in prompt
+    assert "target_collections" in prompt
+
+
+def test_build_orchestrator_prompt_without_kb_descriptions():
+    """
+    Action: Calls _build_orchestrator_prompt without kb_descriptions (Prototype 1 backward compat).
+    Guarantees: The prompt still works correctly without KB descriptions, no crash.
+    """
+    prompt = _build_orchestrator_prompt(allowed_tools=["kb_query"])
+    assert "kb_query" in prompt
+    assert "target_collections" not in prompt
+
+
 # ---------------------------------------------------------------------------
 # Task 1: Schema + metadata parsing
 # ---------------------------------------------------------------------------
@@ -290,6 +317,70 @@ def _fake_orchestrator_response(tool_names):
     return {
         "choices": [{"message": {"content": json.dumps({"tools": tools})}}]
     }
+
+
+def test_rag_processor_smart_routing_queries_only_targeted_collections():
+    """
+    Action: Full pipeline test. The orchestrator selects target_collections=["c1"] out of ["c1","c2"].
+    Guarantees: Only collection c1 is queried by kb_query, c2 is never touched.
+    """
+    assistant = _make_assistant({
+        "multitool": {
+            "enabled_tools": ["kb_query"],
+            "per_tool": {
+                "kb_query": {"collections": ["c1", "c2"], "top_k": 2},
+            },
+            "orchestrator": {"per_tool_timeout_sec": 5, "total_timeout_sec": 10},
+        }
+    })
+    messages = [{"role": "user", "content": "explain quantum physics"}]
+
+    orchestrator_response = {
+        "choices": [{
+            "message": {
+                "content": json.dumps({
+                    "tools": [{
+                        "name": "kb_query",
+                        "arguments": {"query": "quantum physics", "target_collections": ["c1"]}
+                    }]
+                })
+            }
+        }]
+    }
+
+    queried_cids = []
+
+    async def fake_kb(**kw):
+        if kw.get("target_collections"):
+            for c in kw["target_collections"]:
+                queried_cids.append(c)
+        else:
+            for c in kw.get("collections", []):
+                queried_cids.append(c)
+        return {"ok": True, "tool": "kb_query", "context": "quantum content", "sources": []}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(return_value=orchestrator_response),
+    ), patch(
+        "lamb.completions.rag.multitool_rag.kb_query.execute",
+        side_effect=fake_kb,
+    ), patch(
+        "lamb.completions.rag.multitool_rag.kb_query.fetch_collection_descriptions",
+        new=AsyncMock(return_value={"c1": "Quantum Physics KB", "c2": "History KB"}),
+    ), patch(
+        "lamb.completions.rag.multitool_rag.OrganizationConfigResolver",
+    ) as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        ctx = asyncio.run(rag_processor(messages, assistant))
+
+    assert ctx["tool_results"]["kb_query"]["ok"] is True
+    assert "quantum content" in ctx["context"]
+    assert "c1" in queried_cids
+    assert "c2" not in queried_cids
 
 
 def test_rag_processor_happy_path_two_tools():

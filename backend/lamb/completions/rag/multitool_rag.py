@@ -14,6 +14,7 @@ from lamb.completions.rag.multitool_schema import (
     parse_metadata_multitool,
     parse_orchestrator_response,
 )
+from lamb.completions.org_config_resolver import OrganizationConfigResolver
 from lamb.completions.rag.multitool_tools.registry import ToolRegistry
 from lamb.completions.rag.multitool_tools import kb_query, rubric
 from lamb.completions.small_fast_model_helper import invoke_small_fast_model
@@ -60,19 +61,37 @@ def _extract_content(result: Any) -> str:
         return ""
 
 
-def _build_orchestrator_prompt(allowed_tools: List[str]) -> str:
+def _build_orchestrator_prompt(
+    allowed_tools: List[str],
+    kb_descriptions: Optional[Dict[str, str]] = None,
+) -> str:
     descriptions = {
-         # "kb_query": "Use ONLY to search for theoretical knowledge when the user asks a question. Arguments: query (str).",
-        #"rubric": "MANDATORY to use whenever the user submits an essay, assignment, or asks to be evaluated/graded. No extra arguments needed.",
         "kb_query": "Search knowledge-base collections for relevant context. Arguments: query (str).",
         "rubric": "Fetch a rubric and format it as evaluation context. No extra arguments needed.",
     }
-    lines = ["You are a tool-selection orchestrator for an educational AI assistant.",
-             "Given the user's query, decide which tools to call.",
-             "Respond ONLY with valid JSON matching this schema:",
-             '{"tools":[{"name":"<tool>","arguments":{...}}],"rationale":"..."}',
-             "",
-             "Available tools:"]
+
+    if kb_descriptions and "kb_query" in allowed_tools:
+        kb_lines = []
+        for cid, desc in kb_descriptions.items():
+            label = desc if desc else "(no description)"
+            kb_lines.append(f"  - ID {cid}: {label}")
+        kb_section = "\n".join(kb_lines)
+        descriptions["kb_query"] = (
+            "Search specific knowledge-base collections for relevant context.\n"
+            "  Available collections:\n"
+            f"{kb_section}\n"
+            "  Arguments: query (str), target_collections (list of collection ID strings to query).\n"
+            "  ONLY include collections relevant to the user's question in target_collections."
+        )
+
+    lines = [
+        "You are a tool-selection orchestrator for an educational AI assistant.",
+        "Given the user's query, decide which tools to call.",
+        "Respond ONLY with valid JSON matching this schema:",
+        '{"tools":[{"name":"<tool>","arguments":{...}}],"rationale":"..."}',
+        "",
+        "Available tools:",
+    ]
     for t in allowed_tools:
         lines.append(f"- {t}: {descriptions.get(t, 'No description.')}")
     lines.append("")
@@ -85,9 +104,10 @@ async def orchestrate_tool_plan(
     user_query: str,
     assistant_owner: str,
     allowed_tool_names: List[str],
+    kb_descriptions: Optional[Dict[str, str]] = None,
 ) -> Tuple[RawOrchestratorPlan, List[str]]:
     """Call the small-fast-model to decide which tools to run."""
-    system_prompt = _build_orchestrator_prompt(allowed_tool_names)
+    system_prompt = _build_orchestrator_prompt(allowed_tool_names, kb_descriptions=kb_descriptions)
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_query},
@@ -146,6 +166,8 @@ async def _rag_processor_internal(
             "tool_results": {},
         }
 
+    per_tool_cfg = mt.get("per_tool", {})
+
     # Extract last user message
     user_query = ""
     for msg in reversed(messages):
@@ -168,12 +190,38 @@ async def _rag_processor_internal(
 
     assistant_owner = getattr(assistant, "owner", "")
 
+    # Fetch KB descriptions for smart routing (Prototype 2)
+    kb_descriptions: Optional[Dict[str, str]] = None
+    if "kb_query" in allowed:
+        kb_cfg = per_tool_cfg.get("kb_query", {})
+        kb_collection_ids = kb_cfg.get("collections", [])
+        if kb_collection_ids:
+            try:
+                import os
+
+                config_resolver = OrganizationConfigResolver(assistant_owner)
+                kb_config = config_resolver.get_knowledge_base_config() or {}
+                kb_url = kb_config.get("server_url")
+                kb_token = kb_config.get("api_token")
+                if not kb_url:
+                    kb_url = os.getenv("LAMB_KB_SERVER")
+                    kb_token = os.getenv("LAMB_KB_SERVER_TOKEN")
+                if kb_url:
+                    kb_descriptions = await kb_query.fetch_collection_descriptions(
+                        collection_ids=kb_collection_ids,
+                        kb_url=kb_url,
+                        kb_token=kb_token or "",
+                    )
+            except Exception as e:
+                logger.warning("Failed to fetch KB descriptions, proceeding without: %s", e)
+
     # Orchestrate
     try:
         plan, rejected = await orchestrate_tool_plan(
             user_query=user_query,
             assistant_owner=assistant_owner,
             allowed_tool_names=allowed,
+            kb_descriptions=kb_descriptions,
         )
     except Exception as e:
         logger.error("Orchestrator failed: %s", e)
@@ -198,7 +246,6 @@ async def _rag_processor_internal(
     orch_cfg = mt.get("orchestrator", {})
     per_tool_timeout = orch_cfg.get("per_tool_timeout_sec", DEFAULT_PER_TOOL_TIMEOUT)
     total_timeout = orch_cfg.get("total_timeout_sec", DEFAULT_TOTAL_TIMEOUT)
-    per_tool_cfg = mt.get("per_tool", {})
 
     _tool_modules = {"kb_query": kb_query, "rubric": rubric}
 
