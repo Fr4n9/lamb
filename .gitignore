@@ -220,3 +220,4 @@ backend/testing/context_dumps/
 testing/context_dumps/
 
 aac_logs/
+opencode.json
