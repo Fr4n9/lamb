@@ -118,11 +118,12 @@ Every call to `rag_processor` writes a structured Markdown file to **`lamb/testi
 
 1. **Header:** timestamp, assistant id, masked owner.
 2. **Memory & Query Rewriting:** memory message count, original query, rewritten query.
-3. **Orchestrator raw:** the full LLM response text before JSON parsing.
-4. **Parsed plan:** pretty-printed JSON of the filtered plan (intent, rationale, tools, rejected).
-5. **Tool execution:** per-tool merged args (redacted), ok/error status.
-6. **Full `multitool_debug` JSON:** all diagnostics (allowed tools, user query stats, timings, etc.).
-7. **Final injected context:** the exact text the main LLM sees.
+3. **LLM timings (small-fast-model):** `query_rewrite_ms` (call 1, skipped when there is no memory), `orchestrate_ms` (call 2), and their sum for quick comparison (same values also appear inside `timings_ms` in the full JSON below).
+4. **Orchestrator raw:** the full LLM response text before JSON parsing.
+5. **Parsed plan:** pretty-printed JSON of the filtered plan (intent, rationale, tools, rejected).
+6. **Tool execution:** per-tool merged args (redacted), ok/error status.
+7. **Full `multitool_debug` JSON:** all diagnostics (allowed tools, user query stats, timings, etc.).
+8. **Final injected context:** the exact text the main LLM sees.
 
 Long fields are truncated at ~20k chars with a `[truncated]` marker.
 

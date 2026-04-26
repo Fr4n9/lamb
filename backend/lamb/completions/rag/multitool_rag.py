@@ -146,12 +146,32 @@ def _write_multitool_context_dump(
         f"- rewritten_query: {_trunc_for_dump(rewritten_q)}\n"
     )
 
+    timings = multitool_debug.get("timings_ms") or {}
+    qrw = timings.get("query_rewrite_ms")
+    orch_ms = timings.get("orchestrate_ms")
+    qrw_s = str(qrw) if qrw is not None else "— (skipped; no conversation memory)"
+    orch_s = str(orch_ms) if orch_ms is not None else "—"
+    llm_sum_parts: List[float] = []
+    if isinstance(qrw, (int, float)):
+        llm_sum_parts.append(float(qrw))
+    if isinstance(orch_ms, (int, float)):
+        llm_sum_parts.append(float(orch_ms))
+    llm_total_s = str(round(sum(llm_sum_parts), 3)) if llm_sum_parts else "—"
+
+    llm_timings_section = (
+        f"## LLM timings (small-fast-model)\n\n"
+        f"- query_rewrite_ms (call 1): {qrw_s}\n"
+        f"- orchestrate_ms (call 2): {orch_s}\n"
+        f"- small_fast_model_total_ms (rewrite + orchestrate): {llm_total_s}\n"
+    )
+
     md = (
         f"# Multitool RAG context dump\n\n"
         f"- timestamp: {ts}\n"
         f"- assistant_id: {aid}\n"
         f"- owner: {own}\n\n"
         f"{memory_section}\n"
+        f"{llm_timings_section}\n"
         f"## Orchestrator raw\n\n"
         f"```\n{raw}\n```\n\n"
         f"## Parsed plan\n\n"

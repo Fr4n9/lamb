@@ -1175,6 +1175,10 @@ def test_debug_dump_contains_memory_and_rewriting_sections(tmp_path, monkeypatch
     assert len(written) == 1
     body = written[0].read_text(encoding="utf-8")
     assert "## Memory & Query Rewriting" in body
+    assert "## LLM timings (small-fast-model)" in body
+    assert "query_rewrite_ms (call 1):" in body
+    assert "orchestrate_ms (call 2):" in body
+    assert "small_fast_model_total_ms" in body
     assert "Tell me more" in body
     assert "detailed explanation of gravity" in body
 
@@ -1218,6 +1222,9 @@ def test_debug_dump_always_writes_and_contains_enriched_sections(tmp_path, monke
     written = list(tmp_path.glob("context_dump_*.md"))
     assert len(written) == 1
     body = written[0].read_text(encoding="utf-8")
+    assert "## LLM timings (small-fast-model)" in body
+    assert "query_rewrite_ms (call 1):" in body
+    assert "skipped" in body.lower()
     assert "## Orchestrator raw" in body
     assert "BOTH" in body
     assert "## Parsed plan" in body
