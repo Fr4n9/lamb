@@ -408,6 +408,115 @@ def test_extract_conversation_memory_handles_multimodal_content():
 
 
 # ---------------------------------------------------------------------------
+# Prototype 3: Query rewriting with memory
+# ---------------------------------------------------------------------------
+
+
+def test_rewrite_query_with_memory_returns_rewritten_query():
+    """
+    Action: Mocks small-fast-model to return a rewritten query.
+    Guarantees: The rewriting function calls the LLM and returns its output.
+    """
+    from lamb.completions.rag.multitool_rag import _rewrite_query_with_memory
+
+    fake_response = {
+        "choices": [{"message": {"content": "detailed explanation of chlorophyll role in photosynthesis"}}]
+    }
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(return_value=fake_response),
+    ) as mock_llm:
+        result = asyncio.run(_rewrite_query_with_memory(
+            user_query="Tell me more about it",
+            memory=[
+                {"role": "user", "content": "What is photosynthesis?"},
+                {"role": "assistant", "content": "Photosynthesis is the process by which plants convert light."},
+            ],
+            assistant_owner="teacher@school.edu",
+        ))
+
+    assert result == "detailed explanation of chlorophyll role in photosynthesis"
+    assert mock_llm.await_count == 1
+    call_messages = mock_llm.call_args.kwargs.get("messages") or mock_llm.call_args[0][0]
+    user_prompt = call_messages[-1]["content"]
+    assert "photosynthesis" in user_prompt.lower()
+    assert "Tell me more about it" in user_prompt
+
+
+def test_rewrite_query_with_memory_falls_back_on_empty_response():
+    """
+    Action: Small-fast-model returns an empty string.
+    Guarantees: Falls back to the original user query instead of returning empty.
+    """
+    from lamb.completions.rag.multitool_rag import _rewrite_query_with_memory
+
+    empty_response = {"choices": [{"message": {"content": ""}}]}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(return_value=empty_response),
+    ):
+        result = asyncio.run(_rewrite_query_with_memory(
+            user_query="Tell me more",
+            memory=[{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}],
+            assistant_owner="a@b.com",
+        ))
+
+    assert result == "Tell me more"
+
+
+def test_rewrite_query_with_memory_falls_back_on_exception():
+    """
+    Action: Small-fast-model raises an exception during query rewriting.
+    Guarantees: Gracefully falls back to the original query; no crash.
+    """
+    from lamb.completions.rag.multitool_rag import _rewrite_query_with_memory
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(side_effect=RuntimeError("LLM unavailable")),
+    ):
+        result = asyncio.run(_rewrite_query_with_memory(
+            user_query="original query",
+            memory=[{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}],
+            assistant_owner="a@b.com",
+        ))
+
+    assert result == "original query"
+
+
+def test_rewrite_query_with_memory_handles_multimodal_memory():
+    """
+    Action: Memory includes a message with multimodal content (list of parts).
+    Guarantees: Multimodal content is correctly formatted as text in the rewriting prompt.
+    """
+    from lamb.completions.rag.multitool_rag import _rewrite_query_with_memory
+
+    fake_response = {
+        "choices": [{"message": {"content": "rewritten query about the diagram"}}]
+    }
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(return_value=fake_response),
+    ) as mock_llm:
+        result = asyncio.run(_rewrite_query_with_memory(
+            user_query="What does it show?",
+            memory=[
+                {"role": "user", "content": [{"type": "text", "text": "Look at this diagram"}]},
+                {"role": "assistant", "content": "I see a diagram of the solar system."},
+            ],
+            assistant_owner="a@b.com",
+        ))
+
+    assert result == "rewritten query about the diagram"
+    call_messages = mock_llm.call_args.kwargs.get("messages") or mock_llm.call_args[0][0]
+    user_prompt = call_messages[-1]["content"]
+    assert "diagram" in user_prompt.lower()
+
+
+# ---------------------------------------------------------------------------
 # Task 2: Orchestrator JSON parsing + hallucinated-tool filter
 # ---------------------------------------------------------------------------
 

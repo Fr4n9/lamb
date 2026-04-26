@@ -384,6 +384,70 @@ def _extract_conversation_memory(
     return history[-max_msgs:] if len(history) > max_msgs else list(history)
 
 
+def _format_memory_for_prompt(memory: List[Dict[str, Any]]) -> str:
+    """Format memory messages into a readable conversation block for the LLM."""
+    lines = []
+    for msg in memory:
+        role = msg.get("role", "unknown").upper()
+        content = _extract_text_content(msg.get("content", ""))
+        lines.append(f"{role}: {content}")
+    return "\n".join(lines)
+
+
+_QUERY_REWRITE_SYSTEM_PROMPT = (
+    "You are a query rewriting assistant for a multi-tool educational AI system.\n\n"
+    "Given the recent conversation history and the user's current message, "
+    "generate a clear, self-contained query that:\n"
+    "1. Resolves any pronouns or references (e.g., 'it', 'that', 'the same') using conversation context\n"
+    "2. Incorporates relevant topic context from the conversation history\n"
+    "3. Preserves the user's original intent accurately\n"
+    "4. Is suitable for both knowledge base retrieval and tool selection\n\n"
+    "Return ONLY the rewritten query, nothing else.\n"
+    "If the current message is already self-contained, return it unchanged."
+)
+
+
+async def _rewrite_query_with_memory(
+    *,
+    user_query: str,
+    memory: List[Dict[str, Any]],
+    assistant_owner: str,
+) -> str:
+    """Use the small-fast-model to rewrite the user query incorporating conversation memory.
+
+    Returns the rewritten query, or the original *user_query* on failure.
+    """
+    memory_text = _format_memory_for_prompt(memory)
+
+    user_prompt = (
+        f"CONVERSATION HISTORY:\n{memory_text}\n\n"
+        f"CURRENT USER MESSAGE:\n{user_query}\n\n"
+        f"REWRITTEN QUERY:"
+    )
+
+    messages_llm = [
+        {"role": "system", "content": _QUERY_REWRITE_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    try:
+        result = await invoke_small_fast_model(
+            messages=messages_llm,
+            assistant_owner=assistant_owner,
+            stream=False,
+            body=None,
+        )
+        rewritten = _extract_content(result).strip()
+        if rewritten:
+            logger.info("Query rewritten: '%s' → '%s'", user_query[:80], rewritten[:80])
+            return rewritten
+        logger.warning("Empty rewrite response, using original query")
+    except Exception as e:
+        logger.warning("Query rewriting failed, using original query: %s", e)
+
+    return user_query
+
+
 async def _rag_processor_internal(
     messages: List[Dict[str, Any]],
     assistant=None,
