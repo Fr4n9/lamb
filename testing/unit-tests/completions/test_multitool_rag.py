@@ -1128,6 +1128,57 @@ def test_multitool_debug_includes_orchestrator_raw_and_timings():
     assert "tools_total_ms" in md["timings_ms"]
 
 
+def test_debug_dump_contains_memory_and_rewriting_sections(tmp_path, monkeypatch):
+    """
+    Action: Run rag_processor with multi-turn conversation, dump to tmp_path.
+    Guarantees: Dump file contains dedicated Memory & Query Rewriting section with both queries.
+    """
+    monkeypatch.setattr(
+        "lamb.completions.rag.multitool_rag._default_multitool_dump_dir",
+        lambda: tmp_path,
+    )
+
+    assistant = _make_assistant({
+        "multitool": {
+            "enabled_tools": ["kb_query"],
+            "per_tool": {"kb_query": {"collections": ["c1"]}},
+        }
+    })
+    messages = [
+        {"role": "user", "content": "What is gravity?"},
+        {"role": "assistant", "content": "Gravity is a fundamental force."},
+        {"role": "user", "content": "Tell me more"},
+    ]
+
+    call_count = 0
+
+    async def mock_sfm(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {"choices": [{"message": {"content": "detailed explanation of gravity"}}]}
+        return {"choices": [{"message": {"content": json.dumps({"tools": [], "intent": "SEARCH"})}}]}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(side_effect=mock_sfm),
+    ), patch(
+        "lamb.completions.rag.multitool_rag.OrganizationConfigResolver",
+    ) as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        asyncio.run(rag_processor(messages, assistant))
+
+    written = list(tmp_path.glob("context_dump_*.md"))
+    assert len(written) == 1
+    body = written[0].read_text(encoding="utf-8")
+    assert "## Memory & Query Rewriting" in body
+    assert "Tell me more" in body
+    assert "detailed explanation of gravity" in body
+
+
 def test_debug_dump_always_writes_and_contains_enriched_sections(tmp_path, monkeypatch):
     """
     Action: Patch _default_multitool_dump_dir to tmp_path; run with empty tool plan.

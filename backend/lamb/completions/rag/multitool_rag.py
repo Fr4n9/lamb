@@ -131,11 +131,27 @@ def _write_multitool_context_dump(
     aid = getattr(assistant, "id", None)
     own = _mask_owner(getattr(assistant, "owner", "") or "")
 
+    qr = multitool_debug.get("query_rewriting") or {}
+    mem = multitool_debug.get("memory") or {}
+    original_q = qr.get("original_query", "")
+    rewritten_q = qr.get("rewritten_query", "")
+    was_rewritten = qr.get("was_rewritten", False)
+    mem_count = mem.get("messages_count", 0)
+
+    memory_section = (
+        f"## Memory & Query Rewriting\n\n"
+        f"- memory_messages: {mem_count}\n"
+        f"- was_rewritten: {was_rewritten}\n"
+        f"- original_query: {_trunc_for_dump(original_q)}\n"
+        f"- rewritten_query: {_trunc_for_dump(rewritten_q)}\n"
+    )
+
     md = (
         f"# Multitool RAG context dump\n\n"
         f"- timestamp: {ts}\n"
         f"- assistant_id: {aid}\n"
         f"- owner: {own}\n\n"
+        f"{memory_section}\n"
         f"## Orchestrator raw\n\n"
         f"```\n{raw}\n```\n\n"
         f"## Parsed plan\n\n"
