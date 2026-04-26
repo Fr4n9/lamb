@@ -17,6 +17,7 @@ from lamb.completions.rag.multitool_schema import (
 #backend.lamb.completions.rag.multitool_schema may be another path that could solve problems if executing tests another way than from the venv 
 from lamb.completions.rag.multitool_rag import (
     _build_orchestrator_prompt,
+    _extract_conversation_memory,
     run_tool_with_timeout,
     orchestrate_tool_plan,
     rag_processor,
@@ -321,6 +322,89 @@ def test_parse_metadata_multitool_returns_dict_when_present():
     mt = parse_metadata_multitool(raw)
     assert mt is not None
     assert mt["enabled_tools"] == ["kb_query"]
+
+
+# ---------------------------------------------------------------------------
+# Prototype 3: Conversation memory extraction
+# ---------------------------------------------------------------------------
+
+
+def test_extract_conversation_memory_two_full_turns():
+    """
+    Action: Passes a 5-message conversation (2 full turns + current user message).
+    Guarantees: Returns exactly 4 messages (2 user + 2 assistant) excluding the current prompt.
+    """
+    messages = [
+        {"role": "user", "content": "What is photosynthesis?"},
+        {"role": "assistant", "content": "Photosynthesis is the process..."},
+        {"role": "user", "content": "How does chlorophyll work?"},
+        {"role": "assistant", "content": "Chlorophyll absorbs light..."},
+        {"role": "user", "content": "Tell me more about it"},
+    ]
+    memory = _extract_conversation_memory(messages, num_turns=2)
+    assert len(memory) == 4
+    assert memory[0]["role"] == "user"
+    assert memory[0]["content"] == "What is photosynthesis?"
+    assert memory[1]["role"] == "assistant"
+    assert memory[3]["role"] == "assistant"
+    assert memory[3]["content"] == "Chlorophyll absorbs light..."
+
+
+def test_extract_conversation_memory_single_message_returns_empty():
+    """
+    Action: Passes only the current user message (no history).
+    Guarantees: Returns empty list — no memory to extract.
+    """
+    messages = [{"role": "user", "content": "Hello"}]
+    memory = _extract_conversation_memory(messages, num_turns=2)
+    assert memory == []
+
+
+def test_extract_conversation_memory_one_turn_returns_partial():
+    """
+    Action: Passes 3 messages (1 full turn + current user message), requesting 2 turns.
+    Guarantees: Returns only 2 messages (1 available turn), not padding to 4.
+    """
+    messages = [
+        {"role": "user", "content": "First question"},
+        {"role": "assistant", "content": "First answer"},
+        {"role": "user", "content": "Current question"},
+    ]
+    memory = _extract_conversation_memory(messages, num_turns=2)
+    assert len(memory) == 2
+    assert memory[0]["content"] == "First question"
+    assert memory[1]["content"] == "First answer"
+
+
+def test_extract_conversation_memory_skips_system_messages():
+    """
+    Action: Conversation includes a system message at the start.
+    Guarantees: System messages are excluded from memory; only user+assistant messages returned.
+    """
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "First question"},
+        {"role": "assistant", "content": "First answer"},
+        {"role": "user", "content": "Current question"},
+    ]
+    memory = _extract_conversation_memory(messages, num_turns=2)
+    assert len(memory) == 2
+    assert all(m["role"] in ("user", "assistant") for m in memory)
+
+
+def test_extract_conversation_memory_handles_multimodal_content():
+    """
+    Action: Conversation contains multimodal content (list of parts).
+    Guarantees: Messages with list-type content are included in memory as-is.
+    """
+    messages = [
+        {"role": "user", "content": [{"type": "text", "text": "Look at this image"}, {"type": "image_url", "image_url": {"url": "http://example.com/img.png"}}]},
+        {"role": "assistant", "content": "I see the image."},
+        {"role": "user", "content": "What does it show?"},
+    ]
+    memory = _extract_conversation_memory(messages, num_turns=2)
+    assert len(memory) == 2
+    assert isinstance(memory[0]["content"], list)
 
 
 # ---------------------------------------------------------------------------

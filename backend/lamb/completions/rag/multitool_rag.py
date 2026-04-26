@@ -346,6 +346,44 @@ def _extract_last_user_text(messages: List[Dict[str, Any]]) -> str:
     return ""
 
 
+def _extract_text_content(content: Any) -> str:
+    """Extract text from a message content field (handles strings and multimodal lists)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(
+            p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"
+        )
+    return str(content)
+
+
+def _extract_conversation_memory(
+    messages: List[Dict[str, Any]],
+    num_turns: int = 2,
+) -> List[Dict[str, Any]]:
+    """Extract the last *num_turns* user+assistant exchanges before the current user message.
+
+    Returns at most ``num_turns * 2`` messages in chronological order.
+    System messages are excluded. The final user message (current prompt) is excluded.
+    """
+    last_user_idx: Optional[int] = None
+    for i in range(len(messages) - 1, -1, -1):
+        if messages[i].get("role") == "user":
+            last_user_idx = i
+            break
+
+    if last_user_idx is None or last_user_idx == 0:
+        return []
+
+    history = [
+        msg for msg in messages[:last_user_idx]
+        if msg.get("role") in ("user", "assistant")
+    ]
+
+    max_msgs = num_turns * 2
+    return history[-max_msgs:] if len(history) > max_msgs else list(history)
+
+
 async def _rag_processor_internal(
     messages: List[Dict[str, Any]],
     assistant=None,
