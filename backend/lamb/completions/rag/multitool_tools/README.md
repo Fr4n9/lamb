@@ -5,27 +5,33 @@ Async RAG processor that uses a lightweight LLM orchestrator to select and execu
 ## Architecture
 
 ```
-User message
+User message + Conversation history
     │
     ▼
-┌──────────────────────────────────┐
-│  multitool_rag.rag_processor()   │
-│                                  │
-│  1. Parse metadata.multitool     │
-│  2. Intersect enabled_tools      │
-│     with ToolRegistry            │
-│  3. Fetch dynamic descriptions:  │
-│     - KB: GET /collections/{id}  │
-│     - Rubric: DB title + desc    │
-│  4. Call small-fast-model        │
-│     (CoT orchestrator)           │
-│     → STEP 1: Classify intent    │
-│     → STEP 2: Select tools       │
-│  5. Filter hallucinated tools    │
-│  6. Execute tools in parallel    │
-│     (asyncio.gather + timeouts)  │
-│  7. Aggregate into rag_context   │
-└──────────────┬───────────────────┘
+┌──────────────────────────────────────┐
+│  multitool_rag.rag_processor()       │
+│                                      │
+│  1. Parse metadata.multitool         │
+│  2. Intersect enabled_tools          │
+│     with ToolRegistry                │
+│  3. Extract conversation memory      │
+│     (last N turns, default 2)        │
+│  4. Query rewriting                  │
+│     (memory + current prompt         │
+│      → small-fast-model call 1)      │
+│  5. Fetch dynamic descriptions:      │
+│     - KB: GET /collections/{id}      │
+│     - Rubric: DB title + desc        │
+│  6. Call small-fast-model            │
+│     (CoT orchestrator, call 2)       │
+│     → uses REWRITTEN query           │
+│     → STEP 1: Classify intent        │
+│     → STEP 2: Select tools           │
+│  7. Filter hallucinated tools        │
+│  8. Execute tools in parallel        │
+│     (asyncio.gather + timeouts)      │
+│  9. Aggregate into rag_context       │
+└──────────────┬───────────────────────┘
                │
                ▼
        simple_augment (PPS)
@@ -43,7 +49,7 @@ The multitool RAG processor plugs into the existing pipeline at the RAG slot. No
 
 | File                          | Purpose                                                                                                       |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `multitool_rag.py`            | Main RAG processor: orchestrator call, parallel tool execution, context aggregation                           |
+| `multitool_rag.py`            | Main RAG processor: memory extraction, query rewriting, orchestrator call, parallel tool execution, context aggregation |
 | `multitool_schema.py`         | Pydantic models (`RawToolCall`, `RawOrchestratorPlan`) + parsing functions for metadata and orchestrator JSON |
 | `multitool_tools/registry.py` | `ToolRegistry` class mapping tool names to async callables                                                    |
 | `multitool_tools/kb_query.py` | KB query tool — queries one or more KB Server collections via HTTP                                            |
@@ -104,18 +110,19 @@ The main completion prompt still receives only the usual `context` and `sources`
 
 ### `multitool_debug` (JSON-serializable)
 
-When present, this dict may include: `assistant_id`, `owner_masked` (envelope-style masking), `allowed_tools`, `rejected_by_registry` (orchestrator hallucinations), `user_query_stats` (length, head, tail of the last user message, truncated to reduce PII exposure), `kb_desc_keys` / `rubric_desc_keys`, `per_tool_config_summary` (per-tool metadata with secrets and long values redacted), `orchestrator` (`raw_llm_text` from the small-fast model, plus `parsed` from the filtered plan, or an `error` on parse failure), `executed` (per tool: redacted `merged_args`, `ok`, `error`), `skipped_no_executor` if a tool has no in-process executor, and `timings_ms` (`orchestrate_ms`, `tools_total_ms`).
+When present, this dict may include: `assistant_id`, `owner_masked` (envelope-style masking), `allowed_tools`, `rejected_by_registry` (orchestrator hallucinations), `user_query_stats` (length, head, tail of the last user message, truncated to reduce PII exposure), `kb_desc_keys` / `rubric_desc_keys`, `per_tool_config_summary` (per-tool metadata with secrets and long values redacted), `memory` (`num_turns_requested`, `messages_count`), `query_rewriting` (`original_query`, `rewritten_query`, `was_rewritten`), `orchestrator` (`raw_llm_text` from the small-fast model, plus `parsed` from the filtered plan, or an `error` on parse failure), `executed` (per tool: redacted `merged_args`, `ok`, `error`), `skipped_no_executor` if a tool has no in-process executor, and `timings_ms` (`orchestrate_ms`, `tools_total_ms`, and `query_rewrite_ms` when rewriting occurred).
 
 ## Debug: Markdown context dump (always on)
 
 Every call to `rag_processor` writes a structured Markdown file to **`lamb/testing/context_dumps/`** (resolved from the package path via `Path(__file__).resolve().parents[4]`, not dependent on CWD or environment variables). Each file includes:
 
 1. **Header:** timestamp, assistant id, masked owner.
-2. **Orchestrator raw:** the full LLM response text before JSON parsing.
-3. **Parsed plan:** pretty-printed JSON of the filtered plan (intent, rationale, tools, rejected).
-4. **Tool execution:** per-tool merged args (redacted), ok/error status.
-5. **Full `multitool_debug` JSON:** all diagnostics (allowed tools, user query stats, timings, etc.).
-6. **Final injected context:** the exact text the main LLM sees.
+2. **Memory & Query Rewriting:** memory message count, original query, rewritten query.
+3. **Orchestrator raw:** the full LLM response text before JSON parsing.
+4. **Parsed plan:** pretty-printed JSON of the filtered plan (intent, rationale, tools, rejected).
+5. **Tool execution:** per-tool merged args (redacted), ok/error status.
+6. **Full `multitool_debug` JSON:** all diagnostics (allowed tools, user query stats, timings, etc.).
+7. **Final injected context:** the exact text the main LLM sees.
 
 Long fields are truncated at ~20k chars with a `[truncated]` marker.
 
@@ -123,10 +130,10 @@ Long fields are truncated at ~20k chars with a `[truncated]` marker.
 
 ## Orchestrator
 
-The orchestrator is a single call to the organization's small-fast-model (`invoke_small_fast_model`). It receives:
+The orchestrator is a call to the organization's small-fast-model (`invoke_small_fast_model`) after optional query rewriting (see [Memory & Query Rewriting](#memory--query-rewriting-prototype-3)). It receives:
 
 - A Chain-of-Thought system prompt with intent classification and tool descriptions
-- The user's query
+- The user's query (rewritten when conversation memory is present)
 
 It returns strict JSON: `{"intent": "SEARCH|EVALUATE|BOTH|NONE", "tools": [{"name": "...", "arguments": {...}}], "rationale": "..."}`.
 
@@ -198,6 +205,56 @@ Descriptions should be meaningful and precise for both resource types:
 - **KB collections**: Write clear descriptions in the KB Server admin (e.g., "Physics course materials — Newtonian mechanics and thermodynamics"). The orchestrator relies on these to route queries to the correct collection.
 - **Rubrics**: Write descriptive titles and descriptions when creating rubrics (e.g., title: "Essay Evaluation — Roman Empire", description: "Evaluates historical accuracy, argumentation, and writing quality"). Vague titles like "Untitled Rubric" will reduce routing accuracy.
 
+## Memory & Query Rewriting (Prototype 3)
+
+The multitool RAG processor uses conversation memory to rewrite ambiguous queries before tool selection. This improves routing accuracy for multi-turn conversations where the user's latest message may contain pronouns or implicit references.
+
+### Flow
+
+1. **Memory extraction**: The last N turns (default 2) of user+assistant messages are extracted from the conversation history. System messages are excluded. The current user message (the prompt being answered) is treated separately.
+2. **Query rewriting**: If memory is present, a small-fast-model call rewrites the current user message into a self-contained query by resolving references and incorporating conversation context.
+3. **Rewritten query usage**: The rewritten query replaces the raw user message for both the orchestrator (tool selection) and tool execution (e.g., kb_query search). If rewriting fails, the original query is used as fallback.
+
+### LLM calls
+
+Prototype 3 adds **one extra small-fast-model call** per request when conversation memory exists:
+
+| Call | Purpose | Input | Output |
+|------|---------|-------|--------|
+| 1 (new) | Query rewriting | Memory + current user message | Self-contained rewritten query |
+| 2 (existing) | Orchestrator tool selection | Rewritten query + tool descriptions | Tool plan (intent + tools + rationale) |
+
+When there is no conversation history (first message), call 1 is skipped entirely.
+
+### Memory configuration
+
+The number of turns can be configured in the `multitool` metadata block:
+
+```json
+{
+  "multitool": {
+    "memory": {
+      "num_turns": 2
+    }
+  }
+}
+```
+
+Default: `2` turns (2 user + 2 assistant messages). No token-length filtering is applied in this prototype.
+
+### Example
+
+```
+Conversation:
+  USER: What is photosynthesis?
+  ASSISTANT: Photosynthesis is the process by which plants convert light energy...
+  USER: Tell me more about it            ← current message (ambiguous)
+
+Memory extracted: [user: "What is photosynthesis?", assistant: "Photosynthesis is..."]
+Rewritten query: "detailed explanation of photosynthesis process and mechanism"
+Orchestrator receives: "detailed explanation of photosynthesis process and mechanism"
+```
+
 ## Concurrency and timeouts
 
 - Tools run in parallel via `asyncio.gather`.
@@ -235,16 +292,19 @@ cd /home/franpv2004/proyecto/lamb
 PYTHONPATH=backend:$PYTHONPATH backend/.venv/bin/python -m pytest testing/unit-tests/completions/test_multitool_rag.py -v
 ```
 
-33 tests covering:
-
+46 tests covering:
 
 | Category                     | Tests                                                     |
 | ---------------------------- | --------------------------------------------------------- |
+| Memory extraction            | `test_extract_conversation_memory_*` (5)                  |
+| Query rewriting              | `test_rewrite_query_with_memory_*` (4)                    |
+| Memory integration (e2e)     | `test_rag_processor_with_memory_*`, `_no_memory_*`, `_rewrite_failure_*` (3) |
+| Context dump (memory)        | `test_debug_dump_contains_memory_and_rewriting_sections`  |
 | KB description fetch         | `test_fetch_collection_descriptions_*` (3)                |
 | KB target filter             | `test_kb_query_execute_*` (2)                             |
 | Orchestrator prompt (KB)     | `test_build_orchestrator_prompt_includes/without_kb_descriptions` (2) |
 | Orchestrator prompt (CoT)    | `test_build_orchestrator_prompt_has_intent_classification` |
-| Orchestrator prompt (rubric) | `test_build_orchestrator_prompt_includes/without_rubric_descriptions` (2) |
+| Orchestrator prompt (rubric) | `test_build_orchestrator_prompt_includes_rubric_descriptions`, `test_build_orchestrator_prompt_rubric_without_descriptions` |
 | Orchestrator prompt (rules)  | `test_build_orchestrator_prompt_important_rules`          |
 | Rubric description fetch     | `test_fetch_rubric_descriptions_*` (3)                    |
 | Schema parsing               | `test_parse_metadata_multitool_*` (2)                     |
