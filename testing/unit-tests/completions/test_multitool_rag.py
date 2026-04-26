@@ -647,6 +647,173 @@ def _fake_orchestrator_response(tool_names):
     }
 
 
+def test_rag_processor_with_memory_rewrites_query_for_orchestrator():
+    """
+    Action: Sends a multi-turn conversation where the last message uses a pronoun ('it').
+    Guarantees: The query rewriting LLM is called with the memory, and the rewritten query
+    is passed to the orchestrator instead of the raw 'Tell me more about it'.
+    """
+    assistant = _make_assistant({
+        "multitool": {
+            "enabled_tools": ["kb_query"],
+            "per_tool": {"kb_query": {"collections": ["c1"], "top_k": 2}},
+            "orchestrator": {"per_tool_timeout_sec": 5, "total_timeout_sec": 10},
+        }
+    })
+    messages = [
+        {"role": "user", "content": "What is photosynthesis?"},
+        {"role": "assistant", "content": "Photosynthesis is how plants convert light into energy."},
+        {"role": "user", "content": "Tell me more about it"},
+    ]
+
+    rewrite_response = {
+        "choices": [{"message": {"content": "detailed explanation of photosynthesis process"}}]
+    }
+    orchestrator_response = _fake_orchestrator_response(["kb_query"])
+
+    call_count = 0
+
+    async def mock_small_fast_model(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            msgs = kwargs.get("messages", [])
+            user_prompt = msgs[-1]["content"]
+            assert "photosynthesis" in user_prompt
+            assert "Tell me more about it" in user_prompt
+            return rewrite_response
+        else:
+            msgs = kwargs.get("messages", [])
+            user_msg = msgs[-1]["content"]
+            assert "detailed explanation of photosynthesis" in user_msg
+            assert user_msg != "Tell me more about it"
+            return orchestrator_response
+
+    async def fake_kb(**kw):
+        assert kw.get("query") == "detailed explanation of photosynthesis process"
+        return {"ok": True, "tool": "kb_query", "context": "photosynthesis details", "sources": []}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(side_effect=mock_small_fast_model),
+    ), patch(
+        "lamb.completions.rag.multitool_rag.kb_query.execute",
+        side_effect=fake_kb,
+    ), patch(
+        "lamb.completions.rag.multitool_rag.OrganizationConfigResolver",
+    ) as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        ctx = asyncio.run(rag_processor(messages, assistant))
+
+    assert call_count == 2
+    assert ctx["tool_results"]["kb_query"]["ok"] is True
+    assert "photosynthesis details" in ctx["context"]
+    dbg = ctx["multitool_debug"]
+    assert dbg["memory"]["messages_count"] == 2
+    assert dbg["query_rewriting"]["was_rewritten"] is True
+    assert dbg["query_rewriting"]["original_query"] == "Tell me more about it"
+    assert dbg["query_rewriting"]["rewritten_query"] == "detailed explanation of photosynthesis process"
+    assert "query_rewrite_ms" in dbg["timings_ms"]
+
+
+def test_rag_processor_no_memory_skips_rewriting():
+    """
+    Action: Sends a single-message conversation (no history).
+    Guarantees: Query rewriting is skipped entirely, invoke_small_fast_model is called only ONCE
+    (the orchestrator), and original query passes through unchanged.
+    """
+    assistant = _make_assistant({
+        "multitool": {
+            "enabled_tools": ["kb_query"],
+            "per_tool": {"kb_query": {"collections": ["c1"], "top_k": 2}},
+            "orchestrator": {"per_tool_timeout_sec": 5, "total_timeout_sec": 10},
+        }
+    })
+    messages = [{"role": "user", "content": "explain Newton's laws"}]
+
+    async def fake_kb(**kw):
+        assert kw.get("query") == "explain Newton's laws"
+        return {"ok": True, "tool": "kb_query", "context": "F=ma", "sources": []}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(return_value=_fake_orchestrator_response(["kb_query"])),
+    ) as mock_llm, patch(
+        "lamb.completions.rag.multitool_rag.kb_query.execute",
+        side_effect=fake_kb,
+    ), patch(
+        "lamb.completions.rag.multitool_rag.OrganizationConfigResolver",
+    ) as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        ctx = asyncio.run(rag_processor(messages, assistant))
+
+    assert mock_llm.await_count == 1
+    dbg = ctx["multitool_debug"]
+    assert dbg["memory"]["messages_count"] == 0
+    assert dbg["query_rewriting"]["was_rewritten"] is False
+    assert "query_rewrite_ms" not in dbg["timings_ms"]
+
+
+def test_rag_processor_rewrite_failure_uses_original_query():
+    """
+    Action: Query rewriting LLM call fails (raises exception). Multi-turn conversation.
+    Guarantees: The pipeline continues with the original query, orchestrator still works.
+    """
+    assistant = _make_assistant({
+        "multitool": {
+            "enabled_tools": ["kb_query"],
+            "per_tool": {"kb_query": {"collections": ["c1"], "top_k": 2}},
+            "orchestrator": {"per_tool_timeout_sec": 5, "total_timeout_sec": 10},
+        }
+    })
+    messages = [
+        {"role": "user", "content": "What is gravity?"},
+        {"role": "assistant", "content": "Gravity is a force."},
+        {"role": "user", "content": "Tell me more"},
+    ]
+
+    call_count = 0
+
+    async def mock_small_fast_model(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise RuntimeError("LLM temporarily unavailable")
+        return _fake_orchestrator_response(["kb_query"])
+
+    async def fake_kb(**kw):
+        assert kw.get("query") == "Tell me more"
+        return {"ok": True, "tool": "kb_query", "context": "gravity info", "sources": []}
+
+    with patch(
+        "lamb.completions.rag.multitool_rag.invoke_small_fast_model",
+        new=AsyncMock(side_effect=mock_small_fast_model),
+    ), patch(
+        "lamb.completions.rag.multitool_rag.kb_query.execute",
+        side_effect=fake_kb,
+    ), patch(
+        "lamb.completions.rag.multitool_rag.OrganizationConfigResolver",
+    ) as MockResolver:
+        MockResolver.return_value.get_knowledge_base_config.return_value = {
+            "server_url": "http://fake-kb:9090",
+            "api_token": "tok",
+        }
+        ctx = asyncio.run(rag_processor(messages, assistant))
+
+    assert call_count == 2
+    assert ctx["tool_results"]["kb_query"]["ok"] is True
+    dbg = ctx["multitool_debug"]
+    assert dbg["query_rewriting"]["was_rewritten"] is False
+    assert dbg["query_rewriting"]["original_query"] == "Tell me more"
+    assert dbg["query_rewriting"]["rewritten_query"] == "Tell me more"
+
+
 def test_rag_processor_smart_routing_queries_only_targeted_collections():
     """
     Action: Full pipeline test. The orchestrator selects target_collections=["c1"] out of ["c1","c2"].

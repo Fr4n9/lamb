@@ -502,6 +502,23 @@ async def _rag_processor_internal(
 
     assistant_owner = getattr(assistant, "owner", "")
 
+    memory_cfg = mt.get("memory", {})
+    num_turns = memory_cfg.get("num_turns", 2)
+    memory = _extract_conversation_memory(messages, num_turns=num_turns)
+
+    rewrite_time_ms: Optional[float] = None
+    if memory:
+        t_rw0 = time.perf_counter()
+        rewritten_query = await _rewrite_query_with_memory(
+            user_query=user_query,
+            memory=memory,
+            assistant_owner=assistant_owner,
+        )
+        t_rw1 = time.perf_counter()
+        rewrite_time_ms = round((t_rw1 - t_rw0) * 1000, 3)
+    else:
+        rewritten_query = user_query
+
     # Fetch KB descriptions for smart routing (Prototype 2)
     kb_descriptions: Optional[Dict[str, str]] = None
     if "kb_query" in allowed:
@@ -550,10 +567,22 @@ async def _rag_processor_internal(
         rubric_desc_keys=rub_keys,
     )
 
+    dbg["memory"] = {
+        "num_turns_requested": num_turns,
+        "messages_count": len(memory),
+    }
+    dbg["query_rewriting"] = {
+        "original_query": user_query,
+        "rewritten_query": rewritten_query,
+        "was_rewritten": rewritten_query != user_query,
+    }
+    if rewrite_time_ms is not None:
+        dbg["timings_ms"]["query_rewrite_ms"] = rewrite_time_ms
+
     t_orch0 = time.perf_counter()
     try:
         plan, rejected, raw_llm_text = await orchestrate_tool_plan(
-            user_query=user_query,
+            user_query=rewritten_query,
             assistant_owner=assistant_owner,
             allowed_tool_names=allowed,
             kb_descriptions=kb_descriptions,
@@ -626,7 +655,7 @@ async def _rag_processor_internal(
             continue
         merged_args["assistant_owner"] = assistant_owner
         if tc.name == "kb_query":
-            merged_args.setdefault("query", user_query)
+            merged_args.setdefault("query", rewritten_query)
         run_steps.append(
             {
                 "name": tc.name,
