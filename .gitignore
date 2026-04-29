@@ -219,3 +219,6 @@ CONTEXT.md
 backend/testing/context_dumps/
 
 aac_logs/
+
+testing/context_dumps/
+opencode.json
