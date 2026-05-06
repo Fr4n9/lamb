@@ -3,7 +3,6 @@ import { browser } from '$app/environment';
 // Shared axios instance with global 401 handling (#352, M1/M2/M3).
 import { apiAxios as axios, apiJson, apiFetch } from '$lib/services/apiClient';
 import { isAxiosError } from 'axios';
-axios.isAxiosError = isAxiosError;
 import { normalizeAssistantData } from '$lib/utils/assistantData';
 
 /**
@@ -86,6 +85,7 @@ export async function getAssistantById(assistantId) {
 		},
 		cache: 'no-store'
 	});
+	return data;
 }
 
 /**
@@ -113,19 +113,7 @@ export async function publishAssistant(assistantId, assistantName, groupName, oa
 		body: JSON.stringify(bodyData)
 	});
 
-	if (!response.ok) {
-		let errorDetail = 'Failed to publish assistant (update failed)';
-		try {
-			const error = await response.json();
-			errorDetail = error?.detail || errorDetail;
-		} catch (e) {
-			/* Ignore JSON parse error */
-		}
-		console.error('Publish (update) error:', response.status, errorDetail);
-		throw new Error(errorDetail);
-	}
-
-	return await response.json();
+	return data;
 }
 
 /**
@@ -214,6 +202,7 @@ export async function getSystemCapabilities() {
 	const data = await apiJson(getApiUrl(`/system/capabilities`), {
 		method: 'GET'
 	});
+	return data;
 }
 
 /**
@@ -230,9 +219,9 @@ export async function createAssistant(assistantData) {
 	const url = getApiUrl('/assistant/create_assistant');
 
 	try {
+		// Token is automatically attached by the apiAxios interceptor
 		const response = await axios.post(url, assistantData, {
 			headers: {
-				Authorization: `Bearer ${token}`,
 				'Content-Type': 'application/json'
 			}
 		});
@@ -241,8 +230,8 @@ export async function createAssistant(assistantData) {
 	} catch (error) {
 		let errorMessage = 'Failed to create assistant.';
 
-		if (axios.isAxiosError(error) && error.response) {
-			const errorData = error.response.data;
+		if (isAxiosError(error) && error.response) {
+			const errorData = /** @type {any} */ (error.response.data);
 
 			// Check for specific name conflict error detail
 			if (errorData?.detail?.includes('already exists for this owner')) {
@@ -365,6 +354,8 @@ export async function updateAssistant(assistantId, assistantData) {
 			method: 'PUT',
 			body: JSON.stringify(filteredData)
 		});
+		return data;
+	} catch (error) {
 		console.error('Error updating assistant:', error);
 		let errorMessage = 'Failed to update assistant.';
 
