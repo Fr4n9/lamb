@@ -31,11 +31,11 @@ This was a reference template for `window.LAMB_CONFIG`. The actual config is gen
 | `apiFetch` in `authService.fetchUserProfile()` | `ui/src/lib/services/authService.js` | Circular dependency: `apiClient` is in `creator-app`, `authService` is in `@lamb/ui`. `fetchUserProfile` still uses raw `fetch()` without 401 global handling. |
 | `apiClient` in `@lamb/ui` | N/A | Would require decoupling from `$lib/config` and `$lib/session/sessionManager`. Deferred to future refactor. |
 | Module-chat/file-eval using `apiFetch` | N/A | These modules don't have `$lib/config.js` and use raw `fetch()` with relative paths. Would need `apiClient` to be generic first. |
-| Two `apiClient.js` files coexisting | `utils/apiClient.js` + `services/apiClient.js` | Both exist in creator-app with overlapping responsibilities. `utils/` protects against disabled accounts (`sessionGuard`), `services/` protects against expired tokens (401 → redirect). Not merged yet. |
+| Two `apiClient.js` files coexisting ~~[SOLVED → PS-1]~~ | `utils/apiClient.js` + `services/apiClient.js` | Both exist in creator-app with overlapping responsibilities. `utils/` protects against disabled accounts (`sessionGuard`), `services/` protects against expired tokens (401 → redirect). Not merged yet. |
 ---
 ## TODOs for future work
 ### High Priority
-1. **Merge the two `apiClient.js` files into one**
+1. **Merge the two `apiClient.js` files into one** ~~[SOLVED → PS-1]~~
    - `utils/apiClient.js` → `authenticatedFetch` + sessionGuard (disabled account detection)
    - `services/apiClient.js` → `apiFetch` + `apiJson` + `apiAxios` (401 global handling)
    - Create a single unified client that has **both** protections
@@ -105,6 +105,41 @@ This was a reference template for `window.LAMB_CONFIG`. The actual config is gen
     - **File:** `creator-app/src/hooks.server.js`
     - **Current:** Imports `locale` from `@lamb/ui` and calls `locale.set(lang)` in server hooks
     - **Fix:** If issues arise, move i18n setup logic to `+layout.js` where it's guaranteed to run after `setupI18n()`
+---
+## Problems Solved
+
+### PS-1 — Consolidate API clients and centralise session handling
+> `refactor(frontend): consolidate API clients and centralise session handling`
+
+**Files affected:**
+- `creator-app/src/lib/services/apiClient.js` — extended with `authenticatedFetch`/`authenticatedFetchJson` backward-compat aliases and 403 `X-Account-Status` (disabled/deleted) detection integrated directly into the `apiFetch` and `apiAxios` interceptors.
+- `creator-app/src/lib/utils/apiClient.js` — **deleted**.
+- `creator-app/src/lib/utils/sessionGuard.js` — simplified: removed `handleApiResponse` and `forceLogout`. Now only manages background polling using `apiFetch` instead of raw `fetch`.
+- `creator-app/src/routes/+layout.svelte` — removed the side-effect import of `utils/apiClient`.
+- `creator-app/src/routes/admin/+page.svelte` — migrated `import axios from 'axios'` + `authenticatedFetch` to `services/apiClient`.
+- `creator-app/src/routes/org-admin/+page.svelte` — migrated `authenticatedFetch` from `utils/apiClient` to `services/apiClient`.
+
+**Problems fixed:**
+- Eliminated the race condition between the two sets of Axios interceptors (global instance vs isolated instance).
+- Disabled-account detection (403) and session expiry (401) are now handled from a single point, guaranteeing automatic logout on any failing network request.
+- Removed the `utils/apiClient` side-effect import that was mutating the global `axios` instance.
+
+---
+
+### PS-2 — Unify sessionManager and fix store leak on logout
+> `fix(frontend): unify sessionManager and fix logout store leak`
+
+**Files affected:**
+- `ui/src/lib/session/sessionManager.js` — added hook system (`registerOnClearSession`). `clearCurrentSession()` now runs all registered callbacks after `user.logout()`. `ensureProfileLoaded()` improved: clears the session if the profile fetch fails.
+- `ui/src/lib/index.js` — `clearCurrentSession`, `ensureProfileLoaded` and `registerOnClearSession` added to `@lamb/ui` public API.
+- `creator-app/src/lib/session/sessionManager.js` — removed duplicate `clearCurrentSession` and `ensureProfileLoaded` implementations; now re-exported from `@lamb/ui`. `resetAllUserScopedStores`, `replaceSessionWithLoginData` and `replaceSessionWithToken` remain here as they are creator-app–specific.
+- `creator-app/src/routes/+layout.svelte` — registered `resetAllUserScopedStores` as a callback in `onMount` via `registerOnClearSession`.
+
+**Problems fixed:**
+- **Real bug:** clicking "Logout" in the Nav called `clearCurrentSession()` from `@lamb/ui`, which only ran `user.logout()` without resetting creator-app stores (assistants, rubrics, templates, AAC tabs). A second user logging in could see the previous user's data.
+- All logout paths (Nav button, 401 from apiClient, 403 disabled, polling) now automatically run `resetAllUserScopedStores`.
+- Removed the duplicate `clearCurrentSession` and `ensureProfileLoaded` implementations that existed across the two `sessionManager.js` files.
+
 ---
 ## Files affected by this merge
 ### Auto-merged (no conflicts)

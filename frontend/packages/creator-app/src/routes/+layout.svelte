@@ -1,6 +1,6 @@
 <script>
 	import '../app.css';
-	import { Nav, Footer, userStore as user, initI18n } from '@lamb/ui';
+	import { Nav, Footer, userStore as user, initI18n, registerOnClearSession } from '@lamb/ui';
 	import { browser } from '$app/environment';
 	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
@@ -8,7 +8,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { startSessionPolling, stopSessionPolling } from '$lib/utils/sessionGuard';
 	import GlobalAacTabBar from '$lib/components/aac/GlobalAacTabBar.svelte';
-	import { replaceSessionWithToken } from '$lib/session/sessionManager';
+	import { replaceSessionWithToken, resetAllUserScopedStores } from '$lib/session/sessionManager';
 
 	let { children } = $props();
 	let sessionReady = $state(!browser || !new URL(window.location.href).searchParams.get('token'));
@@ -49,6 +49,10 @@
 	}
 
 	onMount(() => {
+		// Register store cleanup so every logout path (Nav, 401/403, polling)
+		// resets creator-app stores and prevents state leaking between users.
+		registerOnClearSession(resetAllUserScopedStores);
+
 		initI18n();
 
 		if (browser) {

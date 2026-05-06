@@ -1,6 +1,19 @@
+/**
+ * creator-app session management.
+ *
+ * `clearCurrentSession` and `ensureProfileLoaded` are delegated to @lamb/ui,
+ * which now has a hook system (`registerOnClearSession`) that ensures
+ * `resetAllUserScopedStores` runs on every logout path — including the Nav
+ * button, 401/403 redirects from apiClient, and session polling.
+ *
+ * This file only holds creator-app–specific logic:
+ *   - `resetAllUserScopedStores()` — registered as a callback in +layout.svelte
+ *   - `replaceSessionWithLoginData()` — used by Login.svelte
+ *   - `replaceSessionWithToken()` — used by +layout.svelte for LTI flows
+ */
+
 import { browser } from '$app/environment';
-import { get } from 'svelte/store';
-import { user } from '@lamb/ui';
+import { user, clearCurrentSession, ensureProfileLoaded } from '@lamb/ui';
 import { assistants } from '$lib/stores/assistantStore';
 import { assistantConfigStore } from '$lib/stores/assistantConfigStore';
 import { rubricStore } from '$lib/stores/rubricStore.svelte.js';
@@ -8,8 +21,14 @@ import { resetTemplateStore } from '$lib/stores/templateStore';
 import { resetAssistantPublishState } from '$lib/stores/assistantPublish';
 import { resetTabs as resetAacTabs } from '$lib/stores/aacStore.svelte';
 
+// Re-export so existing imports of '$lib/session/sessionManager' keep working
+// without any changes in apiClient.js, Login.svelte, or +layout.svelte.
+export { clearCurrentSession, ensureProfileLoaded };
+
 /**
- * Reset frontend stores that can leak user-scoped state.
+ * Reset frontend stores that can leak user-scoped state between sessions.
+ * This is registered as an onClearSession callback in +layout.svelte so it
+ * runs automatically on every logout path.
  */
 export function resetAllUserScopedStores() {
 	if (!browser) return;
@@ -20,16 +39,6 @@ export function resetAllUserScopedStores() {
 	resetTemplateStore();
 	resetAssistantPublishState();
 	resetAacTabs();
-}
-
-/**
- * Clear the current session and reset all user-scoped state.
- */
-export function clearCurrentSession() {
-	if (!browser) return;
-
-	user.logout();
-	resetAllUserScopedStores();
 }
 
 /**
@@ -61,25 +70,4 @@ export async function replaceSessionWithToken(token) {
 	}
 
 	return result;
-}
-
-/**
- * Ensure the current session has a fully-loaded user profile.
- * Recovery path for page refreshes where the profile wasn't fully
- * populated (e.g. interrupted LTI flow that saved a token but not the name).
- *
- * If the profile fetch returns incomplete data (missing name/email), clear
- * the session — staying half-logged-in is worse than forcing a re-login,
- * because every downstream component breaks on `null` user fields. (#353, H6)
- */
-export async function ensureProfileLoaded() {
-	if (!browser) return;
-	const { isLoggedIn, name } = get(user);
-	if (isLoggedIn && !name) {
-		const result = await user.fetchAndPopulateProfile();
-		if (!result?.success) {
-			console.warn('Profile bootstrap failed, clearing session:', result?.error);
-			clearCurrentSession();
-		}
-	}
 }
