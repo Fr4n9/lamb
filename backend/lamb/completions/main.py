@@ -11,6 +11,7 @@ import json
 from lamb.logging_config import get_logger
 from lamb.auth_context import AuthContext, get_optional_auth_context
 from lamb.completions.task_routing import maybe_route_non_streaming_task
+from lamb.completions.multitool_manager import get_all_rag_contexts
 from utils.langsmith_config import traceable_llm_call, add_trace_metadata, is_tracing_enabled
 import traceback
 import asyncio
@@ -167,7 +168,16 @@ async def create_completion(
         
         pps, connectors, rag_processors = load_and_validate_plugins(plugin_config)
         logger.debug(f"Plugins loaded: {pps}, {connectors}, {rag_processors}")
-        rag_context = await get_rag_context(request, rag_processors, plugin_config["rag_processor"], assistant_details)
+        if plugin_config.get("multitools"):
+            all_contexts = await get_all_rag_contexts(
+                assistant=assistant_details,
+                request=request,
+                rag_processors=rag_processors,
+                get_rag_context_fn=get_rag_context,
+            )
+            rag_context = all_contexts
+        else:
+            rag_context = await get_rag_context(request, rag_processors, plugin_config["rag_processor"], assistant_details)
         logger.debug(f"RAG context: {rag_context}")
         messages = process_completion_request(request, assistant_details, plugin_config, rag_context, pps)
         logger.debug(f"Messages: {messages}")
@@ -353,6 +363,15 @@ def load_and_validate_plugins(plugin_config: Dict[str, str]) -> Tuple[Dict[str, 
         logger.error(f"RAG processor '{plugin_config['rag_processor']}' not found")
         raise HTTPException(status_code=400, detail=f"RAG processor '{plugin_config['rag_processor']}' not found")
 
+    if plugin_config.get("multitools"):
+        for idx, tool in enumerate(plugin_config.get("tools", [])):
+            tool_rag = tool.get("rag_processor", "")
+            if tool_rag and tool_rag not in rag_processors:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"RAG processor '{tool_rag}' in tool {idx} not found",
+                )
+
     return pps, connectors, rag_processors
 
 async def get_rag_context(request: Dict[str, Any], rag_processors: Dict[str, Any], rag_processor: str, assistant_details: Any) -> Any:
@@ -370,8 +389,10 @@ async def get_rag_context(request: Dict[str, Any], rag_processors: Dict[str, Any
             logger.debug(f"RAG processor '{rag_processor}' is async, awaiting...")
             rag_context = await rag_func(messages=messages, assistant=assistant_details, request=request)
         else:
-            logger.debug(f"RAG processor '{rag_processor}' is sync, calling directly...")
-            rag_context = rag_func(messages=messages, assistant=assistant_details, request=request)
+            logger.debug(f"RAG processor '{rag_processor}' is sync, running in thread pool...")
+            rag_context = await asyncio.to_thread(
+                rag_func, messages=messages, assistant=assistant_details, request=request
+            )
         
         logger.debug(f"RAG context generated: {rag_context}")
         return rag_context
@@ -493,7 +514,15 @@ async def run_lamb_assistant(
                 headers=final_headers
             )
         pps, connectors, rag_processors = load_and_validate_plugins(plugin_config)
-        rag_context = await get_rag_context(request, rag_processors, plugin_config["rag_processor"], assistant_details)
+        if plugin_config.get("multitools"):
+            rag_context = await get_all_rag_contexts(
+                assistant=assistant_details,
+                request=request,
+                rag_processors=rag_processors,
+                get_rag_context_fn=get_rag_context,
+            )
+        else:
+            rag_context = await get_rag_context(request, rag_processors, plugin_config["rag_processor"], assistant_details)
         messages = process_completion_request(request, assistant_details, plugin_config, rag_context, pps)
         stream = request.get("stream", False)
         llm = plugin_config.get("llm") # Get LLM from config
