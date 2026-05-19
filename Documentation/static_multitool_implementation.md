@@ -47,7 +47,7 @@ in the prompt template.
 
 ### Task 2: Multi-context RAG execution in completion pipeline
 **Status:** Complete
-**Commit:** `pending`
+**Commit:** `3738dc5c`
 **Files:** `backend/lamb/completions/main.py`, `backend/tests/test_multitools.py`
 
 **What was done:**
@@ -61,8 +61,20 @@ in the prompt template.
 **New TODOs discovered:** None
 
 ### Task 3: Prompt processor handles multiple context placeholders
-**Status:** Not started
+**Status:** Complete
+**Commit:** `pending`
 **Files:** `backend/lamb/completions/pps/simple_augment.py`, `backend/tests/test_multitools.py`
+
+**What was done:**
+- Text-only path in `simple_augment.py` supports multi-context dict-of-dicts format
+- Replaces `{context}` through `{context5}` placeholders
+- Sources formatting for primary context (tool 0) only
+- Added TODO comment for vision path multi-context support
+- 4 `TestMultiContextPrompt` tests pass (2 tests use `messages[-1]` when system_prompt is empty)
+
+**Deviations:** Tests use `messages[-1]` instead of `messages[1]` when system_prompt is empty (plan had index bug).
+
+**New TODOs discovered:** None
 
 ### Task 4: Validation for tools array in assistant router
 **Status:** Not started

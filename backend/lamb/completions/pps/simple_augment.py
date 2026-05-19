@@ -94,6 +94,7 @@ def prompt_processor(
             has_vision = _has_vision_capability(assistant)
 
             if isinstance(last_message, list) and has_vision:
+                # TODO: Add multi-context support for vision path (currently only {context} is replaced)
                 # Multimodal content with vision-enabled assistant
                 # Preserve images while applying template augmentations
                 augmented_content = []
@@ -166,27 +167,55 @@ def prompt_processor(
                 logger.debug(f"User message: {user_input_text}")
                 prompt = assistant.prompt_template.replace("{user_input}", "\n\n" + user_input_text + "\n\n")
 
-                # Add RAG context if available
-                if rag_context:
-                    context = rag_context.get("context", "") if isinstance(rag_context, dict) else str(rag_context)
-                    
-                    # Format sources if available
-                    sources_text = ""
-                    if isinstance(rag_context, dict) and "sources" in rag_context:
-                        sources = rag_context["sources"]
-                        if sources:
-                            sources_text = "\n\n## Available Sources\n\n"
-                            for i, source in enumerate(sources, 1):
-                                title = source.get("title", "Unknown")
-                                url = source.get("url", "")
-                                similarity = source.get("similarity", 0)
-                                sources_text += f"{i}. [{title}]({url}) (similarity: {similarity:.3f})\n"
-                    
-                    # Combine context with sources
-                    full_context = context + sources_text
-                    prompt = prompt.replace("{context}", "\n\n" + full_context + "\n\n")
+                # Add RAG contexts if available (supports multi-context)
+                if rag_context and isinstance(rag_context, dict):
+                    is_multicontext = any(
+                        isinstance(rag_context.get(k), dict)
+                        for k in ("context", "context2")
+                    )
+
+                    if is_multicontext:
+                        for context_key in ["context", "context2", "context3", "context4", "context5"]:
+                            tool_result = rag_context.get(context_key, {})
+                            if isinstance(tool_result, dict):
+                                context_text = tool_result.get("context", "")
+                            else:
+                                context_text = str(tool_result) if tool_result else ""
+
+                            if context_text:
+                                prompt = prompt.replace("{" + context_key + "}", "\n\n" + context_text + "\n\n")
+                            else:
+                                prompt = prompt.replace("{" + context_key + "}", "")
+
+                            if context_key == "context" and isinstance(tool_result, dict):
+                                sources = tool_result.get("sources", [])
+                                if sources:
+                                    sources_text = "\n\n## Available Sources\n\n"
+                                    for i, source in enumerate(sources, 1):
+                                        title = source.get("title", "Unknown")
+                                        url = source.get("url", "")
+                                        similarity = source.get("similarity", 0)
+                                        sources_text += f"{i}. [{title}]({url}) (similarity: {similarity:.3f})\n"
+                                    prompt += sources_text
+                    else:
+                        context = rag_context.get("context", "")
+                        sources_text = ""
+                        if "sources" in rag_context:
+                            sources = rag_context["sources"]
+                            if sources:
+                                sources_text = "\n\n## Available Sources\n\n"
+                                for i, source in enumerate(sources, 1):
+                                    title = source.get("title", "Unknown")
+                                    url = source.get("url", "")
+                                    similarity = source.get("similarity", 0)
+                                    sources_text += f"{i}. [{title}]({url}) (similarity: {similarity:.3f})\n"
+                        full_context = context + sources_text
+                        prompt = prompt.replace("{context}", "\n\n" + full_context + "\n\n")
+                        for extra_key in ["context2", "context3", "context4", "context5"]:
+                            prompt = prompt.replace("{" + extra_key + "}", "")
                 else:
-                    prompt = prompt.replace("{context}", "")
+                    for context_key in ["context", "context2", "context3", "context4", "context5"]:
+                        prompt = prompt.replace("{" + context_key + "}", "")
 
                 # Add processed text message
                 processed_messages.append({
