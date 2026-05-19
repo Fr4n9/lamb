@@ -33,7 +33,7 @@ in the prompt template.
 
 ### Task 1: Tool config extraction utility
 **Status:** Complete
-**Commit:** `feede0d1`
+**Commit:** `5b0a144b`
 **Files:** `backend/lamb/completions/multitool_manager.py`, `backend/tests/test_multitools.py`
 
 **What was done:**
@@ -47,7 +47,7 @@ in the prompt template.
 
 ### Task 2: Multi-context RAG execution in completion pipeline
 **Status:** Complete
-**Commit:** `3738dc5c`
+**Commit:** `10db5821`
 **Files:** `backend/lamb/completions/main.py`, `backend/tests/test_multitools.py`
 
 **What was done:**
@@ -62,7 +62,7 @@ in the prompt template.
 
 ### Task 3: Prompt processor handles multiple context placeholders
 **Status:** Complete
-**Commit:** `c608660e`
+**Commit:** `875bc072`
 **Files:** `backend/lamb/completions/pps/simple_augment.py`, `backend/tests/test_multitools.py`
 
 **What was done:**
@@ -78,7 +78,7 @@ in the prompt template.
 
 ### Task 4: Validation for tools array in assistant router
 **Status:** Complete
-**Commit:** `pending`
+**Commit:** `51a45019`
 **Files:** `backend/creator_interface/assistant_router.py`, `backend/tests/test_multitools.py`
 
 **What was done:**
