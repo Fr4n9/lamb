@@ -62,7 +62,7 @@ in the prompt template.
 
 ### Task 3: Prompt processor handles multiple context placeholders
 **Status:** Complete
-**Commit:** `pending`
+**Commit:** `c608660e`
 **Files:** `backend/lamb/completions/pps/simple_augment.py`, `backend/tests/test_multitools.py`
 
 **What was done:**
@@ -77,5 +77,16 @@ in the prompt template.
 **New TODOs discovered:** None
 
 ### Task 4: Validation for tools array in assistant router
-**Status:** Not started
+**Status:** Complete
+**Commit:** `pending`
 **Files:** `backend/creator_interface/assistant_router.py`, `backend/tests/test_multitools.py`
+
+**What was done:**
+- Added `validate_multitools_config()` function
+- Integrated into `validate_update_plugin_metadata` for assistant updates
+- 6 `TestValidateMultitoolsConfig` tests pass
+- Full backend suite: 58 tests pass
+
+**Deviations:** None
+
+**New TODOs discovered:** None

@@ -369,8 +369,36 @@ def validate_update_plugin_metadata(
             + ", ".join(missing_keys)
         )
 
+    multitools_error = validate_multitools_config(metadata_dict)
+    if multitools_error:
+        return None, multitools_error
+
     normalized_metadata = json.dumps(metadata_dict)
     return normalized_metadata, None
+
+
+def validate_multitools_config(metadata_dict: Dict[str, Any]) -> Optional[str]:
+    """
+    Validate the multitools configuration in assistant metadata.
+    Returns None if valid, error message string if invalid.
+    """
+    if not metadata_dict.get("multitools", False):
+        return None
+
+    tools = metadata_dict.get("tools")
+    if tools is None:
+        return None
+
+    if not isinstance(tools, list):
+        return "multitools 'tools' field must be an array"
+
+    for idx, tool in enumerate(tools):
+        if not isinstance(tool, dict):
+            return f"Tool entry {idx} must be an object"
+        if not tool.get("rag_processor"):
+            return f"Tool entry {idx} must have a 'rag_processor' field"
+
+    return None
 
 
 def _ensure_metadata_defaults(metadata_raw) -> str:
