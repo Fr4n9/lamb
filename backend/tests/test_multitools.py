@@ -339,6 +339,95 @@ class TestMultiContextPrompt:
         assert "{context2}" not in content
 
 
+class TestVisionMultiContextPrompt:
+    _MULTIMODAL_MESSAGE = [
+        {"type": "text", "text": "What do you see?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc123"}},
+    ]
+
+    def _vision_assistant(self, prompt_template: str, vision: bool = True) -> Assistant:
+        assistant = _make_assistant(
+            metadata_dict={
+                "prompt_processor": "simple_augment",
+                "connector": "openai",
+                "llm": "gpt-4",
+                "rag_processor": "simple_rag",
+                "multitools": True,
+                "capabilities": {"vision": vision},
+            },
+        )
+        return assistant.model_copy(update={
+            "system_prompt": "You are helpful.",
+            "prompt_template": prompt_template,
+        })
+
+    def test_vision_multicontext_replaces_all_placeholders(self):
+        assistant = self._vision_assistant(
+            "Primary: {context}\nSecondary: {context2}\nQ: {user_input}"
+        )
+        request = {"messages": [{"role": "user", "content": self._MULTIMODAL_MESSAGE}]}
+        rag_context = {
+            "context": {"context": "Primary data", "sources": []},
+            "context2": {"context": "Secondary data", "sources": []},
+        }
+
+        messages = prompt_processor(request, assistant, rag_context)
+        content = messages[1]["content"]
+        assert isinstance(content, list)
+        text_block = content[0]["text"]
+        assert "Primary data" in text_block
+        assert "Secondary data" in text_block
+        assert "{context}" not in text_block
+        assert "{context2}" not in text_block
+
+    def test_vision_preserves_image_items(self):
+        assistant = self._vision_assistant("Context: {context}\nQ: {user_input}")
+        request = {"messages": [{"role": "user", "content": self._MULTIMODAL_MESSAGE}]}
+        rag_context = {
+            "context": {"context": "KB data", "sources": []},
+            "context2": {"context": "Extra data", "sources": []},
+        }
+
+        messages = prompt_processor(request, assistant, rag_context)
+        content = messages[1]["content"]
+        assert isinstance(content, list)
+        assert content[0]["type"] == "text"
+        assert len(content) == 2
+        assert content[1]["type"] == "image_url"
+        assert content[1]["image_url"]["url"] == "data:image/png;base64,abc123"
+
+    def test_vision_off_strips_images_multicontext(self):
+        assistant = self._vision_assistant(
+            "Primary: {context}\nSecondary: {context2}\nQ: {user_input}",
+            vision=False,
+        )
+        request = {"messages": [{"role": "user", "content": self._MULTIMODAL_MESSAGE}]}
+        rag_context = {
+            "context": {"context": "Primary data", "sources": []},
+            "context2": {"context": "Secondary data", "sources": []},
+        }
+
+        messages = prompt_processor(request, assistant, rag_context)
+        content = messages[1]["content"]
+        assert isinstance(content, str)
+        assert "Primary data" in content
+        assert "Secondary data" in content
+        assert "{context2}" not in content
+        assert "image_url" not in content
+
+    def test_vision_legacy_single_context_still_works(self):
+        assistant = self._vision_assistant("Context: {context}\nQ: {user_input}")
+        request = {"messages": [{"role": "user", "content": self._MULTIMODAL_MESSAGE}]}
+        rag_context = {"context": "Legacy KB content", "sources": []}
+
+        messages = prompt_processor(request, assistant, rag_context)
+        content = messages[1]["content"]
+        assert isinstance(content, list)
+        assert "Legacy KB content" in content[0]["text"]
+        assert "{context}" not in content[0]["text"]
+        assert content[1]["type"] == "image_url"
+
+
 class TestPerToolTopK:
     def test_tool_0_uses_assistant_level_top_k(self):
         assistant = _make_assistant(
