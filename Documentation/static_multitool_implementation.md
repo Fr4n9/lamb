@@ -127,7 +127,7 @@ up to 5 context sources.
 
 ### Task 11: Fix Context Sources tab position and tab-switch sync
 **Status:** Complete
-**Commit:** `37ad5394`
+**Commit:** `8177c8f1`
 **Files:** `AssistantForm.svelte`, `components/ConfigurationPanel.svelte`, `components/ContextSourceTabs.svelte`
 
 **What was done:**
