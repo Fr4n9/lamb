@@ -8,6 +8,7 @@
 		extractModelsMetadata
 	} from '../logic/assistantFormUtils.svelte.js';
 	import RagOptionsPanel from './RagOptionsPanel.svelte';
+	import ContextSourceTabs from './ContextSourceTabs.svelte';
 
 	let {
 		formState,
@@ -16,6 +17,10 @@
 		promptProcessors = [],
 		connectorsList = [],
 		ragProcessors = [],
+		tools = [],
+		activeToolIndex = $bindable(0),
+		onAddTool,
+		onRemoveTool,
 		selectedPromptProcessor = $bindable(''),
 		selectedConnector = $bindable(''),
 		selectedLlm = $bindable(''),
@@ -49,6 +54,9 @@
 	let currentModelMetadata = $derived(currentModelsMetadata.find((m) => m.id === selectedLlm) || null);
 	let imageGenerationForced = $derived(currentModelMetadata?.forced_capabilities?.image_generation === true);
 	let showRagOptions = $derived(hasRagOptions(selectedRagProcessor));
+	let filteredRagProcessors = $derived(
+		activeToolIndex > 0 ? ragProcessors.filter((p) => p !== 'no_rag') : ragProcessors
+	);
 
 	async function handleConnectorChange() {
 		await tick();
@@ -135,6 +143,14 @@
 		</select>
 	</div>
 
+	<ContextSourceTabs
+		{tools}
+		bind:activeToolIndex
+		{formState}
+		onAddTool={onAddTool}
+		onRemoveTool={onRemoveTool}
+	/>
+
 	{#if selectedConnector === 'openai' || selectedConnector === 'banana_img' || visionEnabled}
 		<div class="mb-3">
 			<label class="inline-flex items-start cursor-pointer">
@@ -187,7 +203,7 @@
 		<select id="rag-processor" bind:value={selectedRagProcessor} onchange={onchange}
 			disabled={formState === 'edit'}
 			class="mt-1 block w-full pl-3 pr-10 py-2 text-base text-gray-900 border border-gray-300 focus:outline-none focus:ring-brand focus:border-brand sm:text-sm rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
-			{#each ragProcessors as processor (processor)}
+			{#each filteredRagProcessors as processor (processor)}
 				<option value={processor}>{processor.replace(/_/g, ' ').replace(/\b\w/g, (/** @type {string} */ l) => l.toUpperCase())}</option>
 			{/each}
 		</select>

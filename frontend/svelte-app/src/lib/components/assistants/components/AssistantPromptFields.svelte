@@ -5,11 +5,13 @@
 	import { openTemplateSelectModal } from '$lib/stores/templateStore';
 	import TemplateSelectModal from '$lib/components/modals/TemplateSelectModal.svelte';
 	import { highlightPlaceholders } from '../logic/assistantFormUtils.svelte.js';
+	import { buildContextPlaceholderButtons } from '../logic/multitoolState.svelte.js';
 
 	let {
 		systemPrompt = $bindable(''),
 		promptTemplate = $bindable(''),
 		ragPlaceholders = [],
+		tools = [],
 		selectedPromptProcessor = '',
 		formState,
 		/** @type {(event: Event) => void} */
@@ -19,6 +21,11 @@
 
 	/** @type {HTMLTextAreaElement | null} */
 	let textareaRef = $state(null);
+
+	let contextButtons = $derived(buildContextPlaceholderButtons(tools.length ? tools : [{ index: 0, contextKey: 'context' }]));
+	let userInputPlaceholder = $derived(
+		ragPlaceholders.find((p) => p.includes('user_input')) ?? '{user_input}'
+	);
 
 	function handleLoadTemplate() {
 		openTemplateSelectModal((/** @type {any} */ template) => {
@@ -89,17 +96,30 @@
 	</label>
 	<div class="mt-1 mb-2">
 		<span class="text-xs text-gray-600 dark:text-gray-400"
-			>{$_('insert_placeholder') || 'Insert placeholder:'}:</span
+			>{$_('assistants.form.insert_placeholder', { default: 'Insert placeholder' })}:</span
 		>
-		{#each ragPlaceholders as placeholder (placeholder)}
+		{#each contextButtons as btn, i (btn.placeholder)}
 			<button
 				type="button"
-				class="ml-1 px-2 py-0.5 text-xs bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-brand"
-				onclick={() => insertPlaceholder(placeholder)}
+				class="ml-1 px-2 py-0.5 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-brand"
+				style:background-color="{btn.color}20"
+				style:color={btn.color}
+				style:border="1px solid {btn.color}40"
+				onclick={() => insertPlaceholder(btn.placeholder)}
 			>
-				{placeholder}
+				{$_('assistants.form.contextSources.tab', {
+					values: { number: i + 1 },
+					default: btn.label
+				})}
 			</button>
 		{/each}
+		<button
+			type="button"
+			class="ml-1 px-2 py-0.5 text-xs bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-brand"
+			onclick={() => insertPlaceholder(userInputPlaceholder)}
+		>
+			{userInputPlaceholder}
+		</button>
 	</div>
 	<textarea
 		bind:this={textareaRef}
@@ -116,7 +136,14 @@
 				{$_('preview') || 'Preview with highlighted placeholders:'}
 			</div>
 			<div class="whitespace-pre-wrap" data-testid="prompt-preview">
-				{@html highlightPlaceholders(promptTemplate, ragPlaceholders)}
+				{@html highlightPlaceholders(
+					promptTemplate,
+					[
+						...contextButtons.map((b) => b.placeholder),
+						userInputPlaceholder
+					],
+					contextButtons.map((b) => b.color)
+				)}
 			</div>
 		</div>
 	{/if}

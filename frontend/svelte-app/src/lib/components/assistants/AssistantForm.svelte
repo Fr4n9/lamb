@@ -11,6 +11,16 @@
 	import { createAssistantFormState, resetFormFieldsToDefaults, populateFormFields, revertToInitial, clearRagDependentState, handleFieldChange } from './logic/assistantFormState.svelte.js';
 	import { fetchKnowledgeBases, fetchRubricsList, fetchUserFiles } from './logic/assistantFormFetchers.js';
 	import { validateSubmission, buildAssistantPayload } from './logic/assistantFormSubmit.js';
+	import {
+		addTool,
+		removeTool,
+		reindexPlaceholders,
+		getMissingPlaceholders,
+		syncActiveToolFromForm,
+		syncFormFromActiveTool,
+		syncFormToToolAtIndex,
+		toolsFromMetadata
+	} from './logic/multitoolState.svelte.js';
 	import AssistantFormHeader from './components/AssistantFormHeader.svelte';
 	import AssistantNameField from './components/AssistantNameField.svelte';
 	import AssistantDescriptionField from './components/AssistantDescriptionField.svelte';
@@ -44,7 +54,15 @@
 	});
 
 	// --- Reactive UI Logic ---
-	const showRubricSelector = $derived(isRubricRag(form.selectedRagProcessor));
+	const showRubricSelector = $derived(
+		isRubricRag(form.tools[form.activeToolIndex]?.ragProcessor ?? form.selectedRagProcessor)
+	);
+
+	let missingPlaceholders = $derived(
+		form.tools.length > 1 ? getMissingPlaceholders(form.tools, form.prompt_template) : []
+	);
+
+	let previousActiveToolIndex = $state(0);
 
 	// --- Fetcher wrappers (bind state + isMounted guard) ---
 	async function doFetchKnowledgeBases() {
@@ -60,6 +78,41 @@
 	async function doFetchRubricsList() {
 		if (!isMounted) return;
 		await fetchRubricsList(form);
+	}
+
+	function onFieldChange() {
+		handleFieldChange(form);
+		syncActiveToolFromForm(form);
+	}
+
+	function handleAddTool() {
+		syncActiveToolFromForm(form);
+		const updated = addTool(form.tools);
+		if (!updated) return;
+		form.tools = updated;
+		form.activeToolIndex = updated.length - 1;
+		form.selectedRagProcessor = '';
+		form.selectedKnowledgeBases = [];
+		form.selectedFilePath = '';
+		form.selectedRubricId = '';
+		form.rubricFormat = 'markdown';
+		form.RAG_Top_k = 3;
+		onFieldChange();
+	}
+
+	function handleRemoveTool(index) {
+		syncActiveToolFromForm(form);
+		form.prompt_template = reindexPlaceholders(
+			form.prompt_template,
+			index,
+			form.tools.length
+		);
+		form.tools = removeTool(form.tools, index);
+		if (form.activeToolIndex >= form.tools.length) {
+			form.activeToolIndex = Math.max(0, form.tools.length - 1);
+		}
+		syncFormFromActiveTool(form);
+		onFieldChange();
 	}
 
 	// --- Store Integration and Initialization ---
@@ -105,6 +158,23 @@
 			} else if (assistant && form.formDirty) {
 				// User has edits, don't overwrite
 			}
+		}
+	});
+
+	// Sync rubric selection to active tool
+	$effect(() => {
+		form.selectedRubricId;
+		form.rubricFormat;
+		syncActiveToolFromForm(form);
+	});
+
+	// Sync form fields when active tool tab changes
+	$effect(() => {
+		const currentIndex = form.activeToolIndex;
+		if (currentIndex !== previousActiveToolIndex) {
+			syncFormToToolAtIndex(form, previousActiveToolIndex);
+			syncFormFromActiveTool(form);
+			previousActiveToolIndex = currentIndex;
 		}
 	});
 
@@ -207,6 +277,8 @@
 			return;
 		}
 
+		syncActiveToolFromForm(form);
+
 		// In non-advanced mode, ensure defaults are used
 		if (form.formState === 'create' && !form.isAdvancedMode) {
 			const defaults = get(assistantConfigStore).configDefaults?.config || {};
@@ -302,39 +374,37 @@
 							form.prompt_template = parsedData.prompt_template || '';
 							form.RAG_Top_k = parsedData.RAG_Top_k ?? 3;
 
-							// Populate selections from metadata
+							form.tools = toolsFromMetadata(
+								{
+									RAG_Top_k: parsedData.RAG_Top_k,
+									RAG_collections: parsedData.RAG_collections
+								},
+								callbackData
+							);
+							form.activeToolIndex = 0;
+							syncFormFromActiveTool(form);
+
 							form.selectedPromptProcessor = callbackData.prompt_processor || (form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
 							form.selectedConnector = callbackData.connector || (form.connectorsList.length > 0 ? form.connectorsList[0] : '');
-							form.selectedRagProcessor = callbackData.rag_processor || (form.ragProcessors.length > 0 ? form.ragProcessors[0] : '');
 
-							// Set LLM based on connector
 							form.selectedLlm = selectModel(callbackData.llm, availableModels);
 							if (callbackData.llm && !availableModels.includes(callbackData.llm)) {
 								validationLog.push(`⚠️ Imported LLM '${callbackData.llm}' not available for connector '${form.selectedConnector}'. Defaulting to '${form.selectedLlm}'.`);
 							}
 
-						// Populate RAG specific fields
-						// FIX FOR ISSUE #96: Apply Load-Then-Select pattern for imports too
-						if (isKbBasedRag(form.selectedRagProcessor)) {
-							form.selectedFilePath = ''; // Clear file path if switching to simple RAG, context_aware_rag, or hierarchical_rag
-							// Fetch KBs BEFORE setting selections
-							if (!form.kbFetchAttempted) {
-								await doFetchKnowledgeBases(); // ✅ WAIT for KBs to load
+							for (const tool of form.tools) {
+								if (isKbBasedRag(tool.ragProcessor) && !form.kbFetchAttempted) {
+									await doFetchKnowledgeBases();
+								}
+								if (isSingleFileRag(tool.ragProcessor) && !form.filesFetchAttempted) {
+									await doFetchUserFiles();
+								}
+								if (isRubricRag(tool.ragProcessor) && !form.rubricsFetchAttempted) {
+									await doFetchRubricsList();
+								}
 							}
-							// NOW set selections when KB list is ready
-							form.selectedKnowledgeBases = parsedData.RAG_collections?.split(',').filter(Boolean) || [];
-						} else if (isSingleFileRag(form.selectedRagProcessor)) {
-							form.selectedKnowledgeBases = []; // Clear KBs if switching to single file RAG
-							// Fetch files BEFORE setting selection
-							if (!form.filesFetchAttempted) {
-								await doFetchUserFiles(); // ✅ WAIT for files to load
-							}
-							// NOW set selection when file list is ready
-							form.selectedFilePath = callbackData.file_path || '';
-						} else { // No RAG
-							form.selectedKnowledgeBases = [];
-							form.selectedFilePath = '';
-						}
+							syncFormFromActiveTool(form);
+
 							validationLog.push('✅ Form fields populated successfully.');
 							form.importError = ''; // Clear any previous error
 							// Show success message briefly
@@ -413,9 +483,10 @@
 					bind:systemPrompt={form.system_prompt}
 					bind:promptTemplate={form.prompt_template}
 					ragPlaceholders={form.ragPlaceholders}
+					tools={form.tools}
 					selectedPromptProcessor={form.selectedPromptProcessor}
 					formState={form.formState}
-					oninput={() => handleFieldChange(form)}
+					oninput={onFieldChange}
 					onTemplateApplied={() => {
 						form.formDirty = true;
 					}}
@@ -441,6 +512,10 @@
 					promptProcessors={form.promptProcessors}
 					connectorsList={form.connectorsList}
 					ragProcessors={form.ragProcessors}
+					tools={form.tools}
+					bind:activeToolIndex={form.activeToolIndex}
+					onAddTool={handleAddTool}
+					onRemoveTool={handleRemoveTool}
 					bind:selectedPromptProcessor={form.selectedPromptProcessor}
 					bind:selectedConnector={form.selectedConnector}
 					bind:selectedLlm={form.selectedLlm}
@@ -458,10 +533,23 @@
 					loadingFiles={form.loadingFiles}
 					fileError={form.fileError}
 					onFilesChanged={() => doFetchUserFiles(true)}
-					onchange={() => handleFieldChange(form)}
+					onchange={onFieldChange}
 				/>
 			</div>
 			</div>
+
+			{#if missingPlaceholders.length > 0}
+				<div class="p-3 bg-amber-50 border border-amber-200 rounded-md">
+					{#each missingPlaceholders as mp (mp.contextKey)}
+						<p class="text-sm text-amber-800">
+							{$_('assistants.form.contextSources.missingPlaceholderWarning', {
+								values: { number: mp.index + 1, placeholder: `{${mp.contextKey}}` },
+								default: `Context Source ${mp.index + 1} has no {${mp.contextKey}} in the prompt template`
+							})}
+						</p>
+					{/each}
+				</div>
+			{/if}
 
 			<FormActions
 				formState={form.formState}

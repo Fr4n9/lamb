@@ -91,6 +91,20 @@ export function validateImportedAssistant(jsonContent, capabilities, modelExtrac
             if (isSingleFileRag(callbackData.rag_processor) && !callbackData.file_path) {
                 validationLog.push('❌ Missing file_path in metadata for single_file_rag processor.');
             }
+
+            if (callbackData.multitools && Array.isArray(callbackData.tools)) {
+                for (let i = 0; i < callbackData.tools.length; i++) {
+                    const tool = callbackData.tools[i];
+                    if (!tool.rag_processor) {
+                        validationLog.push(`⚠️ Tool ${i + 1} in tools array has no rag_processor`);
+                    } else if (!capabilities.rag_processors?.includes(tool.rag_processor)) {
+                        validationLog.push(`⚠️ Tool ${i + 1} has invalid rag_processor: ${tool.rag_processor}`);
+                    }
+                }
+                if (callbackData.tools.length > 4) {
+                    validationLog.push(`⚠️ tools array has ${callbackData.tools.length} entries (max 4)`);
+                }
+            }
         } catch (callbackError) {
             validationLog.push(`❌ Error parsing metadata JSON: ${callbackError instanceof Error ? callbackError.message : 'Unknown error'}`);
         }

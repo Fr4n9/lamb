@@ -259,3 +259,61 @@ export function buildContextPlaceholderButtons(tools) {
 		color: TOOL_COLORS[tool.index] ?? TOOL_COLORS[0]
 	}));
 }
+
+/**
+ * Copy active tool config into form-level RAG fields.
+ *
+ * @param {Record<string, any>} form
+ */
+export function syncFormFromActiveTool(form) {
+	const tool = form.tools?.[form.activeToolIndex];
+	if (!tool) return;
+
+	form.selectedRagProcessor = tool.ragProcessor;
+	form.RAG_Top_k = tool.RAG_Top_k;
+	form.selectedKnowledgeBases = [...tool.knowledgeBases];
+	form.selectedFilePath = tool.filePath;
+	form.selectedRubricId = tool.rubricId;
+	form.rubricFormat = tool.rubricFormat;
+
+	if (isKbBasedRag(tool.ragProcessor)) {
+		form.pendingKBSelections = [...tool.knowledgeBases];
+	} else {
+		form.pendingKBSelections = null;
+	}
+}
+
+/**
+ * Copy form-level RAG fields back into the active tool.
+ *
+ * @param {Record<string, any>} form
+ */
+export function syncActiveToolFromForm(form) {
+	const tool = form.tools?.[form.activeToolIndex];
+	if (!tool) return;
+
+	tool.ragProcessor = form.selectedRagProcessor;
+	tool.RAG_Top_k = form.RAG_Top_k;
+	tool.knowledgeBases = [...form.selectedKnowledgeBases];
+	tool.filePath = form.selectedFilePath;
+	tool.rubricId = form.selectedRubricId;
+	tool.rubricFormat = form.rubricFormat;
+}
+
+/**
+ * Copy form-level RAG fields into a specific tool index.
+ *
+ * @param {Record<string, any>} form
+ * @param {number} index
+ */
+export function syncFormToToolAtIndex(form, index) {
+	const tool = form.tools?.[index];
+	if (!tool) return;
+
+	tool.ragProcessor = form.selectedRagProcessor;
+	tool.RAG_Top_k = form.RAG_Top_k;
+	tool.knowledgeBases = [...form.selectedKnowledgeBases];
+	tool.filePath = form.selectedFilePath;
+	tool.rubricId = form.selectedRubricId;
+	tool.rubricFormat = form.rubricFormat;
+}

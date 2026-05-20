@@ -19,6 +19,7 @@ import { assistantConfigStore } from '$lib/stores/assistantConfigStore';
 import { isKbBasedRag, isSingleFileRag, isRubricRag, normalizeRagProcessor } from '$lib/utils/ragProcessorHelpers.js';
 import { loadRagPlaceholders, selectModel } from './assistantFormUtils.svelte.js';
 import { getAssistantMetadataObject } from '$lib/utils/assistantData';
+import { createToolConfig, toolsFromMetadata, syncFormFromActiveTool } from './multitoolState.svelte.js';
 
 /**
  * Creates a reactive form state instance.
@@ -95,6 +96,11 @@ export function createAssistantFormState() {
 
 		ragPlaceholders: [],
 
+		// --- Multitool state ---
+		/** @type {import('./multitoolState.svelte.js').ToolConfig[]} */
+		tools: [createToolConfig(0)],
+		activeToolIndex: 0,
+
 		// --- Derived ---
 		get accessibleKnowledgeBases() {
 			return [...this.ownedKnowledgeBases, ...this.sharedKnowledgeBases];
@@ -134,6 +140,12 @@ export function resetFormFieldsToDefaults(form, getAvailableModels) {
 	form.selectedFilePath = '';
 	form.visionEnabled = false;
 	form.imageGenerationEnabled = false;
+	form.tools = [createToolConfig(0)];
+	form.activeToolIndex = 0;
+	if (defaultRag) {
+		form.tools[0].ragProcessor = defaultRag;
+	}
+	form.tools[0].RAG_Top_k = form.RAG_Top_k;
 }
 
 /**
@@ -168,24 +180,9 @@ export function populateFormFields(form, data, getAvailableModels, preserveDescr
 		const defaults = get(assistantConfigStore).configDefaults?.config || {};
 		form.ragPlaceholders = loadRagPlaceholders(defaults);
 
-		// Deferred selection for KBs
-		if (isKbBasedRag(form.selectedRagProcessor)) {
-			form.pendingKBSelections = data.RAG_collections?.split(',').filter(Boolean) || [];
-		} else {
-			form.pendingKBSelections = null;
-		}
-
-		// Rubric fields
-		if (isRubricRag(form.selectedRagProcessor)) {
-			try {
-				form.selectedRubricId = metadata?.rubric_id || '';
-				form.rubricFormat = metadata?.rubric_format || 'markdown';
-			} catch (e) {
-				console.warn('Failed to parse rubric metadata:', e);
-				form.selectedRubricId = '';
-				form.rubricFormat = 'markdown';
-			}
-		}
+		form.tools = toolsFromMetadata(data, metadata);
+		form.activeToolIndex = 0;
+		syncFormFromActiveTool(form);
 
 		// Vision capability
 		try {

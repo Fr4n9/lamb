@@ -103,14 +103,20 @@ function escapeHtml(text) {
  * @param {string[]} placeholders
  * @returns {string}
  */
-export function highlightPlaceholders(text, placeholders) {
+export function highlightPlaceholders(text, placeholders, toolColors = null) {
 	if (!text) return '';
 	let result = escapeHtml(text);
-	for (const placeholder of placeholders) {
+	for (let i = 0; i < placeholders.length; i++) {
+		const placeholder = placeholders[i];
 		const escapedPlaceholder = escapeHtml(placeholder);
+		const color = toolColors?.[i] ?? null;
+		const styleAttr = color
+			? ` style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40;"`
+			: '';
+		const classAttr = color ? ' class="font-medium px-1 rounded"' : ' class="bg-blue-100 text-blue-800 font-medium px-1 rounded"';
 		result = result.replace(
 			new RegExp(escapedPlaceholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
-			`<span class="bg-blue-100 text-blue-800 font-medium px-1 rounded">${escapedPlaceholder}</span>`
+			`<span${classAttr}${styleAttr}>${escapedPlaceholder}</span>`
 		);
 	}
 	return result;

@@ -81,3 +81,65 @@ describe('modelExtractor edge cases', () => {
 		expect(extractModelsFromConnectorData(null)).toEqual([]);
 	});
 });
+
+describe('multitools import validation', () => {
+	const mockCapabilities = {
+		prompt_processors: ['simple_augment'],
+		connectors: { openai: { models: ['gpt-4'] } },
+		rag_processors: ['simple_rag', 'context_aware_rag', 'no_rag']
+	};
+
+	test('validates multitools metadata with tools array', () => {
+		const json = JSON.stringify({
+			name: 'test',
+			system_prompt: 'hi',
+			prompt_template: '{context} {context2} {user_input}',
+			RAG_Top_k: 3,
+			RAG_collections: 'col1',
+			metadata: JSON.stringify({
+				prompt_processor: 'simple_augment',
+				connector: 'openai',
+				llm: 'gpt-4',
+				rag_processor: 'simple_rag',
+				multitools: true,
+				tools: [{ rag_processor: 'context_aware_rag', RAG_collections: 'col2', RAG_Top_k: 5 }]
+			})
+		});
+		const result = validateImportedAssistant(json, mockCapabilities, extractModelsFromConnectorData);
+		expect(result.hasErrors).toBe(false);
+	});
+
+	test('warns on invalid rag_processor in tools array', () => {
+		const json = JSON.stringify({
+			name: 'test',
+			system_prompt: 'hi',
+			metadata: JSON.stringify({
+				prompt_processor: 'simple_augment',
+				connector: 'openai',
+				llm: 'gpt-4',
+				rag_processor: 'simple_rag',
+				multitools: true,
+				tools: [{ rag_processor: 'nonexistent_rag' }]
+			})
+		});
+		const result = validateImportedAssistant(json, mockCapabilities, extractModelsFromConnectorData);
+		expect(result.validationLog.some((l) => l.includes('nonexistent_rag'))).toBe(true);
+	});
+
+	test('legacy format without multitools still works', () => {
+		const json = JSON.stringify({
+			name: 'test',
+			system_prompt: 'hi',
+			RAG_Top_k: 3,
+			RAG_collections: 'col1',
+			metadata: JSON.stringify({
+				prompt_processor: 'simple_augment',
+				connector: 'openai',
+				llm: 'gpt-4',
+				rag_processor: 'simple_rag'
+			})
+		});
+		const result = validateImportedAssistant(json, mockCapabilities, extractModelsFromConnectorData);
+		expect(result.hasErrors).toBe(false);
+	});
+});
