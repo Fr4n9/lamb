@@ -22,12 +22,12 @@ in the prompt template.
 ## Known TODOs and Future Improvements
 
 - [ ] **Vision path multi-context**: `simple_augment.py` vision code path only replaces `{context}`. Multi-context placeholders (`{context2}`-`{context5}`) are NOT supported in vision mode yet. Needs a refactor to extract shared context-replacement logic into a helper used by both vision and text-only paths.
-- [ ] **Per-tool RAG_Top_k**: Currently all tools share the top-level `RAG_Top_k`. Each tool in `tools[]` should eventually be able to override `RAG_Top_k` independently. Deferred to frontend phase.
+- [x] **Per-tool RAG_Top_k**: Each tool in `tools[]` can override `RAG_Top_k` independently via `TOOL_CONFIG_FIELDS` and `_create_tool_assistant`. Tool 0 uses top-level `assistant.RAG_Top_k`.
 - [ ] **Sources formatting for additional tools**: Only tool 0 (primary context) gets source citation formatting in the prompt. Additional tools inject raw context text without source links. This should be revisited when the frontend displays per-tool sources.
 - [ ] **`_create_tool_assistant` uses `model_copy()`**: This works because all current RAG processors only read `assistant.metadata` (JSON string) and `assistant.RAG_collections`. If a future RAG processor reads other Assistant fields in unexpected ways (e.g., `owner` for different orgs), this approach may need revisiting.
 - [ ] **Dynamic placeholder count**: Currently fixed at 5 placeholders (`{context}` through `{context5}`). If educators need more, switch to scanning the `prompt_template` for `{contextN}` patterns dynamically.
 - [ ] **Frontend static multitool UI**: The entire frontend for configuring multiple tools per assistant (adding/removing tools, selecting RAG processor per tool, assigning KBs per tool, inserting `{contextN}` placeholder buttons) is not yet built. This backend work prepares the data model and pipeline for it.
-- [ ] **Validation on create path**: `validate_multitools_config` is integrated into `validate_update_plugin_metadata` (update only). The create path (`prepare_assistant_body`) only applies `_ensure_metadata_defaults`. Since multitools will initially only be set via API/CLI, this is acceptable, but should be added when the frontend UI is built.
+- [x] **Validation on create path**: `validate_multitools_config` is integrated into both `validate_update_plugin_metadata` (update) and `prepare_assistant_body` (create). Max 4 additional tools enforced.
 
 ## Implementation Progress
 
@@ -86,6 +86,21 @@ in the prompt template.
 - Integrated into `validate_update_plugin_metadata` for assistant updates
 - 6 `TestValidateMultitoolsConfig` tests pass
 - Full backend suite: 58 tests pass
+
+**Deviations:** None
+
+**New TODOs discovered:** None
+
+### Task 5: Per-tool RAG_Top_k and create-path validation
+**Status:** Complete
+**Files:** `backend/lamb/completions/multitool_manager.py`, `backend/creator_interface/assistant_router.py`, `backend/tests/test_multitools.py`
+
+**What was done:**
+- Added `RAG_Top_k` to `TOOL_CONFIG_FIELDS`; `_create_tool_assistant` overrides assistant-level `RAG_Top_k` per tool
+- Added `MAX_ADDITIONAL_TOOLS = 4` validation in `validate_multitools_config`
+- Integrated `validate_multitools_config` into `prepare_assistant_body` (create path)
+- 6 new tests: 4 for per-tool top_k, 2 for max tools limit
+- All 25 multitools tests pass
 
 **Deviations:** None
 

@@ -377,6 +377,9 @@ def validate_update_plugin_metadata(
     return normalized_metadata, None
 
 
+MAX_ADDITIONAL_TOOLS = 4
+
+
 def validate_multitools_config(metadata_dict: Dict[str, Any]) -> Optional[str]:
     """
     Validate the multitools configuration in assistant metadata.
@@ -391,6 +394,9 @@ def validate_multitools_config(metadata_dict: Dict[str, Any]) -> Optional[str]:
 
     if not isinstance(tools, list):
         return "multitools 'tools' field must be an array"
+
+    if len(tools) > MAX_ADDITIONAL_TOOLS:
+        return f"Maximum {MAX_ADDITIONAL_TOOLS} additional tools allowed (got {len(tools)})"
 
     for idx, tool in enumerate(tools):
         if not isinstance(tool, dict):
@@ -457,16 +463,33 @@ def prepare_assistant_body(
             # Fallback: create prefixed name (for backward compatibility)
             prefixed_name = f"{creator_user['id']}_{original_name}"
 
+        # Handle metadata as source of truth, copy to api_callback for backward compatibility
+        # Ensure essential defaults (prompt_processor) are set
+        metadata_with_defaults = _ensure_metadata_defaults(
+            original_body.get("metadata", original_body.get("api_callback", ""))
+        )
+        if isinstance(metadata_with_defaults, dict):
+            metadata_dict = metadata_with_defaults
+            metadata_json = json.dumps(metadata_dict)
+        else:
+            metadata_json = metadata_with_defaults
+            try:
+                metadata_dict = json.loads(metadata_json)
+            except (json.JSONDecodeError, TypeError):
+                metadata_dict = {}
+
+        multitools_error = validate_multitools_config(metadata_dict)
+        if multitools_error:
+            return None, multitools_error
+
         # Build the body according to Assistant class structure
         new_body = {
             "name": prefixed_name,  # Use prefixed name
             "description": original_body.get("description", ""),
             # Use email from creator user object
             "owner": creator_user['email'],
-            # Handle metadata as source of truth, copy to api_callback for backward compatibility
-            # Ensure essential defaults (prompt_processor) are set
-            "metadata": _ensure_metadata_defaults(original_body.get("metadata", original_body.get("api_callback", ""))),
-            "api_callback": _ensure_metadata_defaults(original_body.get("metadata", original_body.get("api_callback", ""))),
+            "metadata": metadata_json,
+            "api_callback": metadata_json,
             # Check for system_prompt first, then instructions as fallback
             "system_prompt": original_body.get("system_prompt", original_body.get("instructions", "")),
             "prompt_template": original_body.get("prompt_template", ""),

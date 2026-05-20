@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 from lamb.lamb_classes import Assistant
-from lamb.completions.multitool_manager import get_all_tools_config, get_all_rag_contexts
+from lamb.completions.multitool_manager import (
+    _create_tool_assistant,
+    get_all_tools_config,
+    get_all_rag_contexts,
+)
 from lamb.completions.pps.simple_augment import prompt_processor
 from creator_interface.assistant_router import validate_multitools_config
 
@@ -335,6 +339,80 @@ class TestMultiContextPrompt:
         assert "{context2}" not in content
 
 
+class TestPerToolTopK:
+    def test_tool_0_uses_assistant_level_top_k(self):
+        assistant = _make_assistant(
+            metadata_dict={
+                "rag_processor": "simple_rag",
+                "connector": "openai",
+                "llm": "gpt-4",
+                "prompt_processor": "simple_augment",
+            },
+            rag_collections="col1",
+            rag_top_k=5,
+        )
+        tools = get_all_tools_config(assistant)
+        assert len(tools) == 1
+        assert "RAG_Top_k" not in tools[0]
+
+    def test_additional_tool_has_own_top_k(self):
+        assistant = _make_assistant(
+            metadata_dict={
+                "rag_processor": "simple_rag",
+                "connector": "openai",
+                "llm": "gpt-4",
+                "prompt_processor": "simple_augment",
+                "multitools": True,
+                "tools": [
+                    {"rag_processor": "context_aware_rag", "RAG_collections": "col2", "RAG_Top_k": 7},
+                ],
+            },
+            rag_collections="col1",
+            rag_top_k=3,
+        )
+        tools = get_all_tools_config(assistant)
+        assert len(tools) == 2
+        assert tools[1]["RAG_Top_k"] == 7
+
+    def test_additional_tool_defaults_top_k_when_missing(self):
+        assistant = _make_assistant(
+            metadata_dict={
+                "rag_processor": "simple_rag",
+                "connector": "openai",
+                "llm": "gpt-4",
+                "prompt_processor": "simple_augment",
+                "multitools": True,
+                "tools": [
+                    {"rag_processor": "context_aware_rag", "RAG_collections": "col2"},
+                ],
+            },
+            rag_collections="col1",
+            rag_top_k=3,
+        )
+        tools = get_all_tools_config(assistant)
+        assert "RAG_Top_k" not in tools[1]
+
+    def test_create_tool_assistant_overrides_top_k(self):
+        assistant = _make_assistant(
+            metadata_dict={
+                "rag_processor": "simple_rag",
+                "connector": "openai",
+                "llm": "gpt-4",
+                "prompt_processor": "simple_augment",
+            },
+            rag_collections="col1",
+            rag_top_k=3,
+        )
+        tool_config = {
+            "context_key": "context2",
+            "rag_processor": "context_aware_rag",
+            "RAG_collections": "col2",
+            "RAG_Top_k": 7,
+        }
+        tool_assistant = _create_tool_assistant(assistant, tool_config)
+        assert tool_assistant.RAG_Top_k == 7
+
+
 class TestValidateMultitoolsConfig:
     def test_valid_tools_array(self):
         metadata = {
@@ -375,3 +453,28 @@ class TestValidateMultitoolsConfig:
     def test_no_multitools_key_skips(self):
         metadata = {"rag_processor": "simple_rag"}
         assert validate_multitools_config(metadata) is None
+
+
+class TestValidateMultitoolsConfigExtended:
+    def test_max_4_tools_in_array(self):
+        metadata = {
+            "multitools": True,
+            "tools": [
+                {"rag_processor": "simple_rag", "RAG_collections": f"col{i}"}
+                for i in range(5)
+            ],
+        }
+        error = validate_multitools_config(metadata)
+        assert error is not None
+        assert "maximum" in error.lower() or "4" in error
+
+    def test_exactly_4_tools_is_valid(self):
+        metadata = {
+            "multitools": True,
+            "tools": [
+                {"rag_processor": "simple_rag", "RAG_collections": f"col{i}"}
+                for i in range(4)
+            ],
+        }
+        error = validate_multitools_config(metadata)
+        assert error is None

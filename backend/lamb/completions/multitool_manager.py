@@ -23,6 +23,7 @@ logger = get_logger(__name__, component="MULTITOOL")
 TOOL_CONFIG_FIELDS = (
     "rag_processor",
     "RAG_collections",
+    "RAG_Top_k",
     "rubric_id",
     "rubric_format",
     "file_path",
@@ -107,6 +108,8 @@ def _create_tool_assistant(original: Assistant, tool_config: Dict[str, Any]) -> 
     overrides: Dict[str, Any] = {"api_callback": json.dumps(metadata)}
     if "RAG_collections" in tool_config:
         overrides["RAG_collections"] = tool_config["RAG_collections"]
+    if "RAG_Top_k" in tool_config:
+        overrides["RAG_Top_k"] = tool_config["RAG_Top_k"]
 
     return original.model_copy(update=overrides)
 
