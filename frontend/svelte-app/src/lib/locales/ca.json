@@ -203,6 +203,19 @@
         "error": "Error en carregar arxius:",
         "noneFound": "No s'han trobat arxius. Si us plau puja un arxiu.",
         "required": "Si us plau selecciona un arxiu"
+      },
+      "contextSources": {
+        "title": "Fonts de Context",
+        "addTool": "Afegir Font de Context",
+        "maxReached": "Màxim de {max} fonts de context assolit",
+        "tab": "Context {number}",
+        "deleteTool": "Eliminar",
+        "deleteConfirm": "Eliminar Font de Context {number}? Els marcadors a la plantilla del prompt s'actualitzaran automàticament.",
+        "deleteCancel": "Cancel·lar",
+        "deleteConfirmButton": "Eliminar",
+        "unconfiguredError": "La Font de Context {number} no està completament configurada",
+        "missingPlaceholderWarning": "La Font de Context {number} no té {placeholder} a la plantilla del prompt",
+        "editModeNoChanges": "No es poden afegir o eliminar fonts de context en mode edició"
       }
     },
     "noDescription": "Sense descripció",

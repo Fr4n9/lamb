@@ -353,6 +353,19 @@
         "error": "Errorea fitxategiak kargatzean:",
         "noneFound": "Ez da fitxategirik aurkitu. Mesedez igo fitxategi bat.",
         "required": "Mesedez hautatu fitxategi bat"
+      },
+      "contextSources": {
+        "title": "Testuinguru Iturriak",
+        "addTool": "Gehitu Testuinguru Iturria",
+        "maxReached": "Gehienez {max} testuinguru iturri",
+        "tab": "Testuingurua {number}",
+        "deleteTool": "Ezabatu",
+        "deleteConfirm": "Ezabatu {number}. Testuinguru Iturria? Prompt txantiloiko markatzaileak automatikoki eguneratuko dira.",
+        "deleteCancel": "Utzi",
+        "deleteConfirmButton": "Ezabatu",
+        "unconfiguredError": "{number}. Testuinguru Iturria ez dago guztiz konfiguratuta",
+        "missingPlaceholderWarning": "{number}. Testuinguru Iturriak ez du {placeholder} prompt txantiloian",
+        "editModeNoChanges": "Ezin dira testuinguru iturriak gehitu edo ezabatu edizio moduan"
       }
     }
   },

@@ -203,6 +203,19 @@
         "error": "Error al cargar archivos:",
         "noneFound": "No se encontraron archivos. Por favor sube un archivo.",
         "required": "Por favor selecciona un archivo"
+      },
+      "contextSources": {
+        "title": "Fuentes de Contexto",
+        "addTool": "Añadir Fuente de Contexto",
+        "maxReached": "Máximo de {max} fuentes de contexto alcanzado",
+        "tab": "Contexto {number}",
+        "deleteTool": "Eliminar",
+        "deleteConfirm": "¿Eliminar Fuente de Contexto {number}? Los marcadores en la plantilla del prompt se actualizarán automáticamente.",
+        "deleteCancel": "Cancelar",
+        "deleteConfirmButton": "Eliminar",
+        "unconfiguredError": "La Fuente de Contexto {number} no está completamente configurada",
+        "missingPlaceholderWarning": "La Fuente de Contexto {number} no tiene {placeholder} en la plantilla del prompt",
+        "editModeNoChanges": "No se pueden añadir o eliminar fuentes de contexto en modo edición"
       }
     },
     "noDescription": "Sin descripción",

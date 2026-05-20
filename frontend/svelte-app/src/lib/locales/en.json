@@ -342,6 +342,19 @@
         "error": "Error loading files:",
         "noneFound": "No files found. Please upload a file.",
         "required": "Please select a file"
+      },
+      "contextSources": {
+        "title": "Context Sources",
+        "addTool": "Add Context Source",
+        "maxReached": "Maximum of {max} context sources reached",
+        "tab": "Context {number}",
+        "deleteTool": "Remove",
+        "deleteConfirm": "Remove Context Source {number}? Placeholders in the prompt template will be updated automatically.",
+        "deleteCancel": "Cancel",
+        "deleteConfirmButton": "Remove",
+        "unconfiguredError": "Context Source {number} is not fully configured",
+        "missingPlaceholderWarning": "Context Source {number} has no {placeholder} in the prompt template",
+        "editModeNoChanges": "Adding or removing context sources is not available in edit mode"
       }
     }
   },
