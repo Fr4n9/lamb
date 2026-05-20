@@ -8,15 +8,21 @@
 		activeToolIndex = $bindable(0),
 		formState = 'create',
 		onAddTool,
-		onRemoveTool
+		onRemoveTool,
+		onTabChange
 	} = $props();
 
 	let confirmingDelete = $state(-1);
 	let canModifyTools = $derived(formState === 'create');
 
 	function handleTabClick(index) {
-		activeToolIndex = index;
 		confirmingDelete = -1;
+		if (index === activeToolIndex) return;
+		if (onTabChange) {
+			onTabChange(index);
+			return;
+		}
+		activeToolIndex = index;
 	}
 
 	function handleAddClick() {

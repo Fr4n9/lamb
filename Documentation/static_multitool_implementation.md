@@ -27,6 +27,7 @@ up to 5 context sources.
 - [ ] **`_create_tool_assistant` uses `model_copy()`**: This works because all current RAG processors only read `assistant.metadata` (JSON string) and `assistant.RAG_collections`. If a future RAG processor reads other Assistant fields in unexpected ways (e.g., `owner` for different orgs), this approach may need revisiting.
 - [ ] **Dynamic placeholder count**: Currently fixed at 5 placeholders (`{context}` through `{context5}`). To extend to N tools: scan `prompt_template` for `{contextN}` patterns dynamically, remove `MAX_TOOLS` constant, adjust backend placeholder loop in `simple_augment.py`.
 - [x] **Frontend static multitool UI**: Tabbed Context Sources UI in AssistantForm with colored placeholder buttons, per-tool RAG/Top K/KB/rubric config, import JSON support, and validation.
+- [x] **Context Sources tab position and tab-switch sync**: Tabs render below Vision/Image Generation (global capabilities); tab changes use explicit `onTabChange` callback instead of `$effect` on `activeToolIndex`.
 - [ ] **Edit mode add/remove tools**: Currently edit mode shows existing tools but cannot add/remove tabs. Enable when product requirements allow changing tool count after creation.
 - [ ] **Blocking validation modal**: Unconfigured tools show inline blocking error on save. Future: upgrade to modal with list of issues.
 - [x] **Validation on create path**: `validate_multitools_config` is integrated into both `validate_update_plugin_metadata` (update) and `prepare_assistant_body` (create). Max 4 additional tools enforced.
@@ -121,6 +122,23 @@ up to 5 context sources.
 ### Task 8: ContextSourceTabs component + ConfigurationPanel integration
 **Status:** Complete
 **Files:** `components/ContextSourceTabs.svelte`, `components/ConfigurationPanel.svelte`
+
+**Layout (ConfigurationPanel):** LLM → Vision → Image Generation → Context Sources tabs → RAG processor → RagOptionsPanel. Vision and image generation remain assistant-global; per-tool config starts at the tabs.
+
+### Task 11: Fix Context Sources tab position and tab-switch sync
+**Status:** Complete
+**Commit:** `37ad5394`
+**Files:** `AssistantForm.svelte`, `components/ConfigurationPanel.svelte`, `components/ContextSourceTabs.svelte`
+
+**What was done:**
+- Moved `ContextSourceTabs` below Vision and Image Generation toggles (above RAG processor)
+- Replaced `$effect` + `previousActiveToolIndex` tab sync with explicit `onTabChange` callback chain: `ContextSourceTabs` → `ConfigurationPanel` → `AssistantForm.handleTabChange`
+- On tab click: save leaving tool (`syncFormToToolAtIndex`), set `activeToolIndex`, load new tool (`syncFormFromActiveTool`) so RAG processor, Top K, KBs, file, and rubric fields update per context
+- 97 assistant component unit tests pass
+
+**Deviations:** None
+
+**New TODOs discovered:** None
 
 ### Task 9: AssistantForm orchestrator + prompt placeholder buttons
 **Status:** Complete

@@ -21,6 +21,7 @@
 		activeToolIndex = $bindable(0),
 		onAddTool,
 		onRemoveTool,
+		onTabChange,
 		selectedPromptProcessor = $bindable(''),
 		selectedConnector = $bindable(''),
 		selectedLlm = $bindable(''),
@@ -143,14 +144,6 @@
 		</select>
 	</div>
 
-	<ContextSourceTabs
-		{tools}
-		bind:activeToolIndex
-		{formState}
-		onAddTool={onAddTool}
-		onRemoveTool={onRemoveTool}
-	/>
-
 	{#if selectedConnector === 'openai' || selectedConnector === 'banana_img' || visionEnabled}
 		<div class="mb-3">
 			<label class="inline-flex items-start cursor-pointer">
@@ -197,6 +190,15 @@
 			</label>
 		</div>
 	{/if}
+
+	<ContextSourceTabs
+		{tools}
+		bind:activeToolIndex
+		{formState}
+		onAddTool={onAddTool}
+		onRemoveTool={onRemoveTool}
+		onTabChange={onTabChange}
+	/>
 
 	<div>
 		<label for="rag-processor" class="block text-sm font-medium text-gray-700">{$_('assistants.form.ragProcessor.label')}</label>

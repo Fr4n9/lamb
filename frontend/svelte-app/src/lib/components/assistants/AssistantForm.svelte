@@ -62,8 +62,6 @@
 		form.tools.length > 1 ? getMissingPlaceholders(form.tools, form.prompt_template) : []
 	);
 
-	let previousActiveToolIndex = $state(0);
-
 	// --- Fetcher wrappers (bind state + isMounted guard) ---
 	async function doFetchKnowledgeBases() {
 		if (!isMounted) return;
@@ -113,6 +111,13 @@
 		}
 		syncFormFromActiveTool(form);
 		onFieldChange();
+	}
+
+	function handleTabChange(newIndex) {
+		if (newIndex === form.activeToolIndex) return;
+		syncFormToToolAtIndex(form, form.activeToolIndex);
+		form.activeToolIndex = newIndex;
+		syncFormFromActiveTool(form);
 	}
 
 	// --- Store Integration and Initialization ---
@@ -166,16 +171,6 @@
 		form.selectedRubricId;
 		form.rubricFormat;
 		syncActiveToolFromForm(form);
-	});
-
-	// Sync form fields when active tool tab changes
-	$effect(() => {
-		const currentIndex = form.activeToolIndex;
-		if (currentIndex !== previousActiveToolIndex) {
-			syncFormToToolAtIndex(form, previousActiveToolIndex);
-			syncFormFromActiveTool(form);
-			previousActiveToolIndex = currentIndex;
-		}
 	});
 
 	// Trigger config load if not yet loaded
@@ -516,6 +511,7 @@
 					bind:activeToolIndex={form.activeToolIndex}
 					onAddTool={handleAddTool}
 					onRemoveTool={handleRemoveTool}
+					onTabChange={handleTabChange}
 					bind:selectedPromptProcessor={form.selectedPromptProcessor}
 					bind:selectedConnector={form.selectedConnector}
 					bind:selectedLlm={form.selectedLlm}
