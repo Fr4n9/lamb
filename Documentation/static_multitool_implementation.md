@@ -21,7 +21,7 @@ up to 5 context sources.
 
 ## Known TODOs and Future Improvements
 
-- [ ] **Vision path multi-context**: `simple_augment.py` vision code path only replaces `{context}`. Multi-context placeholders (`{context2}`-`{context5}`) are NOT supported in vision mode yet. Needs a refactor to extract shared context-replacement logic into a helper used by both vision and text-only paths.
+- [x] **Vision path multi-context**: Extracted shared placeholder logic into helpers (`_extract_user_input_text`, `_apply_template_with_rag_contexts`, `_build_multimodal_content`). Vision path now supports `{context}` through `{context5}` like text-only, while preserving images in multimodal output.
 - [x] **Per-tool RAG_Top_k**: Each tool in `tools[]` can override `RAG_Top_k` independently via `TOOL_CONFIG_FIELDS` and `_create_tool_assistant`. Tool 0 uses top-level `assistant.RAG_Top_k`.
 - [ ] **Sources formatting for additional tools**: Only tool 0 (primary context) gets source citation formatting in the prompt. Additional tools inject raw context text without source links. This should be revisited when the frontend displays per-tool sources.
 - [ ] **`_create_tool_assistant` uses `model_copy()`**: This works because all current RAG processors only read `assistant.metadata` (JSON string) and `assistant.RAG_collections`. If a future RAG processor reads other Assistant fields in unexpected ways (e.g., `owner` for different orgs), this approach may need revisiting.
@@ -160,3 +160,15 @@ up to 5 context sources.
 **Deviations:** Edit-mode add/remove tools deferred per product decision
 
 **New TODOs discovered:** Edit-mode add/remove tools; blocking validation modal
+
+### Task 12: Vision path multi-context in simple_augment
+**Status:** Complete
+**Commit:** `e0a2ce54`
+**Files:** `backend/lamb/completions/pps/simple_augment.py`, `backend/tests/test_multitools.py`
+
+**What was done:**
+- Extracted `_extract_user_input_text`, `_apply_template_with_rag_contexts`, `_build_multimodal_content`, and `_format_sources` helpers
+- Unified RAG placeholder replacement for vision and text-only paths
+- Vision path preserves images while replacing `{context}` through `{context5}`
+- Added 4 `TestVisionMultiContextPrompt` tests
+- All 29 multitools tests pass
