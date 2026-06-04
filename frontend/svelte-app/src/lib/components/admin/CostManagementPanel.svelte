@@ -14,6 +14,7 @@
 	} from '$lib/utils/costManagementHelpers';
 	import AssistantUsageBreakdown from './AssistantUsageBreakdown.svelte';
 	import OrganizationFilterModal from './OrganizationFilterModal.svelte';
+	import ModelPricingModal from './ModelPricingModal.svelte';
 	import { fetchCostSummaryByOrg } from '$lib/services/adminService';
 	import { toast } from '$lib/stores/toast';
 
@@ -33,6 +34,7 @@
 	}
 
 	let showOrgFilterModal = $state(false);
+	let showPricingModal = $state(false);
 	let orgFilterActive = $state(false);
 	let orgFilterName = $state('');
 	let orgFilterId = $state(null);
@@ -260,6 +262,12 @@
 		</svg>
 		{localeLoaded ? $_('admin.costManagement.retry', { default: 'Retry' }) : 'Refresh'}
 	</button>
+	<button
+		onclick={() => showPricingModal = true}
+		class="ml-2 inline-flex items-center gap-2 rounded border border-gray-300 px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+	>
+		{localeLoaded ? $_('admin.costManagement.pricing.manageButton', { default: 'Manage model pricing' }) : 'Manage model pricing'}
+	</button>
 </div>
 
 {#if isLoadingCostData}
@@ -464,6 +472,11 @@
 <!-- Organization Filter Modal -->
 {#if showOrgFilterModal}
 	<OrganizationFilterModal onApply={handleOrgApply} onClose={() => showOrgFilterModal = false} />
+{/if}
+
+<!-- Model Pricing Modal -->
+{#if showPricingModal}
+	<ModelPricingModal onClose={() => showPricingModal = false} />
 {/if}
 
 <!-- Quota Edit Modal -->
