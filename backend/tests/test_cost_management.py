@@ -196,3 +196,59 @@ class TestLogTokenUsageCacheAware:
             assistant_id=99999, org_id=1, model_name="x",
             provider="x", usage_data={}
         )
+
+
+# Shared fixture for admin API tests — patches security + verify_admin_access
+@pytest.fixture
+def admin_client(monkeypatch):
+    """TestClient with admin auth bypassed for organization_router endpoints.
+
+    Routes use dependencies=[Depends(security)] + manual verify_admin_access(request),
+    NOT get_auth_context. We must patch both.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from creator_interface.organization_router import router
+    from creator_interface import organization_router as org_router
+
+    async def _noop_verify(request):
+        return "test-token"
+
+    monkeypatch.setattr(org_router, "verify_admin_access", _noop_verify)
+
+    app = FastAPI()
+    app.include_router(router, prefix="/admin")
+    app.dependency_overrides[org_router.security] = lambda: {"credentials": "test-token"}
+
+    return TestClient(app)
+
+
+class TestCostOverviewAPI:
+    def test_cost_overview_includes_summary(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+
+        mock_rows = [
+            {
+                "id": 1, "name": "Bot", "owner": "a@b.com",
+                "organization_name": "TestOrg", "organization_id": 1,
+                "api_callback": '{"llm": "gpt-4o", "connector": "openai"}',
+                "prompt_tokens": 1000, "completion_tokens": 500, "total_tokens": 1500,
+                "cost_usd": 0.01, "thresholds_config": None,
+                "cached_prompt_tokens": 800, "non_cached_prompt_tokens": 200,
+            }
+        ]
+        mock_db = MagicMock()
+        mock_db.get_all_assistants_with_usage.return_value = mock_rows
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.get("/admin/cost-overview", headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "summary" in data
+        assert "assistants" in data
+        assert data["assistants"][0]["organization_id"] == 1
+        assert data["assistants"][0]["cached_prompt_tokens"] == 800
+        assert data["assistants"][0]["non_cached_prompt_tokens"] == 200
+        assert "cache_hit_percentage" in data["assistants"][0]
+        assert data["summary"]["total_cost_usd"] == 0.01
+        assert data["summary"]["cached_prompt_tokens"] == 800

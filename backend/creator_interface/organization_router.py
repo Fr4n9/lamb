@@ -4742,6 +4742,13 @@ async def get_cost_overview(request: Request):
         rows = db_manager.get_all_assistants_with_usage()
 
         result = []
+        total_cost = 0.0
+        total_tokens = 0
+        total_prompt = 0
+        total_completion = 0
+        total_cached = 0
+        quota_exceeded_count = 0
+
         for row in rows:
             # Parse quota fields from api_callback JSON
             raw_meta = row.get("api_callback") or "{}"
@@ -4772,6 +4779,8 @@ async def get_cost_overview(request: Request):
                 and cost_limit_usd is not None
                 and cost_usd >= cost_limit_usd
             )
+            if quota_exceeded:
+                quota_exceeded_count += 1
 
             # Determine model/provider from metadata connector config
             model_name = metadata.get("llm") or ""
@@ -4791,16 +4800,31 @@ async def get_cost_overview(request: Request):
             if not alert_thresholds and isinstance(quota_obj, dict):
                 alert_thresholds = quota_obj.get("alert_thresholds", [])
 
+            cached = row["cached_prompt_tokens"]
+            non_cached = row["non_cached_prompt_tokens"]
+            prompt = row["prompt_tokens"]
+            cache_pct = round((cached / prompt * 100), 2) if prompt > 0 else 0.0
+
+            total_cost += cost_usd
+            total_tokens += row["total_tokens"]
+            total_prompt += prompt
+            total_completion += row["completion_tokens"]
+            total_cached += cached
+
             result.append({
                 "id": row["id"],
                 "name": row["name"],
                 "owner": row["owner"],
                 "organization_name": row["organization_name"],
+                "organization_id": row["organization_id"],
                 "model_name": model_name,
                 "provider": connector,
-                "prompt_tokens": row["prompt_tokens"],
+                "prompt_tokens": prompt,
                 "completion_tokens": row["completion_tokens"],
                 "total_tokens": row["total_tokens"],
+                "cached_prompt_tokens": cached,
+                "non_cached_prompt_tokens": non_cached,
+                "cache_hit_percentage": cache_pct,
                 "cost_usd": round(cost_usd, 6),
                 "quota_enabled": quota_enabled,
                 "cost_limit_usd": cost_limit_usd,
@@ -4808,7 +4832,17 @@ async def get_cost_overview(request: Request):
                 "quota_exceeded": quota_exceeded,
             })
 
-        return {"assistants": result, "count": len(result)}
+        summary = {
+            "total_cost_usd": round(total_cost, 6),
+            "total_tokens": total_tokens,
+            "prompt_tokens": total_prompt,
+            "completion_tokens": total_completion,
+            "cached_prompt_tokens": total_cached,
+            "assistant_count": len(result),
+            "quota_exceeded_count": quota_exceeded_count,
+        }
+
+        return {"summary": summary, "assistants": result, "count": len(result)}
     except HTTPException:
         raise
     except Exception as e:

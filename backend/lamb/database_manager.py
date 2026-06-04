@@ -4645,8 +4645,8 @@ class LambDatabaseManager:
     def get_all_assistants_with_usage(self) -> list:
         """Return all assistants with aggregate token usage and estimated cost (admin view).
 
-        Each row contains: id, name, owner, organization_name, api_callback,
-        prompt_tokens, completion_tokens, total_tokens, cost_usd.
+        Each row contains: id, name, owner, organization_name, organization_id, api_callback,
+        prompt_tokens, completion_tokens, total_tokens, cost_usd, cached_prompt_tokens, non_cached_prompt_tokens.
         Quota fields are derived from api_callback in the calling layer.
         """
         query = f"""
@@ -4655,12 +4655,15 @@ class LambDatabaseManager:
                 a.name,
                 a.owner,
                 o.name  AS organization_name,
+                a.organization_id,
                 a.api_callback,
                 COALESCE(ut.prompt_tokens_total, 0) AS prompt_tokens,
                 COALESCE(ut.completion_tokens_total, 0) AS completion_tokens,
                 COALESCE(ut.total_tokens_total, 0) AS total_tokens,
                 COALESCE(ut.cost_usd_total, 0.0) AS cost_usd,
-                qa.thresholds_config
+                qa.thresholds_config,
+                COALESCE(ut.cached_prompt_tokens_total, 0) AS cached_prompt_tokens,
+                COALESCE(ut.non_cached_prompt_tokens_total, 0) AS non_cached_prompt_tokens
             FROM {self.table_prefix}assistants a
             LEFT JOIN {self.table_prefix}organizations o   ON a.organization_id = o.id
             LEFT JOIN {self.table_prefix}assistant_usage_totals ut ON ut.assistant_id = a.id
@@ -4682,12 +4685,15 @@ class LambDatabaseManager:
                         "name": row[1],
                         "owner": row[2],
                         "organization_name": row[3] or "",
-                        "api_callback": row[4],
-                        "prompt_tokens": int(row[5] or 0),
-                        "completion_tokens": int(row[6] or 0),
-                        "total_tokens": int(row[7] or 0),
-                        "cost_usd": float(row[8] or 0.0),
-                        "thresholds_config": row[9]
+                        "organization_id": row[4],
+                        "api_callback": row[5],
+                        "prompt_tokens": int(row[6] or 0),
+                        "completion_tokens": int(row[7] or 0),
+                        "total_tokens": int(row[8] or 0),
+                        "cost_usd": float(row[9] or 0.0),
+                        "thresholds_config": row[10],
+                        "cached_prompt_tokens": int(row[11] or 0),
+                        "non_cached_prompt_tokens": int(row[12] or 0),
                     })
                 return results
             finally:
