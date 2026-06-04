@@ -4833,6 +4833,118 @@ class LambDatabaseManager:
             "quota_exceeded_count": 0,
         }
 
+    def list_model_pricing(self) -> list:
+        query = f"""
+            SELECT id, provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at
+            FROM {self.table_prefix}model_pricing
+            ORDER BY provider, model_name
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return []
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query)
+                return [
+                    {
+                        "id": r[0], "provider": r[1], "model_name": r[2],
+                        "input_per_1m": float(r[3] or 0),
+                        "cached_input_per_1m": float(r[4]) if r[4] is not None else None,
+                        "output_per_1m": float(r[5] or 0),
+                        "updated_at": r[6],
+                    }
+                    for r in cursor.fetchall()
+                ]
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error listing model pricing: {e}")
+            return []
+
+    def create_model_pricing(self, provider: str, model_name: str, input_per_1m: float,
+                              cached_input_per_1m: float | None, output_per_1m: float) -> dict | None:
+        now = int(time.time())
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return None
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"""INSERT INTO {self.table_prefix}model_pricing
+                        (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)""",
+                    (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, now),
+                )
+                conn.commit()
+                new_id = cursor.lastrowid
+                return {
+                    "id": new_id, "provider": provider, "model_name": model_name,
+                    "input_per_1m": input_per_1m, "cached_input_per_1m": cached_input_per_1m,
+                    "output_per_1m": output_per_1m, "updated_at": now,
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error creating model pricing: {e}")
+            return None
+
+    def update_model_pricing(self, pricing_id: int, **fields) -> dict | None:
+        now = int(time.time())
+        allowed = {"provider", "model_name", "input_per_1m", "cached_input_per_1m", "output_per_1m"}
+        updates = {k: v for k, v in fields.items() if k in allowed}
+        if not updates:
+            return None
+        sets = ", ".join(f"{k} = ?" for k in updates)
+        vals = list(updates.values()) + [now, pricing_id]
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return None
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"UPDATE {self.table_prefix}model_pricing SET {sets}, updated_at = ? WHERE id = ?",
+                    vals,
+                )
+                conn.commit()
+                if cursor.rowcount == 0:
+                    return None
+                cursor.execute(
+                    f"SELECT id, provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at FROM {self.table_prefix}model_pricing WHERE id = ?",
+                    (pricing_id,),
+                )
+                r = cursor.fetchone()
+                return {
+                    "id": r[0], "provider": r[1], "model_name": r[2],
+                    "input_per_1m": float(r[3] or 0),
+                    "cached_input_per_1m": float(r[4]) if r[4] is not None else None,
+                    "output_per_1m": float(r[5] or 0),
+                    "updated_at": r[6],
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error updating model pricing: {e}")
+            return None
+
+    def delete_model_pricing(self, pricing_id: int) -> bool:
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return False
+            try:
+                cursor = conn.cursor()
+                cursor.execute(f"DELETE FROM {self.table_prefix}model_pricing WHERE id = ?", (pricing_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error deleting model pricing: {e}")
+            return False
+
     def get_assistant_by_id(self, assistant_id: int) -> Optional[Assistant]:
         connection = self.get_connection()
         if not connection:

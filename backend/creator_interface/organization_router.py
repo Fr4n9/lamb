@@ -4948,6 +4948,60 @@ async def search_organizations_endpoint(name: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class ModelPricingCreate(BaseModel):
+    provider: str
+    model_name: str
+    input_per_1m: float
+    cached_input_per_1m: Optional[float] = None
+    output_per_1m: float
+
+
+class ModelPricingUpdate(BaseModel):
+    provider: Optional[str] = None
+    model_name: Optional[str] = None
+    input_per_1m: Optional[float] = None
+    cached_input_per_1m: Optional[float] = None
+    output_per_1m: Optional[float] = None
+
+
+@router.get("/model-pricing", tags=["Organization Management"], dependencies=[Depends(security)])
+async def list_model_pricing(request: Request):
+    await verify_admin_access(request)
+    pricing = db_manager.list_model_pricing()
+    return {"pricing": pricing}
+
+
+@router.post("/model-pricing", tags=["Organization Management"], dependencies=[Depends(security)])
+async def create_model_pricing(body: ModelPricingCreate, request: Request):
+    await verify_admin_access(request)
+    result = db_manager.create_model_pricing(
+        provider=body.provider, model_name=body.model_name,
+        input_per_1m=body.input_per_1m, cached_input_per_1m=body.cached_input_per_1m,
+        output_per_1m=body.output_per_1m,
+    )
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to create pricing (duplicate?)")
+    return result
+
+
+@router.put("/model-pricing/{pricing_id}", tags=["Organization Management"], dependencies=[Depends(security)])
+async def update_model_pricing_endpoint(pricing_id: int, body: ModelPricingUpdate, request: Request):
+    await verify_admin_access(request)
+    result = db_manager.update_model_pricing(pricing_id, **body.model_dump(exclude_none=True))
+    if not result:
+        raise HTTPException(status_code=404, detail="Pricing row not found")
+    return result
+
+
+@router.delete("/model-pricing/{pricing_id}", tags=["Organization Management"], dependencies=[Depends(security)])
+async def delete_model_pricing_route(pricing_id: int, request: Request):
+    await verify_admin_access(request)
+    ok = db_manager.delete_model_pricing(pricing_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Pricing row not found")
+    return {"deleted": True}
+
+
 class QuotaUpdate(BaseModel):
     enabled: bool = Field(..., description="Whether quota enforcement is active")
     cost_limit_usd: Optional[float] = Field(None, description="Spending cap in USD (omit or null for no limit)")

@@ -321,3 +321,61 @@ class TestOrgSearchAPI:
         data = resp.json()
         assert data["summary"]["total_cost_usd"] == 0.5
         assert data["summary"]["assistant_count"] == 2
+
+
+class TestModelPricingCRUD:
+    def test_list_pricing(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+        mock_db = MagicMock()
+        mock_db.list_model_pricing.return_value = [
+            {"id": 1, "provider": "openai", "model_name": "gpt-4o",
+             "input_per_1m": 2.5, "cached_input_per_1m": 1.25,
+             "output_per_1m": 10.0, "updated_at": 1000}
+        ]
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.get("/admin/model-pricing", headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
+        assert len(resp.json()["pricing"]) == 1
+
+    def test_create_pricing(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+        mock_db = MagicMock()
+        mock_db.create_model_pricing.return_value = {
+            "id": 10, "provider": "openai", "model_name": "gpt-5",
+            "input_per_1m": 5.0, "cached_input_per_1m": 2.5,
+            "output_per_1m": 20.0, "updated_at": 2000
+        }
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.post("/admin/model-pricing", json={
+            "provider": "openai", "model_name": "gpt-5",
+            "input_per_1m": 5.0, "cached_input_per_1m": 2.5, "output_per_1m": 20.0
+        }, headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
+        assert resp.json()["model_name"] == "gpt-5"
+
+    def test_update_pricing(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+        mock_db = MagicMock()
+        mock_db.update_model_pricing.return_value = {
+            "id": 1, "provider": "openai", "model_name": "gpt-4o",
+            "input_per_1m": 3.0, "cached_input_per_1m": 1.5,
+            "output_per_1m": 12.0, "updated_at": 3000
+        }
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.put("/admin/model-pricing/1", json={
+            "input_per_1m": 3.0, "cached_input_per_1m": 1.5, "output_per_1m": 12.0
+        }, headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
+        assert resp.json()["input_per_1m"] == 3.0
+
+    def test_delete_pricing(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+        mock_db = MagicMock()
+        mock_db.delete_model_pricing.return_value = True
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.delete("/admin/model-pricing/1", headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
