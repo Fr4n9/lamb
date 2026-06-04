@@ -706,6 +706,44 @@ async def create_organization_enhanced(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get(
+    "/organizations/search",
+    tags=["Organization Management"],
+    summary="Search organizations by name (Admin Only)",
+    dependencies=[Depends(security)],
+)
+async def search_organizations_endpoint(name: str, request: Request):
+    try:
+        await verify_admin_access(request)
+        if len(name) < 2:
+            return {"organizations": []}
+        orgs = db_manager.search_organizations(name)
+        return {"organizations": orgs}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching organizations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/cost-overview/summary",
+    tags=["Organization Management"],
+    summary="Organization-scoped cost summary (Admin Only)",
+    dependencies=[Depends(security)],
+)
+async def get_cost_summary_by_org(organization_id: int, request: Request):
+    try:
+        await verify_admin_access(request)
+        summary = db_manager.get_org_scoped_summary(organization_id)
+        return {"summary": summary}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching org summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Organization Member Role Management (System Admin Only) ---
 
 class UpdateMemberRole(BaseModel):
@@ -4887,6 +4925,26 @@ async def get_assistant_usage_by_model(assistant_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"Error fetching usage by model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/organizations/search",
+    tags=["Organization Management"],
+    summary="Search organizations by name (Admin Only)",
+    dependencies=[Depends(security)],
+)
+async def search_organizations_endpoint(name: str, request: Request):
+    try:
+        await verify_admin_access(request)
+        if len(name) < 2:
+            return {"organizations": []}
+        orgs = db_manager.search_organizations(name)
+        return {"organizations": orgs}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching organizations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -285,3 +285,39 @@ class TestUsageByModelAPI:
         assert len(data["breakdown"]) == 1
         assert data["breakdown"][0]["model_name"] == "gpt-4o"
         assert data["breakdown"][0]["pricing"]["cached_input_per_1m"] == 1.25
+
+
+class TestOrgSearchAPI:
+    def test_org_search_returns_matches(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+        mock_db = MagicMock()
+        mock_db.search_organizations.return_value = [
+            {"id": 3, "name": "PEPESITO", "slug": "pepesito"}
+        ]
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.get("/admin/organizations/search?name=pepe", headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["organizations"]) == 1
+        assert data["organizations"][0]["name"] == "PEPESITO"
+
+    def test_org_summary_scoped_to_org(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+        mock_db = MagicMock()
+        mock_db.get_org_scoped_summary.return_value = {
+            "total_cost_usd": 0.5,
+            "total_tokens": 1000,
+            "prompt_tokens": 600,
+            "completion_tokens": 400,
+            "cached_prompt_tokens": 300,
+            "assistant_count": 2,
+            "quota_exceeded_count": 0,
+        }
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.get("/admin/cost-overview/summary?organization_id=3", headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["summary"]["total_cost_usd"] == 0.5
+        assert data["summary"]["assistant_count"] == 2

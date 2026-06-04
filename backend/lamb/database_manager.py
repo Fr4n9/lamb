@@ -4764,6 +4764,75 @@ class LambDatabaseManager:
             logger.error(f"Error fetching usage by model for assistant {assistant_id}: {e}")
             return []
 
+    def search_organizations(self, name: str, limit: int = 20) -> list:
+        query = f"""
+            SELECT id, name, slug
+            FROM {self.table_prefix}organizations
+            WHERE LOWER(name) LIKE LOWER(?)
+            ORDER BY name
+            LIMIT ?
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return []
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query, (f"%{name}%", limit))
+                return [{"id": r[0], "name": r[1], "slug": r[2]} for r in cursor.fetchall()]
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error searching organizations: {e}")
+            return []
+
+    def get_org_scoped_summary(self, organization_id: int) -> dict:
+        query = f"""
+            SELECT
+                COALESCE(SUM(ut.cost_usd_total), 0.0),
+                COALESCE(SUM(ut.total_tokens_total), 0),
+                COALESCE(SUM(ut.prompt_tokens_total), 0),
+                COALESCE(SUM(ut.completion_tokens_total), 0),
+                COALESCE(SUM(ut.cached_prompt_tokens_total), 0),
+                COUNT(DISTINCT a.id)
+            FROM {self.table_prefix}assistants a
+            LEFT JOIN {self.table_prefix}assistant_usage_totals ut ON ut.assistant_id = a.id
+            WHERE a.organization_id = ?
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return self._empty_summary()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query, (organization_id,))
+                r = cursor.fetchone()
+                return {
+                    "total_cost_usd": round(float(r[0] or 0), 6),
+                    "total_tokens": int(r[1] or 0),
+                    "prompt_tokens": int(r[2] or 0),
+                    "completion_tokens": int(r[3] or 0),
+                    "cached_prompt_tokens": int(r[4] or 0),
+                    "assistant_count": int(r[5] or 0),
+                    "quota_exceeded_count": 0,
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error computing org summary: {e}")
+            return self._empty_summary()
+
+    def _empty_summary(self) -> dict:
+        return {
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cached_prompt_tokens": 0,
+            "assistant_count": 0,
+            "quota_exceeded_count": 0,
+        }
+
     def get_assistant_by_id(self, assistant_id: int) -> Optional[Assistant]:
         connection = self.get_connection()
         if not connection:
