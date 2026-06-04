@@ -63,20 +63,22 @@ describe('computeCostTotals', () => {
 			total_cost: 0,
 			total_tokens: 0,
 			prompt_tokens: 0,
-			completion_tokens: 0
+			completion_tokens: 0,
+			cached_prompt_tokens: 0
 		});
 	});
 
 	it('sums all cost and token fields', () => {
 		const data = [
-			{ cost_usd: 1.5, total_tokens: 1000, prompt_tokens: 600, completion_tokens: 400 },
-			{ cost_usd: 2.5, total_tokens: 2000, prompt_tokens: 1200, completion_tokens: 800 }
+			{ cost_usd: 1.5, total_tokens: 1000, prompt_tokens: 600, completion_tokens: 400, cached_prompt_tokens: 500 },
+			{ cost_usd: 2.5, total_tokens: 2000, prompt_tokens: 1200, completion_tokens: 800, cached_prompt_tokens: 900 }
 		];
 		expect(computeCostTotals(data)).toEqual({
 			total_cost: 4.0,
 			total_tokens: 3000,
 			prompt_tokens: 1800,
-			completion_tokens: 1200
+			completion_tokens: 1200,
+			cached_prompt_tokens: 1400
 		});
 	});
 
@@ -87,6 +89,23 @@ describe('computeCostTotals', () => {
 		expect(result.total_tokens).toBe(100);
 		expect(result.prompt_tokens).toBe(0);
 		expect(result.completion_tokens).toBe(50);
+		expect(result.cached_prompt_tokens).toBe(0);
+	});
+});
+
+describe('computeCostTotals — cache fields', () => {
+	it('includes cached_prompt_tokens in totals', () => {
+		const data = [
+			{ cost_usd: 1.0, total_tokens: 1000, prompt_tokens: 600, completion_tokens: 400, cached_prompt_tokens: 500 },
+			{ cost_usd: 2.0, total_tokens: 2000, prompt_tokens: 1200, completion_tokens: 800, cached_prompt_tokens: 900 }
+		];
+		const result = computeCostTotals(data);
+		expect(result.cached_prompt_tokens).toBe(1400);
+	});
+
+	it('treats missing cached_prompt_tokens as zero', () => {
+		const data = [{ cost_usd: 1.0, total_tokens: 100, prompt_tokens: 60, completion_tokens: 40 }];
+		expect(computeCostTotals(data).cached_prompt_tokens).toBe(0);
 	});
 });
 

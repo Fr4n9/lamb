@@ -25,6 +25,21 @@
 	let filteredCostData = $derived(filterCostData(costData, costSearch));
 	let costTotals = $derived(computeCostTotals(costData));
 
+	/** @type {object | null} */
+	let serverSummary = $state(null);
+
+	let activeSummary = $derived(
+		serverSummary || {
+			total_cost_usd: costTotals.total_cost,
+			total_tokens: costTotals.total_tokens,
+			prompt_tokens: costTotals.prompt_tokens,
+			completion_tokens: costTotals.completion_tokens,
+			cached_prompt_tokens: costTotals.cached_prompt_tokens,
+			assistant_count: costData.length,
+			quota_exceeded_count: costData.filter(a => a.quota_exceeded).length
+		}
+	);
+
 	// --- Quota Edit Modal State ---
 	/** @type {any | null} */
 	let quotaEditAssistant = $state(null);
@@ -57,6 +72,7 @@
 				headers: { Authorization: `Bearer ${token}` }
 			});
 			costData = response.data?.assistants || [];
+			serverSummary = response.data?.summary || null;
 		} catch (err) {
 			if (axios.isAxiosError(err) && err.response?.data?.detail) {
 				costDataError = err.response.data.detail;
@@ -227,20 +243,21 @@
 	<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
 		<div class="rounded-lg bg-white p-4 shadow">
 			<p class="mb-1 text-xs tracking-wide text-gray-500 uppercase">Total Estimated Cost</p>
-			<p class="text-2xl font-bold text-gray-800">${costTotals.total_cost.toFixed(4)}</p>
+			<p class="text-2xl font-bold text-gray-800">${activeSummary.total_cost_usd.toFixed(4)}</p>
 		</div>
 		<div class="rounded-lg bg-white p-4 shadow">
 			<p class="mb-1 text-xs tracking-wide text-gray-500 uppercase">Total Tokens</p>
-			<p class="text-2xl font-bold text-gray-800">{costTotals.total_tokens.toLocaleString()}</p>
+			<p class="text-2xl font-bold text-gray-800">{activeSummary.total_tokens.toLocaleString()}</p>
 			<p class="mt-0.5 text-xs text-gray-400">
-				Prompt: {costTotals.prompt_tokens.toLocaleString()} · Completion: {costTotals.completion_tokens.toLocaleString()}
+				Prompt: {activeSummary.prompt_tokens.toLocaleString()} · Completion: {activeSummary.completion_tokens.toLocaleString()}
 			</p>
+			<p class="text-xs text-gray-400">Cached prompt: {activeSummary.cached_prompt_tokens.toLocaleString()}</p>
 		</div>
 		<div class="rounded-lg bg-white p-4 shadow">
 			<p class="mb-1 text-xs tracking-wide text-gray-500 uppercase">Assistants</p>
-			<p class="text-2xl font-bold text-gray-800">{costData.length}</p>
+			<p class="text-2xl font-bold text-gray-800">{activeSummary.assistant_count}</p>
 			<p class="mt-0.5 text-xs text-gray-400">
-				{costData.filter((a) => a.quota_exceeded).length} quota exceeded
+				{activeSummary.quota_exceeded_count} quota exceeded
 			</p>
 		</div>
 	</div>
