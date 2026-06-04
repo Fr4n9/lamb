@@ -1553,6 +1553,55 @@ class LambDatabaseManager:
                 connection.commit()
                 logger.info("Migration 17 complete")
 
+                # Migration 18: Cache-aware token costs + pricing seed update
+                logger.info("Migration 18: Adding cache-aware columns")
+
+                # 18a: Add cached_input_per_1m to model_pricing
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}model_pricing)")
+                pricing_cols = {row[1] for row in cursor.fetchall()}
+                if "cached_input_per_1m" not in pricing_cols:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN cached_input_per_1m REAL"
+                    )
+
+                # 18b: Add cache columns to assistant_usage_totals
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}assistant_usage_totals)")
+                totals_cols = {row[1] for row in cursor.fetchall()}
+                if "cached_prompt_tokens_total" not in totals_cols:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN cached_prompt_tokens_total INTEGER DEFAULT 0"
+                    )
+                if "non_cached_prompt_tokens_total" not in totals_cols:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN non_cached_prompt_tokens_total INTEGER DEFAULT 0"
+                    )
+
+                # 18c: Update seed pricing with official OpenAI cached rates
+                now = int(time.time())
+                upsert_rows = [
+                    ("openai", "gpt-4.1",       2.00,  1.00,  8.00),
+                    ("openai", "gpt-4.1-mini",   0.40,  0.20,  1.60),
+                    ("openai", "gpt-4.1-nano",   0.10,  0.025, 0.40),
+                    ("openai", "gpt-4o",         2.50,  1.25, 10.00),
+                    ("openai", "gpt-4o-mini",    0.15,  0.075, 0.60),
+                    ("openai", "gpt-4-turbo",   10.00,  None, 30.00),
+                    ("openai", "gpt-4",         30.00,  None, 60.00),
+                    ("openai", "o3-mini",        1.10,  0.55,  4.40),
+                ]
+                for provider, model, inp, cached, out in upsert_rows:
+                    cursor.execute(
+                        f"""UPDATE {self.table_prefix}model_pricing
+                            SET cached_input_per_1m = ?,
+                                input_per_1m = ?,
+                                output_per_1m = ?,
+                                updated_at = ?
+                            WHERE provider = ? AND model_name = ?""",
+                        (cached, inp, out, now, provider, model),
+                    )
+
+                connection.commit()
+                logger.info("Migration 18 complete")
+
         except sqlite3.Error as e:
             logger.error(f"Migration error: {e}")
         finally:
