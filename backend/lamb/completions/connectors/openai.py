@@ -11,6 +11,10 @@ from openai import AsyncOpenAI, APIError, APIConnectionError, RateLimitError, Au
 from httpx import Timeout, Limits
 import config as app_config
 from lamb.logging_config import get_logger
+from lamb.completions.alibaba_cache_experiment import (
+    apply_cache_markers as apply_alibaba_cache_markers,
+    is_enabled as alibaba_cache_experiment_enabled,
+)
 from lamb.completions.org_config_resolver import OrganizationConfigResolver
 from lamb.completions.provider_io_log import log_provider_request, log_provider_response
 from utils.langsmith_config import traceable_llm_call, add_trace_metadata, is_tracing_enabled
@@ -525,6 +529,12 @@ Returns:
 
         # Transform messages to vision format for initial attempt
         vision_messages = transform_multimodal_to_vision_format(messages)
+        if alibaba_cache_experiment_enabled():
+            vision_messages = apply_alibaba_cache_markers(vision_messages)
+            logger.info(
+                "LLM_ALIBABA_CACHE_EXPERIMENT: applied cache_control to vision messages "
+                f"(marker on index {max(0, len(vision_messages) - 2)})"
+            )
         multimodal_logger.debug("Transformed messages to vision format")
 
         # Try vision API call first
@@ -589,6 +599,12 @@ Returns:
     # Prepare request parameters for OpenAI API call (text-only or fallback)
     params = body.copy() if body else {}
     params["model"] = resolved_model
+    if alibaba_cache_experiment_enabled():
+        messages = apply_alibaba_cache_markers(messages)
+        logger.info(
+            "LLM_ALIBABA_CACHE_EXPERIMENT: applied cache_control to messages "
+            f"(marker on index {max(0, len(messages) - 2)})"
+        )
     params["messages"] = messages
     params["stream"] = stream
 
@@ -795,9 +811,17 @@ Returns:
                 usage_out["completion_tokens"] = chunk.usage.completion_tokens
                 usage_out["total_tokens"]      = chunk.usage.total_tokens
                 if hasattr(chunk.usage, "prompt_tokens_details") and chunk.usage.prompt_tokens_details:
-                    usage_out["prompt_tokens_details"] = {
-                        "cached_tokens": getattr(chunk.usage.prompt_tokens_details, "cached_tokens", 0) or 0
-                    }
+                    details = chunk.usage.prompt_tokens_details
+                    usage_out["prompt_tokens_details"] = {}
+                    cached = getattr(details, "cached_tokens", None)
+                    if cached is not None:
+                        usage_out["prompt_tokens_details"]["cached_tokens"] = cached
+                    creation = getattr(details, "cache_creation_input_tokens", None)
+                    if creation is not None:
+                        usage_out["prompt_tokens_details"]["cache_creation_input_tokens"] = creation
+                    text_tok = getattr(details, "text_tokens", None)
+                    if text_tok is not None:
+                        usage_out["prompt_tokens_details"]["text_tokens"] = text_tok
             log_provider_response(
                 "openai",
                 operation="chat.completions.create",
