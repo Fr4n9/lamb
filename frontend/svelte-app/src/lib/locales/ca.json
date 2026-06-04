@@ -901,6 +901,41 @@
 				"label": "Totals de la plataforma:",
 				"cost": "Cost total estimat:",
 				"tokens": "Total de tokens:"
+			},
+			"cachedPromptTokens": "Tokens de prompt en memòria cau",
+			"filterByOrg": "Filtra per organització",
+			"clearFilter": "Neteja el filtre",
+			"filteredOrg": "Filtrat: {name}",
+			"moreDetails": "Més detalls",
+			"lessDetails": "Menys detalls",
+			"managePricing": "Gestiona preus de models",
+			"retry": "Reintenta",
+			"orgFilter": {
+				"title": "Filtra per organització",
+				"placeholder": "Escriu el nom de l'organització...",
+				"search": "Cerca",
+				"apply": "Aplica"
+			},
+			"breakdown": {
+				"loading": "Carregant desglossament...",
+				"empty": "No hi ha dades d'ús per a aquest assistent.",
+				"provider": "Proveïdor",
+				"model": "Model",
+				"requests": "Peticions",
+				"cachedPrompt": "En cau",
+				"pricingNote": "Els costos es recalculen amb les tarifes actuals i poden diferir de la taula principal si es van editar els preus."
+			},
+			"pricing": {
+				"title": "Gestiona preus de models",
+				"loading": "Carregant preus...",
+				"helperText": "El nom del model ha de coincidir amb la configuració LLM de l'assistent. Els canvis de preu només afecten l'ús nou.",
+				"cachedHelper": "Cached $/1M és la tarifa per a encerts de memòria cau de prompt (OpenAI). Deixa-ho buit per facturar tots els tokens de prompt a la tarifa d'entrada.",
+				"providerHelper": "Proveïdor de facturació (normalment openai per al connector OpenAI).",
+				"addModel": "Afegeix model",
+				"addButton": "Afegeix preu",
+				"manageButton": "Gestiona preus de models",
+				"deleteTitle": "Elimina fila de preus",
+				"deleteMessage": "Esteu segur que voleu eliminar aquesta fila de preus?"
 			}
 		}
 	},

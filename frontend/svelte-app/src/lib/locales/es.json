@@ -901,6 +901,41 @@
 				"label": "Totales de la plataforma:",
 				"cost": "Coste total estimado:",
 				"tokens": "Total de tokens:"
+			},
+			"cachedPromptTokens": "Tokens de prompt en caché",
+			"filterByOrg": "Filtrar por organización",
+			"clearFilter": "Quitar filtro",
+			"filteredOrg": "Filtrado: {name}",
+			"moreDetails": "Más detalles",
+			"lessDetails": "Menos detalles",
+			"managePricing": "Gestionar precios de modelos",
+			"retry": "Reintentar",
+			"orgFilter": {
+				"title": "Filtrar por organización",
+				"placeholder": "Escribe el nombre de la organización...",
+				"search": "Buscar",
+				"apply": "Aplicar"
+			},
+			"breakdown": {
+				"loading": "Cargando desglose...",
+				"empty": "Sin datos de uso para este asistente.",
+				"provider": "Proveedor",
+				"model": "Modelo",
+				"requests": "Peticiones",
+				"cachedPrompt": "En caché",
+				"pricingNote": "Los costes se recalculan con las tarifas actuales y pueden diferir de la tabla principal si se editaron los precios."
+			},
+			"pricing": {
+				"title": "Gestionar precios de modelos",
+				"loading": "Cargando precios...",
+				"helperText": "El nombre del modelo debe coincidir con la configuración LLM del asistente. Los cambios de precio solo afectan al uso nuevo.",
+				"cachedHelper": "Cached $/1M es la tarifa para aciertos de caché de prompt (OpenAI). Déjalo vacío para facturar todos los tokens de prompt a la tarifa de entrada.",
+				"providerHelper": "Proveedor de facturación (normalmente openai para el conector OpenAI).",
+				"addModel": "Añadir modelo",
+				"addButton": "Añadir precio",
+				"manageButton": "Gestionar precios de modelos",
+				"deleteTitle": "Eliminar fila de precios",
+				"deleteMessage": "¿Estás seguro de que quieres eliminar esta fila de precios?"
 			}
 		}
 	},

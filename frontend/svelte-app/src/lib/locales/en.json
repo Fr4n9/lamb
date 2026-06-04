@@ -901,6 +901,41 @@
 				"label": "Platform totals:",
 				"cost": "Total estimated cost:",
 				"tokens": "Total tokens:"
+			},
+			"cachedPromptTokens": "Cached prompt tokens",
+			"filterByOrg": "Filter by organization",
+			"clearFilter": "Clear filter",
+			"filteredOrg": "Filtered: {name}",
+			"moreDetails": "More details",
+			"lessDetails": "Less details",
+			"managePricing": "Manage model pricing",
+			"retry": "Retry",
+			"orgFilter": {
+				"title": "Filter by organization",
+				"placeholder": "Type organization name...",
+				"search": "Search",
+				"apply": "Apply"
+			},
+			"breakdown": {
+				"loading": "Loading breakdown...",
+				"empty": "No usage data for this assistant.",
+				"provider": "Provider",
+				"model": "Model",
+				"requests": "Requests",
+				"cachedPrompt": "Cached",
+				"pricingNote": "Costs are recalculated using current pricing rates and may differ from the main table if prices were edited."
+			},
+			"pricing": {
+				"title": "Manage model pricing",
+				"loading": "Loading pricing...",
+				"helperText": "Model name must match the assistant LLM config. Changing prices affects new usage only.",
+				"cachedHelper": "Cached $/1M is the rate for prompt cache hits (OpenAI). Leave empty to bill all prompt tokens at the input rate.",
+				"providerHelper": "Billing provider (usually openai for OpenAI connector).",
+				"addModel": "Add model",
+				"addButton": "Add pricing",
+				"manageButton": "Manage model pricing",
+				"deleteTitle": "Delete pricing row",
+				"deleteMessage": "Are you sure you want to delete this pricing row?"
 			}
 		}
 	},
