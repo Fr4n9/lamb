@@ -7,7 +7,10 @@ vi.mock('axios', () => ({
 	default: {
 		get: vi.fn(),
 		put: vi.fn(),
-		isAxiosError: vi.fn(() => false)
+		isAxiosError: vi.fn(() => false),
+		create: vi.fn(() => ({
+			interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }
+		}))
 	}
 }));
 

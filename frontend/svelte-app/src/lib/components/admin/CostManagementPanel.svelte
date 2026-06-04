@@ -12,6 +12,7 @@
 		validateAlertThresholds,
 		parseAlertThresholds
 	} from '$lib/utils/costManagementHelpers';
+	import AssistantUsageBreakdown from './AssistantUsageBreakdown.svelte';
 
 	let { localeLoaded = true } = $props();
 
@@ -21,6 +22,12 @@
 	/** @type {string | null} */
 	let costDataError = $state(null);
 	let costSearch = $state('');
+
+	let expandedAssistantId = $state(null);
+
+	function toggleBreakdown(assistantId) {
+		expandedAssistantId = expandedAssistantId === assistantId ? null : assistantId;
+	}
 
 	let filteredCostData = $derived(filterCostData(costData, costSearch));
 	let costTotals = $derived(computeCostTotals(costData));
@@ -310,6 +317,9 @@
 							<th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
 								{localeLoaded ? $_('admin.costManagement.table.status', { default: 'Status' }) : 'Status'}
 							</th>
+							<th class="px-4 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
+								Actions
+							</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200 bg-white">
@@ -369,7 +379,25 @@
 										</span>
 									{/if}
 								</td>
+								<td class="px-4 py-3 text-right">
+									<button
+										onclick={(e) => { e.stopPropagation(); toggleBreakdown(assistant.id); }}
+										class="text-xs text-blue-600 hover:text-blue-800"
+									>
+										{expandedAssistantId === assistant.id
+											? (localeLoaded ? $_('admin.costManagement.lessDetails', { default: 'Less details' }) : 'Less details')
+											: (localeLoaded ? $_('admin.costManagement.moreDetails', { default: 'More details' }) : 'More details')
+										}
+									</button>
+								</td>
 							</tr>
+							{#if expandedAssistantId === assistant.id}
+								<tr>
+									<td colspan="9" class="p-0">
+										<AssistantUsageBreakdown assistantId={assistant.id} />
+									</td>
+								</tr>
+							{/if}
 						{/each}
 					</tbody>
 				</table>
