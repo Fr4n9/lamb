@@ -757,6 +757,10 @@ Returns:
                 usage_out["prompt_tokens"]     = chunk.usage.prompt_tokens
                 usage_out["completion_tokens"] = chunk.usage.completion_tokens
                 usage_out["total_tokens"]      = chunk.usage.total_tokens
+                if hasattr(chunk.usage, "prompt_tokens_details") and chunk.usage.prompt_tokens_details:
+                    usage_out["prompt_tokens_details"] = {
+                        "cached_tokens": getattr(chunk.usage.prompt_tokens_details, "cached_tokens", 0) or 0
+                    }
             yield f"data: {chunk.model_dump_json()}\n\n"
 
         yield "data: [DONE]\n\n"
