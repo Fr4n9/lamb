@@ -2,6 +2,8 @@ import json
 import asyncio
 from typing import Dict, Any, AsyncGenerator, Optional
 
+from lamb.completions.provider_io_log import log_provider_request, log_provider_response
+
 def get_available_llms():
     """
     Return list of available LLMs for this connector
@@ -41,6 +43,12 @@ async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any]
         content = format_simple_response(messages)
     elif llm == "full-conversation-bypass":
         content = format_conversation_response(messages)
+
+    log_provider_request(
+        "bypass",
+        operation="llm_connect",
+        payload={"messages": messages, "body": body, "llm": llm},
+    )
 
     if stream:
         async def generate_stream():
@@ -99,7 +107,7 @@ async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any]
     else:
         # Regular response
         print("regular response")
-        return {
+        result = {
             "id": "chatcmpl-123",
             "object": "chat.completion",
             "created": 1694268762,
@@ -117,4 +125,6 @@ async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any]
                 "completion_tokens": 0,
                 "total_tokens": 0
             }
-        } 
+        }
+        log_provider_response("bypass", operation="llm_connect", payload=result)
+        return result 

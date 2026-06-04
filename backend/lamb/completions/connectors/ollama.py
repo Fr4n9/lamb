@@ -7,6 +7,7 @@ import asyncio
 import aiohttp # Import aiohttp
 import config as app_config
 from lamb.completions.org_config_resolver import OrganizationConfigResolver
+from lamb.completions.provider_io_log import log_provider_request, log_provider_response
 from lamb.logging_config import get_logger
 from utils.langsmith_config import traceable_llm_call, add_trace_metadata, is_tracing_enabled
 
@@ -331,6 +332,12 @@ async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any]
                             ollama_params[key] = body[key]
 
                 logger.debug(f"Initiating Ollama stream with params: {ollama_params}")
+                log_provider_request(
+                    "ollama",
+                    operation="POST /api/chat",
+                    payload=ollama_params,
+                    extra={"url": f"{base_url}/api/chat"},
+                )
 
                 response_id = f"ollama-{int(time.time())}" # Generate a base ID
                 created_time = int(time.time())
@@ -353,6 +360,13 @@ async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any]
                             except json.JSONDecodeError:
                                 logger.warning(f"Skipping invalid JSON chunk from Ollama: {line}")
                                 continue
+
+                            log_provider_response(
+                                "ollama",
+                                operation="POST /api/chat",
+                                payload=ollama_chunk,
+                                label="stream chunk",
+                            )
 
                             # Prepare OpenAI formatted chunk
                             current_choice = {
@@ -460,12 +474,24 @@ async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any]
                 for key in ["temperature", "top_p", "top_k"]:
                     if key in body:
                         ollama_params[key] = body[key]
+
+            log_provider_request(
+                "ollama",
+                operation="POST /api/chat",
+                payload=ollama_params,
+                extra={"url": f"{base_url}/api/chat"},
+            )
             
             try:
                 session = _get_ollama_session(base_url)
                 async with session.post(f"{base_url}/api/chat", json=ollama_params) as response:
                     response.raise_for_status()
                     ollama_response = await response.json()
+                    log_provider_response(
+                        "ollama",
+                        operation="POST /api/chat",
+                        payload=ollama_response,
+                    )
                     content = ollama_response.get("message", {}).get("content", "")
                     if not content:
                          logger.warning("Empty response from Ollama, falling back to bypass")

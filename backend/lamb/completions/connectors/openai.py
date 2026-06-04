@@ -12,6 +12,7 @@ from httpx import Timeout, Limits
 import config as app_config
 from lamb.logging_config import get_logger
 from lamb.completions.org_config_resolver import OrganizationConfigResolver
+from lamb.completions.provider_io_log import log_provider_request, log_provider_response
 from utils.langsmith_config import traceable_llm_call, add_trace_metadata, is_tracing_enabled
 
 logger = get_logger(__name__, component="API")
@@ -351,6 +352,12 @@ Returns:
             stream_obj = await vision_client.chat.completions.create(**vision_params)
 
             async for chunk in stream_obj:
+                log_provider_response(
+                    "openai",
+                    operation="chat.completions.create",
+                    payload=chunk.model_dump(),
+                    label="stream chunk",
+                )
                 yield f"data: {chunk.model_dump_json()}\n\n"
 
             yield "data: [DONE]\n\n"
@@ -534,12 +541,23 @@ Returns:
             vision_client = _get_openai_client(api_key, base_url)
 
             logger.debug(f"OpenAI vision client acquired from pool")
+            log_provider_request(
+                "openai",
+                operation="chat.completions.create",
+                payload=vision_params,
+                extra={"mode": "vision"},
+            )
 
             # Try the vision API call
             if stream:
                 return _generate_vision_stream(vision_client, vision_params)
             else:
                 response = await vision_client.chat.completions.create(**vision_params)
+                log_provider_response(
+                    "openai",
+                    operation="chat.completions.create",
+                    payload={"mode": "vision", **response.model_dump()},
+                )
                 logger.debug(f"OpenAI vision response created")
                 multimodal_logger.info("Vision API call successful")
                 multimodal_supported = True
@@ -598,7 +616,26 @@ Returns:
         
         try:
             logger.debug(f"Attempting API call with model: {current_model}")
-            return await client.chat.completions.create(**params_to_use)
+            log_provider_request(
+                "openai",
+                operation="chat.completions.create",
+                payload=params_to_use,
+            )
+            result = await client.chat.completions.create(**params_to_use)
+            if params_to_use.get("stream"):
+                log_provider_response(
+                    "openai",
+                    operation="chat.completions.create",
+                    payload={"stream": True, "note": "SSE chunks logged separately"},
+                    label="response",
+                )
+            else:
+                log_provider_response(
+                    "openai",
+                    operation="chat.completions.create",
+                    payload=result.model_dump(),
+                )
+            return result
         
         except (APIError, APIConnectionError, RateLimitError, AuthenticationError) as e:
             error_type = type(e).__name__
@@ -761,7 +798,21 @@ Returns:
                     usage_out["prompt_tokens_details"] = {
                         "cached_tokens": getattr(chunk.usage.prompt_tokens_details, "cached_tokens", 0) or 0
                     }
+            log_provider_response(
+                "openai",
+                operation="chat.completions.create",
+                payload=chunk.model_dump(),
+                label="stream chunk",
+            )
             yield f"data: {chunk.model_dump_json()}\n\n"
+
+        if usage_out:
+            log_provider_response(
+                "openai",
+                operation="chat.completions.create",
+                payload=usage_out,
+                label="stream usage summary",
+            )
 
         yield "data: [DONE]\n\n"
         logger.debug(f"Experimental Stream completed")
