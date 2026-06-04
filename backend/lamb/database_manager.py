@@ -4467,6 +4467,14 @@ class LambDatabaseManager:
             prompt_tokens = usage_data.get('prompt_tokens', 0)
             completion_tokens = usage_data.get('completion_tokens', 0)
             total_tokens = usage_data.get('total_tokens', 0)
+
+            cached_tokens = 0
+            details = usage_data.get('prompt_tokens_details')
+            if isinstance(details, dict):
+                cached_tokens = details.get('cached_tokens', 0) or 0
+            cached_tokens = min(cached_tokens, prompt_tokens)
+            non_cached_tokens = max(0, prompt_tokens - cached_tokens)
+
             now = int(time.time())
 
             conn = self.get_connection()
@@ -4478,40 +4486,47 @@ class LambDatabaseManager:
                         f"""INSERT INTO {self.table_prefix}usage_logs
                         (organization_id, assistant_id, usage_data, model_name, provider, created_at)
                         VALUES (?, ?, ?, ?, ?, ?)""",
-                    (org_id, assistant_id, json.dumps(usage_data), model_name, provider, now)
-                )
+                        (org_id, assistant_id, json.dumps(usage_data), model_name, provider, now)
+                    )
 
-                conn.execute(
-                    f"""
-                    INSERT INTO {self.table_prefix}assistant_usage_totals 
-                    (assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total, cost_usd_total, updated_at)
-                    VALUES (
-                        ?, 
-                        ?, 
-                        ?, 
-                        ?, 
-                        COALESCE((SELECT COALESCE(input_per_1m, 0) * ? / 1000000.0 + COALESCE(output_per_1m, 0) * ? / 1000000.0 
-                         FROM {self.table_prefix}model_pricing 
-                         WHERE provider = ? AND model_name = ?), 0.0),
-                        ?
+                    conn.execute(
+                        f"""
+                        INSERT INTO {self.table_prefix}assistant_usage_totals
+                        (assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total,
+                         cached_prompt_tokens_total, non_cached_prompt_tokens_total, cost_usd_total, updated_at)
+                        VALUES (
+                            ?, ?, ?, ?, ?, ?,
+                            COALESCE((
+                                SELECT
+                                    COALESCE(input_per_1m, 0) * ? / 1000000.0
+                                    + COALESCE(cached_input_per_1m, input_per_1m, 0) * ? / 1000000.0
+                                    + COALESCE(output_per_1m, 0) * ? / 1000000.0
+                                FROM {self.table_prefix}model_pricing
+                                WHERE provider = ? AND model_name = ?
+                            ), 0.0),
+                            ?
+                        )
+                        ON CONFLICT(assistant_id) DO UPDATE SET
+                            prompt_tokens_total = prompt_tokens_total + excluded.prompt_tokens_total,
+                            completion_tokens_total = completion_tokens_total + excluded.completion_tokens_total,
+                            total_tokens_total = total_tokens_total + excluded.total_tokens_total,
+                            cached_prompt_tokens_total = cached_prompt_tokens_total + excluded.cached_prompt_tokens_total,
+                            non_cached_prompt_tokens_total = non_cached_prompt_tokens_total + excluded.non_cached_prompt_tokens_total,
+                            cost_usd_total = cost_usd_total + COALESCE(excluded.cost_usd_total, 0),
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            assistant_id,
+                            prompt_tokens,
+                            completion_tokens,
+                            total_tokens,
+                            cached_tokens,
+                            non_cached_tokens,
+                            non_cached_tokens, cached_tokens, completion_tokens, provider, model_name,
+                            now
+                        )
                     )
-                    ON CONFLICT(assistant_id) DO UPDATE SET
-                        prompt_tokens_total = prompt_tokens_total + excluded.prompt_tokens_total,
-                        completion_tokens_total = completion_tokens_total + excluded.completion_tokens_total,
-                        total_tokens_total = total_tokens_total + excluded.total_tokens_total,
-                        cost_usd_total = cost_usd_total + COALESCE(excluded.cost_usd_total, 0),
-                        updated_at = excluded.updated_at
-                    """,
-                    (
-                        assistant_id, 
-                        prompt_tokens, 
-                        completion_tokens, 
-                        total_tokens, 
-                        prompt_tokens, completion_tokens, provider, model_name,
-                        now
-                    )
-                )
-                conn.commit()
+                    conn.commit()
             finally:
                 conn.close()
         except Exception as e:
