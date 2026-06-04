@@ -13,6 +13,9 @@
 		parseAlertThresholds
 	} from '$lib/utils/costManagementHelpers';
 	import AssistantUsageBreakdown from './AssistantUsageBreakdown.svelte';
+	import OrganizationFilterModal from './OrganizationFilterModal.svelte';
+	import { fetchCostSummaryByOrg } from '$lib/services/adminService';
+	import { toast } from '$lib/stores/toast';
 
 	let { localeLoaded = true } = $props();
 
@@ -29,23 +32,63 @@
 		expandedAssistantId = expandedAssistantId === assistantId ? null : assistantId;
 	}
 
-	let filteredCostData = $derived(filterCostData(costData, costSearch));
-	let costTotals = $derived(computeCostTotals(costData));
+	let showOrgFilterModal = $state(false);
+	let orgFilterActive = $state(false);
+	let orgFilterName = $state('');
+	let orgFilterId = $state(null);
+	let orgSummary = $state(null);
+
+	let tableData = $derived(
+		orgFilterActive && orgFilterId
+			? costData.filter((a) => a.organization_id === orgFilterId)
+			: costData
+	);
+
+	let displayData = $derived(filterCostData(tableData, costSearch));
 
 	/** @type {object | null} */
 	let serverSummary = $state(null);
 
+	// Replace the activeSummary block from Step 5.6 with this updated version
 	let activeSummary = $derived(
-		serverSummary || {
-			total_cost_usd: costTotals.total_cost,
-			total_tokens: costTotals.total_tokens,
-			prompt_tokens: costTotals.prompt_tokens,
-			completion_tokens: costTotals.completion_tokens,
-			cached_prompt_tokens: costTotals.cached_prompt_tokens,
-			assistant_count: costData.length,
-			quota_exceeded_count: costData.filter(a => a.quota_exceeded).length
-		}
+		orgFilterActive
+			? (orgSummary ?? { total_cost_usd: 0, total_tokens: 0, prompt_tokens: 0, completion_tokens: 0, cached_prompt_tokens: 0, assistant_count: 0, quota_exceeded_count: 0 })
+			: serverSummary || {
+				total_cost_usd: costTotals.total_cost,
+				total_tokens: costTotals.total_tokens,
+				prompt_tokens: costTotals.prompt_tokens,
+				completion_tokens: costTotals.completion_tokens,
+				cached_prompt_tokens: costTotals.cached_prompt_tokens,
+				assistant_count: costData.length,
+				quota_exceeded_count: costData.filter(a => a.quota_exceeded).length
+			}
 	);
+
+	async function handleOrgApply(org) {
+		orgFilterId = org.id;
+		orgFilterName = org.name;
+		orgFilterActive = true;
+		showOrgFilterModal = false;
+		try {
+			const token = getAuthToken();
+			const resp = await fetchCostSummaryByOrg(token, org.id);
+			orgSummary = resp.summary;
+		} catch (e) {
+			console.error('Failed to fetch org summary:', e);
+			toast.error('Failed to load organization summary');
+			clearOrgFilter();
+		}
+	}
+
+	function clearOrgFilter() {
+		orgFilterActive = false;
+		orgFilterId = null;
+		orgFilterName = '';
+		orgSummary = null;
+	}
+
+	let filteredCostData = $derived(filterCostData(costData, costSearch));
+	let costTotals = $derived(computeCostTotals(costData));
 
 	// --- Quota Edit Modal State ---
 	/** @type {any | null} */
@@ -270,16 +313,28 @@
 	</div>
 
 	<!-- Search filter -->
-	<div class="mb-4">
+	<div class="mb-4 flex items-center gap-2">
 		<input
 			type="text"
 			bind:value={costSearch}
 			placeholder="Search by assistant name, owner, organization or model..."
 			class="focus:ring-brand w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:w-80"
 		/>
+		<button
+			onclick={() => showOrgFilterModal = true}
+			class="whitespace-nowrap rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+		>
+			{localeLoaded ? $_('admin.costManagement.filterByOrg', { default: 'Filter by organization' }) : 'Filter by organization'}
+		</button>
+		{#if orgFilterActive}
+			<span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
+				{$_('admin.costManagement.filteredOrg', { default: 'Filtered: {name}' }).replace('{name}', orgFilterName)}
+				<button onclick={clearOrgFilter} class="ml-1 text-blue-500 hover:text-blue-700">&times;</button>
+			</span>
+		{/if}
 	</div>
 
-	{#if filteredCostData.length === 0}
+	{#if displayData.length === 0}
 		<div class="rounded-lg bg-white p-8 text-center text-gray-500 shadow">
 			{costData.length === 0
 				? localeLoaded
@@ -323,7 +378,7 @@
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200 bg-white">
-						{#each filteredCostData as assistant (assistant.id)}
+						{#each displayData as assistant (assistant.id)}
 							<tr
 								class="cursor-pointer hover:bg-blue-50 {assistant.quota_exceeded ? 'bg-red-50 hover:bg-red-100' : ''}"
 								onclick={() => openQuotaEditModal(assistant)}
@@ -404,6 +459,11 @@
 			</div>
 		</div>
 	{/if}
+{/if}
+
+<!-- Organization Filter Modal -->
+{#if showOrgFilterModal}
+	<OrganizationFilterModal onApply={handleOrgApply} onClose={() => showOrgFilterModal = false} />
 {/if}
 
 <!-- Quota Edit Modal -->
