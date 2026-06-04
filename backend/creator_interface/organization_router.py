@@ -4850,6 +4850,46 @@ async def get_cost_overview(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get(
+    "/assistant/{assistant_id}/usage-by-model",
+    tags=["Organization Management"],
+    summary="Per-model usage breakdown for an assistant (Admin Only)",
+    dependencies=[Depends(security)],
+)
+async def get_assistant_usage_by_model(assistant_id: int, request: Request):
+    try:
+        await verify_admin_access(request)
+        assistant = db_manager.get_assistant_by_id(assistant_id)
+        if not assistant:
+            raise HTTPException(status_code=404, detail="Assistant not found")
+
+        rows = db_manager.get_assistant_usage_by_model(assistant_id)
+        breakdown = []
+        for r in rows:
+            breakdown.append({
+                "provider": r["provider"],
+                "model_name": r["model_name"],
+                "prompt_tokens": r["prompt_tokens"],
+                "cached_prompt_tokens": r["cached_prompt_tokens"],
+                "non_cached_prompt_tokens": r["non_cached_prompt_tokens"],
+                "completion_tokens": r["completion_tokens"],
+                "total_tokens": r["total_tokens"],
+                "cost_usd": r["cost_usd"],
+                "request_count": r["request_count"],
+                "pricing": {
+                    "input_per_1m": r["input_per_1m"],
+                    "cached_input_per_1m": r["cached_input_per_1m"],
+                    "output_per_1m": r["output_per_1m"],
+                },
+            })
+        return {"assistant_id": assistant_id, "breakdown": breakdown}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching usage by model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class QuotaUpdate(BaseModel):
     enabled: bool = Field(..., description="Whether quota enforcement is active")
     cost_limit_usd: Optional[float] = Field(None, description="Spending cap in USD (omit or null for no limit)")

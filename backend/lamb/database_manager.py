@@ -4702,6 +4702,68 @@ class LambDatabaseManager:
             logger.error(f"Error fetching all assistants with usage: {e}")
             return []
 
+    def get_assistant_usage_by_model(self, assistant_id: int) -> list:
+        query = f"""
+            SELECT
+                ul.provider,
+                ul.model_name,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0)) AS prompt_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cached_tokens'), 0)) AS cached_prompt_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0)) AS completion_tokens,
+                COUNT(*) AS request_count,
+                mp.input_per_1m,
+                mp.cached_input_per_1m,
+                mp.output_per_1m
+            FROM {self.table_prefix}usage_logs ul
+            LEFT JOIN {self.table_prefix}model_pricing mp
+                ON mp.provider = ul.provider AND mp.model_name = ul.model_name
+            WHERE ul.assistant_id = ?
+            GROUP BY ul.provider, ul.model_name
+            ORDER BY request_count DESC
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return []
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query, (assistant_id,))
+                rows = cursor.fetchall()
+                results = []
+                for r in rows:
+                    prompt = int(r[2] or 0)
+                    cached = int(r[3] or 0)
+                    non_cached = prompt - cached
+                    completion = int(r[4] or 0)
+                    total = prompt + completion
+                    inp = float(r[6] or 0)
+                    cached_inp = r[7]
+                    out = float(r[8] or 0)
+                    if cached_inp is not None:
+                        cost = (non_cached * inp / 1e6) + (cached * float(cached_inp) / 1e6) + (completion * out / 1e6)
+                    else:
+                        cost = (prompt * inp / 1e6) + (completion * out / 1e6)
+                    results.append({
+                        "provider": r[0] or "",
+                        "model_name": r[1] or "",
+                        "prompt_tokens": prompt,
+                        "cached_prompt_tokens": cached,
+                        "non_cached_prompt_tokens": non_cached,
+                        "completion_tokens": completion,
+                        "total_tokens": total,
+                        "cost_usd": round(cost, 6),
+                        "request_count": int(r[5] or 0),
+                        "input_per_1m": inp,
+                        "cached_input_per_1m": float(cached_inp) if cached_inp is not None else None,
+                        "output_per_1m": out,
+                    })
+                return results
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error fetching usage by model for assistant {assistant_id}: {e}")
+            return []
+
     def get_assistant_by_id(self, assistant_id: int) -> Optional[Assistant]:
         connection = self.get_connection()
         if not connection:

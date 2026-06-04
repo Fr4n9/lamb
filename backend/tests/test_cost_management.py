@@ -252,3 +252,36 @@ class TestCostOverviewAPI:
         assert "cache_hit_percentage" in data["assistants"][0]
         assert data["summary"]["total_cost_usd"] == 0.01
         assert data["summary"]["cached_prompt_tokens"] == 800
+
+
+class TestUsageByModelAPI:
+    def test_usage_by_model_returns_breakdown(self, admin_client, monkeypatch):
+        from creator_interface import organization_router as org_router
+
+        mock_db = MagicMock()
+        mock_db.get_assistant_usage_by_model.return_value = [
+            {
+                "provider": "openai",
+                "model_name": "gpt-4o",
+                "prompt_tokens": 12000,
+                "cached_prompt_tokens": 9000,
+                "non_cached_prompt_tokens": 3000,
+                "completion_tokens": 8000,
+                "total_tokens": 20000,
+                "cost_usd": 0.42,
+                "request_count": 85,
+                "input_per_1m": 2.50,
+                "cached_input_per_1m": 1.25,
+                "output_per_1m": 10.0,
+            }
+        ]
+        mock_db.get_assistant_by_id.return_value = MagicMock()
+        monkeypatch.setattr(org_router, "db_manager", mock_db)
+
+        resp = admin_client.get("/admin/assistant/10/usage-by-model", headers={"Authorization": "Bearer test-token"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["assistant_id"] == 10
+        assert len(data["breakdown"]) == 1
+        assert data["breakdown"][0]["model_name"] == "gpt-4o"
+        assert data["breakdown"][0]["pricing"]["cached_input_per_1m"] == 1.25
