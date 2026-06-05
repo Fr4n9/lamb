@@ -4800,7 +4800,7 @@ class LambDatabaseManager:
         """Return all assistants with aggregate token usage and estimated cost (admin view).
 
         Each row contains: id, name, owner, organization_name, organization_id, api_callback,
-        prompt_tokens, completion_tokens, total_tokens, cost_usd, cached_prompt_tokens, non_cached_prompt_tokens.
+        prompt_tokens, completion_tokens, total_tokens, cost_usd, cache_read_tokens, cache_write_tokens, non_cached_prompt_tokens.
         Quota fields are derived from api_callback in the calling layer.
         """
         query = f"""
@@ -4816,7 +4816,8 @@ class LambDatabaseManager:
                 COALESCE(ut.total_tokens_total, 0) AS total_tokens,
                 COALESCE(ut.cost_usd_total, 0.0) AS cost_usd,
                 qa.thresholds_config,
-                COALESCE(ut.cached_prompt_tokens_total, 0) AS cached_prompt_tokens,
+                COALESCE(ut.cache_read_tokens_total, ut.cached_prompt_tokens_total, 0) AS cache_read_tokens,
+                COALESCE(ut.cache_write_tokens_total, 0) AS cache_write_tokens,
                 COALESCE(ut.non_cached_prompt_tokens_total, 0) AS non_cached_prompt_tokens
             FROM {self.table_prefix}assistants a
             LEFT JOIN {self.table_prefix}organizations o   ON a.organization_id = o.id
@@ -4846,8 +4847,9 @@ class LambDatabaseManager:
                         "total_tokens": int(row[8] or 0),
                         "cost_usd": float(row[9] or 0.0),
                         "thresholds_config": row[10],
-                        "cached_prompt_tokens": int(row[11] or 0),
-                        "non_cached_prompt_tokens": int(row[12] or 0),
+                        "cache_read_tokens": int(row[11] or 0),
+                        "cache_write_tokens": int(row[12] or 0),
+                        "non_cached_prompt_tokens": int(row[13] or 0),
                     })
                 return results
             finally:
@@ -4960,7 +4962,8 @@ class LambDatabaseManager:
                 COALESCE(SUM(ut.total_tokens_total), 0),
                 COALESCE(SUM(ut.prompt_tokens_total), 0),
                 COALESCE(SUM(ut.completion_tokens_total), 0),
-                COALESCE(SUM(ut.cached_prompt_tokens_total), 0),
+                COALESCE(SUM(ut.cache_read_tokens_total), 0),
+                COALESCE(SUM(ut.cache_write_tokens_total), 0),
                 COUNT(DISTINCT a.id)
             FROM {self.table_prefix}assistants a
             LEFT JOIN {self.table_prefix}assistant_usage_totals ut ON ut.assistant_id = a.id
@@ -4979,8 +4982,9 @@ class LambDatabaseManager:
                     "total_tokens": int(r[1] or 0),
                     "prompt_tokens": int(r[2] or 0),
                     "completion_tokens": int(r[3] or 0),
-                    "cached_prompt_tokens": int(r[4] or 0),
-                    "assistant_count": int(r[5] or 0),
+                    "cache_read_tokens": int(r[4] or 0),
+                    "cache_write_tokens": int(r[5] or 0),
+                    "assistant_count": int(r[6] or 0),
                     "quota_exceeded_count": 0,
                 }
             finally:
@@ -4995,14 +4999,16 @@ class LambDatabaseManager:
             "total_tokens": 0,
             "prompt_tokens": 0,
             "completion_tokens": 0,
-            "cached_prompt_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
             "assistant_count": 0,
             "quota_exceeded_count": 0,
         }
 
     def list_model_pricing(self) -> list:
         query = f"""
-            SELECT id, provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at
+            SELECT id, provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                   output_per_1m, requires_explicit_cache, updated_at
             FROM {self.table_prefix}model_pricing
             ORDER BY provider, model_name
         """
@@ -5017,9 +5023,11 @@ class LambDatabaseManager:
                     {
                         "id": r[0], "provider": r[1], "model_name": r[2],
                         "input_per_1m": float(r[3] or 0),
-                        "cached_input_per_1m": float(r[4]) if r[4] is not None else None,
-                        "output_per_1m": float(r[5] or 0),
-                        "updated_at": r[6],
+                        "cache_read_per_1m": float(r[4]) if r[4] is not None else None,
+                        "cache_write_per_1m": float(r[5]) if r[5] is not None else None,
+                        "output_per_1m": float(r[6] or 0),
+                        "requires_explicit_cache": bool(r[7]) if r[7] is not None else False,
+                        "updated_at": r[8],
                     }
                     for r in cursor.fetchall()
                 ]
@@ -5030,7 +5038,9 @@ class LambDatabaseManager:
             return []
 
     def create_model_pricing(self, provider: str, model_name: str, input_per_1m: float,
-                              cached_input_per_1m: float | None, output_per_1m: float) -> dict | None:
+                              output_per_1m: float, cache_read_per_1m: float | None = None,
+                              cache_write_per_1m: float | None = None, requires_explicit_cache: bool = False,
+                              **kwargs) -> dict | None:
         now = int(time.time())
         try:
             conn = self.get_connection()
@@ -5040,16 +5050,21 @@ class LambDatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute(
                     f"""INSERT INTO {self.table_prefix}model_pricing
-                        (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, now),
+                        (provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                         output_per_1m, requires_explicit_cache, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                     output_per_1m, int(requires_explicit_cache), now),
                 )
                 conn.commit()
                 new_id = cursor.lastrowid
                 return {
                     "id": new_id, "provider": provider, "model_name": model_name,
-                    "input_per_1m": input_per_1m, "cached_input_per_1m": cached_input_per_1m,
-                    "output_per_1m": output_per_1m, "updated_at": now,
+                    "input_per_1m": input_per_1m, "cache_read_per_1m": cache_read_per_1m,
+                    "cache_write_per_1m": cache_write_per_1m,
+                    "output_per_1m": output_per_1m,
+                    "requires_explicit_cache": requires_explicit_cache,
+                    "updated_at": now,
                 }
             finally:
                 conn.close()
@@ -5059,10 +5074,13 @@ class LambDatabaseManager:
 
     def update_model_pricing(self, pricing_id: int, **fields) -> dict | None:
         now = int(time.time())
-        allowed = {"provider", "model_name", "input_per_1m", "cached_input_per_1m", "output_per_1m"}
+        allowed = {"provider", "model_name", "input_per_1m", "cache_read_per_1m", "cache_write_per_1m",
+                    "output_per_1m", "requires_explicit_cache"}
         updates = {k: v for k, v in fields.items() if k in allowed}
         if not updates:
             return None
+        if "requires_explicit_cache" in updates:
+            updates["requires_explicit_cache"] = int(updates["requires_explicit_cache"])
         sets = ", ".join(f"{k} = ?" for k in updates)
         vals = list(updates.values()) + [now, pricing_id]
         try:

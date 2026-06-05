@@ -4784,7 +4784,8 @@ async def get_cost_overview(request: Request):
         total_tokens = 0
         total_prompt = 0
         total_completion = 0
-        total_cached = 0
+        total_cached_read = 0
+        total_cached_write = 0
         quota_exceeded_count = 0
 
         for row in rows:
@@ -4838,16 +4839,18 @@ async def get_cost_overview(request: Request):
             if not alert_thresholds and isinstance(quota_obj, dict):
                 alert_thresholds = quota_obj.get("alert_thresholds", [])
 
-            cached = row["cached_prompt_tokens"]
-            non_cached = row["non_cached_prompt_tokens"]
+            cached_read = row.get("cache_read_tokens", row.get("cached_prompt_tokens", 0))
+            cached_write = row.get("cache_write_tokens", 0)
+            non_cached = row.get("non_cached_prompt_tokens", 0)
             prompt = row["prompt_tokens"]
-            cache_pct = round((cached / prompt * 100), 2) if prompt > 0 else 0.0
+            cache_pct = round((cached_read / prompt * 100), 2) if prompt > 0 else 0.0
 
             total_cost += cost_usd
             total_tokens += row["total_tokens"]
             total_prompt += prompt
             total_completion += row["completion_tokens"]
-            total_cached += cached
+            total_cached_read += cached_read
+            total_cached_write += cached_write
 
             result.append({
                 "id": row["id"],
@@ -4860,7 +4863,8 @@ async def get_cost_overview(request: Request):
                 "prompt_tokens": prompt,
                 "completion_tokens": row["completion_tokens"],
                 "total_tokens": row["total_tokens"],
-                "cached_prompt_tokens": cached,
+                "cache_read_tokens": cached_read,
+                "cache_write_tokens": cached_write,
                 "non_cached_prompt_tokens": non_cached,
                 "cache_hit_percentage": cache_pct,
                 "cost_usd": round(cost_usd, 6),
@@ -4875,7 +4879,8 @@ async def get_cost_overview(request: Request):
             "total_tokens": total_tokens,
             "prompt_tokens": total_prompt,
             "completion_tokens": total_completion,
-            "cached_prompt_tokens": total_cached,
+            "cache_read_tokens": total_cached_read,
+            "cache_write_tokens": total_cached_write,
             "assistant_count": len(result),
             "quota_exceeded_count": quota_exceeded_count,
         }
@@ -4908,17 +4913,14 @@ async def get_assistant_usage_by_model(assistant_id: int, request: Request):
                 "provider": r["provider"],
                 "model_name": r["model_name"],
                 "prompt_tokens": r["prompt_tokens"],
-                "cached_prompt_tokens": r["cached_prompt_tokens"],
                 "non_cached_prompt_tokens": r["non_cached_prompt_tokens"],
+                "cache_read_tokens": r["cache_read_tokens"],
+                "cache_write_tokens": r["cache_write_tokens"],
                 "completion_tokens": r["completion_tokens"],
                 "total_tokens": r["total_tokens"],
                 "cost_usd": r["cost_usd"],
                 "request_count": r["request_count"],
-                "pricing": {
-                    "input_per_1m": r["input_per_1m"],
-                    "cached_input_per_1m": r["cached_input_per_1m"],
-                    "output_per_1m": r["output_per_1m"],
-                },
+                "pricing": r["pricing"],
             })
         return {"assistant_id": assistant_id, "breakdown": breakdown}
     except HTTPException:
@@ -4952,16 +4954,20 @@ class ModelPricingCreate(BaseModel):
     provider: str
     model_name: str
     input_per_1m: float
-    cached_input_per_1m: Optional[float] = None
+    cache_read_per_1m: Optional[float] = None
+    cache_write_per_1m: Optional[float] = None
     output_per_1m: float
+    requires_explicit_cache: bool = False
 
 
 class ModelPricingUpdate(BaseModel):
     provider: Optional[str] = None
     model_name: Optional[str] = None
     input_per_1m: Optional[float] = None
-    cached_input_per_1m: Optional[float] = None
+    cache_read_per_1m: Optional[float] = None
+    cache_write_per_1m: Optional[float] = None
     output_per_1m: Optional[float] = None
+    requires_explicit_cache: Optional[bool] = None
 
 
 @router.get("/model-pricing", tags=["Organization Management"], dependencies=[Depends(security)])
@@ -4976,8 +4982,9 @@ async def create_model_pricing(body: ModelPricingCreate, request: Request):
     await verify_admin_access(request)
     result = db_manager.create_model_pricing(
         provider=body.provider, model_name=body.model_name,
-        input_per_1m=body.input_per_1m, cached_input_per_1m=body.cached_input_per_1m,
-        output_per_1m=body.output_per_1m,
+        input_per_1m=body.input_per_1m, cache_read_per_1m=body.cache_read_per_1m,
+        cache_write_per_1m=body.cache_write_per_1m, output_per_1m=body.output_per_1m,
+        requires_explicit_cache=body.requires_explicit_cache,
     )
     if not result:
         raise HTTPException(status_code=400, detail="Failed to create pricing (duplicate?)")
