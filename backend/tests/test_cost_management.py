@@ -508,3 +508,86 @@ class TestMigration13Fix:
         conn.close()
 
         assert abs(cost_before - cost_after) < 1e-9, f"Cost changed from {cost_before} to {cost_after} after restart"
+
+
+class TestTokenRepartition:
+    def test_openai_auto_cache(self):
+        from lamb.completions.token_repartition import extract_token_buckets
+        usage_data = {
+            "prompt_tokens": 10000,
+            "completion_tokens": 2000,
+            "prompt_tokens_details": {"cached_tokens": 7000},
+        }
+        result = extract_token_buckets(usage_data)
+        assert result["cache_read"] == 7000
+        assert result["cache_write"] == 0
+        assert result["non_cached"] == 3000
+        assert result["prompt_tokens"] == 10000
+        assert result["completion_tokens"] == 2000
+
+    def test_alibaba_explicit_cache(self):
+        from lamb.completions.token_repartition import extract_token_buckets
+        usage_data = {
+            "prompt_tokens": 19156,
+            "completion_tokens": 957,
+            "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_creation_input_tokens": 18198,
+                "cache_creation": {"ephemeral_5m_input_tokens": 18198},
+            },
+        }
+        result = extract_token_buckets(usage_data)
+        assert result["cache_read"] == 0
+        assert result["cache_write"] == 18198
+        assert result["non_cached"] == 958
+        assert result["prompt_tokens"] == 19156
+
+    def test_no_cache_details(self):
+        from lamb.completions.token_repartition import extract_token_buckets
+        usage_data = {"prompt_tokens": 500, "completion_tokens": 100}
+        result = extract_token_buckets(usage_data)
+        assert result["cache_read"] == 0
+        assert result["cache_write"] == 0
+        assert result["non_cached"] == 500
+
+    def test_identity_always_holds(self):
+        from lamb.completions.token_repartition import extract_token_buckets
+        usage_data = {
+            "prompt_tokens": 17629,
+            "completion_tokens": 800,
+            "prompt_tokens_details": {
+                "cached_tokens": 16432,
+                "cache_creation_input_tokens": 0,
+            },
+        }
+        result = extract_token_buckets(usage_data)
+        assert result["prompt_tokens"] == result["non_cached"] + result["cache_read"] + result["cache_write"]
+
+    def test_clamp_cache_exceeds_prompt(self):
+        from lamb.completions.token_repartition import extract_token_buckets
+        usage_data = {
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "prompt_tokens_details": {
+                "cached_tokens": 80,
+                "cache_creation_input_tokens": 50,
+            },
+        }
+        result = extract_token_buckets(usage_data)
+        assert result["non_cached"] >= 0
+        assert result["prompt_tokens"] == result["non_cached"] + result["cache_read"] + result["cache_write"]
+
+    def test_dedup_nested_cache_creation(self):
+        """When flat and nested have same value, count once (prefer flat)."""
+        from lamb.completions.token_repartition import extract_token_buckets
+        usage_data = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 200,
+            "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_creation_input_tokens": 500,
+                "cache_creation": {"ephemeral_5m_input_tokens": 500},
+            },
+        }
+        result = extract_token_buckets(usage_data)
+        assert result["cache_write"] == 500  # not 1000
