@@ -1673,6 +1673,86 @@ class LambDatabaseManager:
                     ),
                 )
 
+                # 19g: Backfill cost_usd for existing usage_logs rows where cost_usd IS NULL
+                cursor.execute(
+                    f"SELECT id, usage_data, model_name, provider FROM {self.table_prefix}usage_logs WHERE cost_usd IS NULL"
+                )
+                legacy_rows = cursor.fetchall()
+                if legacy_rows:
+                    logger.info(f"Migration 19: Backfilling cost_usd for {len(legacy_rows)} legacy usage_logs rows")
+                    from .completions.token_repartition import extract_token_buckets
+                    from .completions.cost_formula import compute_cost_usd
+
+                    pricing_cache = {}
+                    for legacy_id, usage_json, leg_model, leg_provider in legacy_rows:
+                        try:
+                            usage_obj = json.loads(usage_json) if isinstance(usage_json, str) else {}
+                        except Exception:
+                            usage_obj = {}
+
+                        pricing_key = (leg_provider, leg_model)
+                        if pricing_key not in pricing_cache:
+                            cursor.execute(
+                                f"""SELECT input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                                           output_per_1m, requires_explicit_cache
+                                    FROM {self.table_prefix}model_pricing
+                                    WHERE provider = ? AND model_name = ?""",
+                                (leg_provider, leg_model),
+                            )
+                            p_row = cursor.fetchone()
+                            if p_row:
+                                pricing_cache[pricing_key] = {
+                                    "input_per_1m": p_row[0],
+                                    "cache_read_per_1m": p_row[1],
+                                    "cache_write_per_1m": p_row[2],
+                                    "output_per_1m": p_row[3],
+                                    "requires_explicit_cache": bool(p_row[4]),
+                                }
+                            else:
+                                pricing_cache[pricing_key] = None
+
+                        buckets = extract_token_buckets(usage_obj)
+                        cost = compute_cost_usd(pricing_cache[pricing_key], buckets)
+                        cursor.execute(
+                            f"UPDATE {self.table_prefix}usage_logs SET cost_usd = ? WHERE id = ?",
+                            (cost, legacy_id),
+                        )
+
+                    # Rebuild cost_usd_total from usage_logs.cost_usd
+                    cursor.execute(f"""
+                        UPDATE {self.table_prefix}assistant_usage_totals
+                        SET cost_usd_total = COALESCE((
+                            SELECT SUM(ul.cost_usd)
+                            FROM {self.table_prefix}usage_logs ul
+                            WHERE ul.assistant_id = {self.table_prefix}assistant_usage_totals.assistant_id
+                        ), 0.0)
+                    """)
+
+                    # Rebuild cache_read_tokens_total, cache_write_tokens_total, non_cached_prompt_tokens_total
+                    cursor.execute(f"""
+                        SELECT assistant_id,
+                               SUM(COALESCE(json_extract(usage_data, '$.prompt_tokens'), 0)),
+                               SUM(COALESCE(json_extract(usage_data, '$.prompt_tokens_details.cached_tokens'), 0)),
+                               SUM(COALESCE(json_extract(usage_data, '$.prompt_tokens_details.cache_creation_input_tokens'), 0))
+                        FROM {self.table_prefix}usage_logs
+                        GROUP BY assistant_id
+                    """)
+                    for aid, prompt_sum, read_sum, write_sum in cursor.fetchall():
+                        prompt_sum = int(prompt_sum or 0)
+                        read_sum = int(read_sum or 0)
+                        write_sum = int(write_sum or 0)
+                        non_cached = max(0, prompt_sum - read_sum - write_sum)
+                        cursor.execute(
+                            f"""UPDATE {self.table_prefix}assistant_usage_totals
+                                SET cache_read_tokens_total = ?,
+                                    cache_write_tokens_total = ?,
+                                    non_cached_prompt_tokens_total = ?
+                                WHERE assistant_id = ?""",
+                            (read_sum, write_sum, non_cached, aid),
+                        )
+
+                    logger.info("Migration 19: Backfill complete (cost_usd + cache_read + cache_write + non_cached)")
+
                 connection.commit()
                 logger.info("Migration 19: Schema additions complete")
 

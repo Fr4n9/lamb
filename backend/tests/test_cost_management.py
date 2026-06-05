@@ -790,3 +790,33 @@ class TestGetAssistantCostUsd:
     def test_returns_zero_for_unknown_assistant(self, fresh_db):
         dm, _ = fresh_db
         assert dm.get_assistant_cost_usd(99999) == 0.0
+
+
+class TestMigration19Backfill:
+    def test_backfill_legacy_rows(self, fresh_db):
+        """Legacy usage_logs rows inserted without cost_usd get backfilled by Migration 19."""
+        import json
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        usage_data = {"prompt_tokens": 1000, "completion_tokens": 500, "total_tokens": 1500, "prompt_tokens_details": {"cached_tokens": 800}}
+        conn.execute(
+            "INSERT INTO usage_logs (organization_id, assistant_id, usage_data, model_name, provider, cost_usd, created_at) VALUES (1, 1, ?, 'gpt-4o', 'openai', NULL, 1700000000)",
+            (json.dumps(usage_data),)
+        )
+        conn.commit()
+        conn.close()
+
+        # Re-run migrations to trigger backfill
+        dm.run_migrations()
+
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT cost_usd FROM usage_logs WHERE assistant_id = 1 AND cost_usd IS NOT NULL")
+        rows = cursor.fetchall()
+        conn.close()
+        assert len(rows) >= 1
+        assert rows[0][0] > 0
