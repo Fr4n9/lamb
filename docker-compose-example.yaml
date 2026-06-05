@@ -179,7 +179,6 @@ services:
       - LAMB_KB_SERVER_V2=http://kb-server:9092
       - LAMB_KB_SERVER_V2_TOKEN=${KB_SERVER_V2_TOKEN:-change-me}
       - LLM_PROVIDER_LOG=true
-      - LLM_ALIBABA_CACHE_EXPERIMENT=true
     env_file:
       - ${LAMB_PROJECT_PATH}/backend/.env
     volumes:
