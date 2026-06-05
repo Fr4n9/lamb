@@ -756,3 +756,37 @@ class TestLogTokenUsageImmutable:
         assert row[1] == 18198   # cache_write
         assert row[2] == 958     # non_cached
         assert row[3] == 19156   # prompt total
+
+
+class TestGetAssistantCostUsd:
+    def test_returns_frozen_total_not_recalculated(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        conn.commit()
+        conn.close()
+
+        usage_data = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 500,
+            "total_tokens": 1500,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        }
+        dm.log_token_usage(assistant_id=1, org_id=1, model_name="gpt-4o", provider="openai", usage_data=usage_data)
+
+        cost_before = dm.get_assistant_cost_usd(1)
+
+        conn = dm.get_connection()
+        conn.execute("UPDATE model_pricing SET input_per_1m = 99.0, output_per_1m = 99.0 WHERE provider = 'openai' AND model_name = 'gpt-4o'")
+        conn.commit()
+        conn.close()
+
+        cost_after = dm.get_assistant_cost_usd(1)
+        assert abs(cost_before - cost_after) < 1e-9, f"Cost changed from {cost_before} to {cost_after}"
+
+    def test_returns_zero_for_unknown_assistant(self, fresh_db):
+        dm, _ = fresh_db
+        assert dm.get_assistant_cost_usd(99999) == 0.0

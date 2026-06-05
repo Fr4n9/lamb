@@ -4657,25 +4657,14 @@ class LambDatabaseManager:
             return True # Fail open to avoid blocking
 
     def get_assistant_cost_usd(self, assistant_id: int) -> float:
-        """Return the total estimated cost in USD for all logged requests for this assistant.
+        """Return the frozen total cost for this assistant from assistant_usage_totals.
 
-        Returns 0.0 when there is no pricing data or no usage logged.
-        Uses SQLite json_extract to pull token counts from the JSON blob.
+        Reads the pre-computed cost_usd_total — never recalculates from current pricing.
         """
         query = f"""
-            SELECT
-              COALESCE(SUM(
-                COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0)
-                  * COALESCE(mp.input_per_1m, 0) / 1000000.0
-                +
-                COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0)
-                  * COALESCE(mp.output_per_1m, 0) / 1000000.0
-              ), 0.0)
-            FROM {self.table_prefix}usage_logs ul
-            LEFT JOIN {self.table_prefix}model_pricing mp
-                   ON ul.model_name = mp.model_name
-                  AND ul.provider   = mp.provider
-            WHERE ul.assistant_id = ?
+            SELECT COALESCE(cost_usd_total, 0.0)
+            FROM {self.table_prefix}assistant_usage_totals
+            WHERE assistant_id = ?
         """
         try:
             connection = self.get_connection()
@@ -4689,7 +4678,7 @@ class LambDatabaseManager:
             finally:
                 connection.close()
         except Exception as e:
-            logger.error(f"Error computing cost for assistant {assistant_id}: {e}")
+            logger.error(f"Error reading cost for assistant {assistant_id}: {e}")
             return 0.0
 
     def get_assistant_token_usage(self, assistant_id: int) -> dict:
