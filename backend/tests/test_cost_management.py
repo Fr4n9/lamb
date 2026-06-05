@@ -462,3 +462,49 @@ class TestMigration19:
         conn.close()
         assert row is not None
         assert "Alibaba" in (row[0] or "")
+
+
+class TestMigration13Fix:
+    def test_startup_does_not_recalculate_cost(self, fresh_db):
+        """After logging usage at pricing v1, restarting (re-init) must not change cost_usd_total."""
+        dm, db_path = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        conn.commit()
+        conn.close()
+
+        usage_data = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 500,
+            "total_tokens": 1500,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        }
+        dm.log_token_usage(assistant_id=1, org_id=1, model_name="gpt-4o", provider="openai", usage_data=usage_data)
+
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 1")
+        cost_before = cursor.fetchone()[0]
+        conn.close()
+
+        # Change pricing to v2
+        conn = dm.get_connection()
+        conn.execute("UPDATE model_pricing SET input_per_1m = 99.0, output_per_1m = 99.0 WHERE provider = 'openai' AND model_name = 'gpt-4o'")
+        conn.commit()
+        conn.close()
+
+        # Simulate backend restart by re-running migrations
+        import config
+        from lamb.database_manager import LambDatabaseManager
+        dm2 = LambDatabaseManager()
+
+        conn = dm2.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 1")
+        cost_after = cursor.fetchone()[0]
+        conn.close()
+
+        assert abs(cost_before - cost_after) < 1e-9, f"Cost changed from {cost_before} to {cost_after} after restart"

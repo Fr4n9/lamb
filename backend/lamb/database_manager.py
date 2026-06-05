@@ -1308,28 +1308,21 @@ class LambDatabaseManager:
                 logger.info("Migration 13: Backfilling assistant_usage_totals from usage_logs")
                 cursor.execute(f"""
                     INSERT INTO {self.table_prefix}assistant_usage_totals (
-                        assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total, cost_usd_total, updated_at
+                        assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total, updated_at
                     )
                     SELECT
                         a.id AS assistant_id,
                         COALESCE(SUM(json_extract(ul.usage_data, '$.prompt_tokens')), 0) AS prompt_tokens_total,
                         COALESCE(SUM(json_extract(ul.usage_data, '$.completion_tokens')), 0) AS completion_tokens_total,
                         COALESCE(SUM(json_extract(ul.usage_data, '$.total_tokens')), 0) AS total_tokens_total,
-                        COALESCE(SUM(
-                            COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0) * COALESCE(mp.input_per_1m, 0) / 1000000.0
-                            + 
-                            COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0) * COALESCE(mp.output_per_1m, 0) / 1000000.0
-                        ), 0.0) AS cost_usd_total,
                         strftime('%s', 'now') AS updated_at
                     FROM {self.table_prefix}assistants a
                     JOIN {self.table_prefix}usage_logs ul ON ul.assistant_id = a.id
-                    LEFT JOIN {self.table_prefix}model_pricing mp ON ul.model_name = mp.model_name AND ul.provider = mp.provider
                     GROUP BY a.id
                     ON CONFLICT(assistant_id) DO UPDATE SET
                         prompt_tokens_total = excluded.prompt_tokens_total,
                         completion_tokens_total = excluded.completion_tokens_total,
                         total_tokens_total = excluded.total_tokens_total,
-                        cost_usd_total = excluded.cost_usd_total,
                         updated_at = excluded.updated_at
                 """)
 
