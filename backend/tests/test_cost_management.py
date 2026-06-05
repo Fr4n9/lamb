@@ -591,3 +591,66 @@ class TestTokenRepartition:
         }
         result = extract_token_buckets(usage_data)
         assert result["cache_write"] == 500  # not 1000
+
+
+class TestCostFormula:
+    def test_auto_cache_cost(self):
+        from lamb.completions.cost_formula import compute_cost_usd
+        pricing = {
+            "input_per_1m": 2.50,
+            "cache_read_per_1m": 1.25,
+            "cache_write_per_1m": None,
+            "output_per_1m": 10.0,
+            "requires_explicit_cache": False,
+        }
+        buckets = {"non_cached": 200, "cache_read": 800, "cache_write": 0, "completion_tokens": 500}
+        cost = compute_cost_usd(pricing, buckets)
+        expected = (200 * 2.50 / 1e6) + (800 * 1.25 / 1e6) + (500 * 10.0 / 1e6)
+        assert abs(cost - expected) < 1e-9
+
+    def test_explicit_cache_cost(self):
+        from lamb.completions.cost_formula import compute_cost_usd
+        pricing = {
+            "input_per_1m": 0.80,
+            "cache_read_per_1m": 0.16,
+            "cache_write_per_1m": 1.00,
+            "output_per_1m": 2.00,
+            "requires_explicit_cache": True,
+        }
+        buckets = {"non_cached": 958, "cache_read": 0, "cache_write": 18198, "completion_tokens": 957}
+        cost = compute_cost_usd(pricing, buckets)
+        expected = (958 * 0.80 / 1e6) + (0 * 0.16 / 1e6) + (18198 * 1.00 / 1e6) + (957 * 2.00 / 1e6)
+        assert abs(cost - expected) < 1e-9
+
+    def test_no_pricing_returns_zero(self):
+        from lamb.completions.cost_formula import compute_cost_usd
+        cost = compute_cost_usd(None, {"non_cached": 100, "cache_read": 0, "cache_write": 0, "completion_tokens": 50})
+        assert cost == 0.0
+
+    def test_cache_write_fallback_to_input_rate(self):
+        from lamb.completions.cost_formula import compute_cost_usd
+        pricing = {
+            "input_per_1m": 0.80,
+            "cache_read_per_1m": 0.16,
+            "cache_write_per_1m": None,
+            "output_per_1m": 2.00,
+            "requires_explicit_cache": True,
+        }
+        buckets = {"non_cached": 100, "cache_read": 0, "cache_write": 500, "completion_tokens": 200}
+        cost = compute_cost_usd(pricing, buckets)
+        expected = (100 * 0.80 / 1e6) + (500 * 0.80 / 1e6) + (200 * 2.00 / 1e6)
+        assert abs(cost - expected) < 1e-9
+
+    def test_cache_read_fallback_to_input_rate(self):
+        from lamb.completions.cost_formula import compute_cost_usd
+        pricing = {
+            "input_per_1m": 2.50,
+            "cache_read_per_1m": None,
+            "cache_write_per_1m": None,
+            "output_per_1m": 10.0,
+            "requires_explicit_cache": False,
+        }
+        buckets = {"non_cached": 200, "cache_read": 800, "cache_write": 0, "completion_tokens": 500}
+        cost = compute_cost_usd(pricing, buckets)
+        expected = (200 * 2.50 / 1e6) + (800 * 2.50 / 1e6) + (500 * 10.0 / 1e6)
+        assert abs(cost - expected) < 1e-9
