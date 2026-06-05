@@ -63,7 +63,7 @@ Removed `cost_usd_total` from the per-startup backfill. Costs are no longer reca
 | File | Change |
 |------|--------|
 | `backend/lamb/completions/connectors/openai.py` | Replaced `alibaba_cache_experiment` import with `explicit_cache`; accepts `requires_explicit_cache` kwarg; added `_usage_to_dict()` helper to normalize non-streaming usage (captures `cache_creation_input_tokens`) |
-| `backend/lamb/completions/main.py` | Looks up `requires_explicit_cache` from `model_pricing` and passes to connector |
+| `backend/lamb/completions/main.py` | Looks up `requires_explicit_cache` from `model_pricing` and passes to connector (both `create_completion` and `run_lamb_assistant`) |
 | `backend/lamb/completions/connectors/ollama.py` | Accepts `requires_explicit_cache` kwarg (no-op) |
 | `backend/lamb/completions/connectors/bypass.py` | Accepts `requires_explicit_cache` kwarg (no-op) |
 | `backend/lamb/completions/connectors/banana_img.py` | Accepts `requires_explicit_cache` kwarg (no-op) |
@@ -186,6 +186,8 @@ Removed `cost_usd_total` from the per-startup backfill. Costs are no longer reca
 12. `chore: remove LLM_ALIBABA_CACHE_EXPERIMENT env var from docker-compose`
 13. `fix: non-streaming usage dict captures cache_creation_input_tokens`
 14. `feat: frontend — three-bucket breakdown, pricing modal with cache write/explicit cache, summary cards, i18n`
+15. `fix: add get_model_pricing_row, delete orphaned experiment, complete i18n, remove duplicate return`
+16. `fix: run_lamb_assistant passes requires_explicit_cache to connector`
 
 ---
 
@@ -208,3 +210,4 @@ Removed `cost_usd_total` from the per-startup backfill. Costs are no longer reca
 | `get_assistant_cost_usd` returns frozen total (quota/creator paths) | DONE | Tested in TestGetAssistantCostUsd |
 | Migration 19 backfill rebuilds `cache_write_tokens_total` from history | DONE | Backfill loop in Migration 19 |
 | Non-streaming responses capture `cache_creation_input_tokens` in usage | DONE | _usage_to_dict helper |
+| `run_lamb_assistant` passes `requires_explicit_cache` to connector (UI + Open WebUI chat) | DONE | main.py fix |
