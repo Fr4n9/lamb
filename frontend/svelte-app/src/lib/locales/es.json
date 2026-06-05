@@ -910,6 +910,10 @@
 			"lessDetails": "Menos detalles",
 			"managePricing": "Gestionar precios de modelos",
 			"retry": "Reintentar",
+			"summary": {
+				"cacheRead": "Lectura caché",
+				"cacheWrite": "Escritura caché"
+			},
 			"orgFilter": {
 				"title": "Filtrar por organización",
 				"placeholder": "Escribe el nombre de la organización...",
@@ -922,15 +926,22 @@
 				"provider": "Proveedor",
 				"model": "Modelo",
 				"requests": "Peticiones",
-				"cachedPrompt": "En caché",
-				"pricingNote": "Los costes se recalculan con las tarifas actuales y pueden diferir de la tabla principal si se editaron los precios."
+				"nonCachedPrompt": "No cacheados",
+				"cacheRead": "Lectura caché",
+				"cacheWrite": "Escritura caché",
+				"identityNote": "Prompt = no cacheados + lectura caché + escritura caché"
 			},
 			"pricing": {
 				"title": "Gestionar precios de modelos",
 				"loading": "Cargando precios...",
 				"helperText": "El nombre del modelo debe coincidir con la configuración LLM del asistente. Los cambios de precio solo afectan al uso nuevo.",
-				"cachedHelper": "Cached $/1M es la tarifa para aciertos de caché de prompt (OpenAI). Déjalo vacío para facturar todos los tokens de prompt a la tarifa de entrada.",
-				"providerHelper": "Proveedor de facturación (normalmente openai para el conector OpenAI).",
+				"cacheReadHelper": "Lectura caché $/1M es la tarifa para aciertos de caché. Vacío para facturar a tarifa de entrada.",
+				"cacheWriteHelper": "Escritura caché $/1M es la tarifa para creación de caché. Vacío para facturar a tarifa de entrada.",
+				"explicitCacheHelper": "Caché explícita: activar para APIs tipo Alibaba/Anthropic que requieren marcadores cache_control.",
+				"cacheReadRate": "Lectura caché $/1M",
+				"cacheWriteRate": "Escritura caché $/1M",
+				"explicitCache": "Caché explícita",
+				"explicitCacheLabel": "Requiere tratamiento de caché explícita",
 				"addModel": "Añadir modelo",
 				"addButton": "Añadir precio",
 				"manageButton": "Gestionar precios de modelos",

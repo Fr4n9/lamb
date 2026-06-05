@@ -4931,7 +4931,6 @@ class LambDatabaseManager:
         except Exception as e:
             logger.error(f"Error fetching usage by model for assistant {assistant_id}: {e}")
             return []
-            return []
 
     def search_organizations(self, name: str, limit: int = 20) -> list:
         query = f"""
@@ -5004,6 +5003,37 @@ class LambDatabaseManager:
             "assistant_count": 0,
             "quota_exceeded_count": 0,
         }
+
+    def get_model_pricing_row(self, provider: str, model_name: str) -> dict:
+        """Return pricing dict for (provider, model_name) or empty dict if not found."""
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return {}
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"""SELECT input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                               output_per_1m, requires_explicit_cache
+                        FROM {self.table_prefix}model_pricing
+                        WHERE provider = ? AND model_name = ?""",
+                    (provider, model_name),
+                )
+                r = cursor.fetchone()
+                if not r:
+                    return {}
+                return {
+                    "input_per_1m": r[0],
+                    "cache_read_per_1m": r[1],
+                    "cache_write_per_1m": r[2],
+                    "output_per_1m": r[3],
+                    "requires_explicit_cache": bool(r[4]) if r[4] is not None else False,
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error fetching model pricing for ({provider}, {model_name}): {e}")
+            return {}
 
     def list_model_pricing(self) -> list:
         query = f"""
