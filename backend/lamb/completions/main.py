@@ -147,6 +147,10 @@ async def create_completion(
         llm = plugin_config["llm"]
         provider = _provider_for_connector(connector)
 
+        # Check if model requires explicit cache from model_pricing
+        pricing_info = db_manager.get_model_pricing_row(provider, llm) if provider else {}
+        requires_explicit_cache = pricing_info.get("requires_explicit_cache", False)
+
         # Quota pre-check (skipped for ollama — free LLMs)
         if connector != "ollama":
             _check_quota(assistant, assistant_details)
@@ -184,6 +188,7 @@ async def create_completion(
                 body=request,
                 llm=plugin_config["llm"],
                 assistant_owner=assistant_details.owner,
+                requires_explicit_cache=requires_explicit_cache,
             )
             logger.debug("Returning streaming response")
             if connector == "ollama":
@@ -219,7 +224,8 @@ async def create_completion(
                 stream=False, 
                 body=request, 
                 llm=llm, 
-                assistant_owner=assistant_details.owner
+                assistant_owner=assistant_details.owner,
+                requires_explicit_cache=requires_explicit_cache,
             )
             
             if connector != "ollama" and isinstance(result, dict) and result.get("usage") and provider:

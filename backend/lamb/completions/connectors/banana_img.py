@@ -418,7 +418,7 @@ def _summarize_gemini_response(response) -> dict:
     return summary
 
 
-async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any] = None, llm: str = None, assistant_owner: Optional[str] = None):
+async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any] = None, llm: str = None, assistant_owner: Optional[str] = None, requires_explicit_cache: bool = False):
     """
     Banana Image connector for Google Gen AI (Gemini) image generation
     

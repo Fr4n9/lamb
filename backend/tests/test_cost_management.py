@@ -298,6 +298,45 @@ class TestUsageByModelAPI:
         assert data["breakdown"][0]["cache_write_tokens"] == 0
 
 
+class TestExplicitCache:
+    def test_apply_markers_single_message(self):
+        from lamb.completions.explicit_cache import apply_cache_markers
+        messages = [{"role": "user", "content": "Hello"}]
+        result = apply_cache_markers(messages)
+        assert len(result) == 1
+        content = result[0]["content"]
+        assert isinstance(content, list)
+        assert any(block.get("cache_control") == {"type": "ephemeral"} for block in content)
+
+    def test_apply_markers_multi_turn(self):
+        from lamb.completions.explicit_cache import apply_cache_markers
+        messages = [
+            {"role": "system", "content": "You are a tutor"},
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi!"},
+            {"role": "user", "content": "Question?"},
+        ]
+        result = apply_cache_markers(messages)
+        assert len(result) == 4
+        marker_idx = len(messages) - 2
+        marked_content = result[marker_idx]["content"]
+        assert isinstance(marked_content, list)
+        assert any(block.get("cache_control") == {"type": "ephemeral"} for block in marked_content)
+
+    def test_does_not_mutate_original(self):
+        from lamb.completions.explicit_cache import apply_cache_markers
+        import copy
+        messages = [{"role": "user", "content": "Hello"}]
+        original = copy.deepcopy(messages)
+        apply_cache_markers(messages)
+        assert messages == original
+
+    def test_empty_messages(self):
+        from lamb.completions.explicit_cache import apply_cache_markers
+        result = apply_cache_markers([])
+        assert result == []
+
+
 class TestOrgSearchAPI:
     def test_org_search_returns_matches(self, admin_client, monkeypatch):
         from creator_interface import organization_router as org_router

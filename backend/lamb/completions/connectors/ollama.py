@@ -115,7 +115,7 @@ def format_messages_for_ollama(messages: list) -> list:
     ]
 
 @traceable_llm_call(name="ollama_completion", run_type="llm", tags=["ollama", "lamb"])
-async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any] = None, llm: str = None, assistant_owner: Optional[str] = None, use_small_fast_model: bool = False): # Make async
+async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any] = None, llm: str = None, assistant_owner: Optional[str] = None, use_small_fast_model: bool = False, requires_explicit_cache: bool = False): # Make async
     """
     Ollama connector that returns OpenAI-compatible responses
     

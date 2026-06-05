@@ -11,10 +11,7 @@ from openai import AsyncOpenAI, APIError, APIConnectionError, RateLimitError, Au
 from httpx import Timeout, Limits
 import config as app_config
 from lamb.logging_config import get_logger
-from lamb.completions.alibaba_cache_experiment import (
-    apply_cache_markers as apply_alibaba_cache_markers,
-    is_enabled as alibaba_cache_experiment_enabled,
-)
+from lamb.completions.explicit_cache import apply_cache_markers
 from lamb.completions.org_config_resolver import OrganizationConfigResolver
 from lamb.completions.provider_io_log import log_provider_request, log_provider_response
 from utils.langsmith_config import traceable_llm_call, add_trace_metadata, is_tracing_enabled
@@ -289,7 +286,7 @@ def validate_image_urls(messages: List[Dict[str, Any]]) -> List[str]:
     return errors
 
 @traceable_llm_call(name="openai_completion", run_type="llm", tags=["openai", "lamb"])
-async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any] = None, llm: str = None, assistant_owner: Optional[str] = None, use_small_fast_model: bool = False):
+async def llm_connect(messages: list, stream: bool = False, body: Dict[str, Any] = None, llm: str = None, assistant_owner: Optional[str] = None, use_small_fast_model: bool = False, requires_explicit_cache: bool = False):
     """
 Connects to the specified Large Language Model (LLM) using the OpenAI API.
 
@@ -529,10 +526,10 @@ Returns:
 
         # Transform messages to vision format for initial attempt
         vision_messages = transform_multimodal_to_vision_format(messages)
-        if alibaba_cache_experiment_enabled():
-            vision_messages = apply_alibaba_cache_markers(vision_messages)
+        if requires_explicit_cache:
+            vision_messages = apply_cache_markers(vision_messages)
             logger.info(
-                "LLM_ALIBABA_CACHE_EXPERIMENT: applied cache_control to vision messages "
+                "Explicit cache: applied cache_control to vision messages "
                 f"(marker on index {max(0, len(vision_messages) - 2)})"
             )
         multimodal_logger.debug("Transformed messages to vision format")
@@ -599,10 +596,10 @@ Returns:
     # Prepare request parameters for OpenAI API call (text-only or fallback)
     params = body.copy() if body else {}
     params["model"] = resolved_model
-    if alibaba_cache_experiment_enabled():
-        messages = apply_alibaba_cache_markers(messages)
+    if requires_explicit_cache:
+        messages = apply_cache_markers(messages)
         logger.info(
-            "LLM_ALIBABA_CACHE_EXPERIMENT: applied cache_control to messages "
+            "Explicit cache: applied cache_control to messages "
             f"(marker on index {max(0, len(messages) - 2)})"
         )
     params["messages"] = messages
