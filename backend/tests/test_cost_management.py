@@ -91,16 +91,17 @@ class TestLogTokenUsageCacheAware:
 
         conn = dm.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT cached_prompt_tokens_total, non_cached_prompt_tokens_total, prompt_tokens_total, cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 1")
+        cursor.execute("SELECT cache_read_tokens_total, cache_write_tokens_total, non_cached_prompt_tokens_total, prompt_tokens_total, cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 1")
         row = cursor.fetchone()
         conn.close()
 
-        assert row[0] == 800   # cached
-        assert row[1] == 200   # non_cached
-        assert row[2] == 1000  # total prompt
+        assert row[0] == 800   # cache_read
+        assert row[1] == 0     # cache_write (OpenAI auto-cache)
+        assert row[2] == 200   # non_cached
+        assert row[3] == 1000  # total prompt
         # cost = (200 * 2.50/1e6) + (800 * 1.25/1e6) + (500 * 10.0/1e6)
         expected_cost = (200 * 2.50 / 1e6) + (800 * 1.25 / 1e6) + (500 * 10.0 / 1e6)
-        assert abs(row[3] - expected_cost) < 1e-9
+        assert abs(row[4] - expected_cost) < 1e-9
 
     def test_cost_without_cached_tokens_falls_back(self, fresh_db):
         dm, _ = fresh_db
@@ -124,15 +125,16 @@ class TestLogTokenUsageCacheAware:
 
         conn = dm.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT cached_prompt_tokens_total, non_cached_prompt_tokens_total, prompt_tokens_total, cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 2")
+        cursor.execute("SELECT cache_read_tokens_total, cache_write_tokens_total, non_cached_prompt_tokens_total, prompt_tokens_total, cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 2")
         row = cursor.fetchone()
         conn.close()
 
-        assert row[0] == 0     # no cached
-        assert row[1] == 1000  # all non-cached
-        assert row[2] == 1000
+        assert row[0] == 0     # no cache_read
+        assert row[1] == 0     # no cache_write
+        assert row[2] == 1000  # all non-cached
+        assert row[3] == 1000
         expected_cost = (1000 * 2.50 / 1e6) + (500 * 10.0 / 1e6)
-        assert abs(row[3] - expected_cost) < 1e-9
+        assert abs(row[4] - expected_cost) < 1e-9
 
     def test_cost_no_pricing_row_returns_zero(self, fresh_db):
         dm, _ = fresh_db
@@ -654,3 +656,103 @@ class TestCostFormula:
         cost = compute_cost_usd(pricing, buckets)
         expected = (200 * 2.50 / 1e6) + (800 * 2.50 / 1e6) + (500 * 10.0 / 1e6)
         assert abs(cost - expected) < 1e-9
+
+
+class TestLogTokenUsageImmutable:
+    def test_cost_usd_stored_in_usage_logs(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        conn.commit()
+        conn.close()
+
+        usage_data = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 500,
+            "total_tokens": 1500,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        }
+        dm.log_token_usage(assistant_id=1, org_id=1, model_name="gpt-4o", provider="openai", usage_data=usage_data)
+
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT cost_usd FROM usage_logs WHERE assistant_id = 1")
+        row = cursor.fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] is not None
+        assert row[0] > 0
+
+    def test_cost_immutable_after_pricing_change(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        conn.commit()
+        conn.close()
+
+        usage_data = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 500,
+            "total_tokens": 1500,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        }
+        dm.log_token_usage(assistant_id=1, org_id=1, model_name="gpt-4o", provider="openai", usage_data=usage_data)
+
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 1")
+        total_v1 = cursor.fetchone()[0]
+        conn.close()
+
+        conn = dm.get_connection()
+        conn.execute("UPDATE model_pricing SET input_per_1m = 99.0, output_per_1m = 99.0 WHERE provider = 'openai' AND model_name = 'gpt-4o'")
+        conn.commit()
+        conn.close()
+
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT cost_usd_total FROM assistant_usage_totals WHERE assistant_id = 1")
+        total_after_price_change = cursor.fetchone()[0]
+        conn.close()
+
+        assert abs(total_v1 - total_after_price_change) < 1e-9
+
+    def test_three_bucket_totals_stored(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        conn.commit()
+        conn.close()
+
+        usage_data = {
+            "prompt_tokens": 19156,
+            "completion_tokens": 957,
+            "total_tokens": 20113,
+            "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_creation_input_tokens": 18198,
+            },
+        }
+        dm.log_token_usage(assistant_id=1, org_id=1, model_name="qwen3.6-plus", provider="openai", usage_data=usage_data)
+
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT cache_read_tokens_total, cache_write_tokens_total, non_cached_prompt_tokens_total, prompt_tokens_total "
+            "FROM assistant_usage_totals WHERE assistant_id = 1"
+        )
+        row = cursor.fetchone()
+        conn.close()
+        assert row[0] == 0       # cache_read
+        assert row[1] == 18198   # cache_write
+        assert row[2] == 958     # non_cached
+        assert row[3] == 19156   # prompt total

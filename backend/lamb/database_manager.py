@@ -1618,7 +1618,10 @@ class LambDatabaseManager:
                     )
 
                 # 19b: Copy cached_input_per_1m values to cache_read_per_1m
-                if "cached_input_per_1m" in pricing_cols_19 and "cache_read_per_1m" in pricing_cols_19:
+                # Re-check columns since ALTER TABLE may have added them
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}model_pricing)")
+                pricing_cols_19b = {row[1] for row in cursor.fetchall()}
+                if "cached_input_per_1m" in pricing_cols_19b and "cache_read_per_1m" in pricing_cols_19b:
                     cursor.execute(
                         f"UPDATE {self.table_prefix}model_pricing SET cache_read_per_1m = cached_input_per_1m WHERE cache_read_per_1m IS NULL AND cached_input_per_1m IS NOT NULL"
                     )
@@ -4531,20 +4534,18 @@ class LambDatabaseManager:
     def log_token_usage(self, assistant_id: int, org_id: int, model_name: str, provider: str, usage_data: dict):
         """Write one row to usage_logs for a completed request.
 
-        usage_data should contain: prompt_tokens, completion_tokens, total_tokens.
+        Computes and freezes cost_usd at insert time using current model_pricing.
+        Stores three prompt token buckets (non_cached, cache_read, cache_write).
         Errors are caught and logged — never propagated to callers.
         """
         try:
-            prompt_tokens = usage_data.get('prompt_tokens', 0)
-            completion_tokens = usage_data.get('completion_tokens', 0)
-            total_tokens = usage_data.get('total_tokens', 0)
+            from .completions.token_repartition import extract_token_buckets
+            from .completions.cost_formula import compute_cost_usd
 
-            cached_tokens = 0
-            details = usage_data.get('prompt_tokens_details')
-            if isinstance(details, dict):
-                cached_tokens = details.get('cached_tokens', 0) or 0
-            cached_tokens = min(cached_tokens, prompt_tokens)
-            non_cached_tokens = max(0, prompt_tokens - cached_tokens)
+            buckets = extract_token_buckets(usage_data)
+            prompt_tokens = buckets["prompt_tokens"]
+            completion_tokens = buckets["completion_tokens"]
+            total_tokens = prompt_tokens + completion_tokens
 
             now = int(time.time())
 
@@ -4552,38 +4553,50 @@ class LambDatabaseManager:
             if not conn:
                 return
             try:
+                pricing_row = None
                 with conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        f"""SELECT input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                                   output_per_1m, requires_explicit_cache
+                            FROM {self.table_prefix}model_pricing
+                            WHERE provider = ? AND model_name = ?""",
+                        (provider, model_name),
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        pricing_row = {
+                            "input_per_1m": row[0],
+                            "cache_read_per_1m": row[1],
+                            "cache_write_per_1m": row[2],
+                            "output_per_1m": row[3],
+                            "requires_explicit_cache": bool(row[4]),
+                        }
+
+                    cost_usd = compute_cost_usd(pricing_row, buckets)
+
                     conn.execute(
                         f"""INSERT INTO {self.table_prefix}usage_logs
-                        (organization_id, assistant_id, usage_data, model_name, provider, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?)""",
-                        (org_id, assistant_id, json.dumps(usage_data), model_name, provider, now)
+                        (organization_id, assistant_id, usage_data, model_name, provider, cost_usd, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (org_id, assistant_id, json.dumps(usage_data), model_name, provider, cost_usd, now)
                     )
 
                     conn.execute(
                         f"""
                         INSERT INTO {self.table_prefix}assistant_usage_totals
                         (assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total,
-                         cached_prompt_tokens_total, non_cached_prompt_tokens_total, cost_usd_total, updated_at)
-                        VALUES (
-                            ?, ?, ?, ?, ?, ?,
-                            COALESCE((
-                                SELECT
-                                    COALESCE(input_per_1m, 0) * ? / 1000000.0
-                                    + COALESCE(cached_input_per_1m, input_per_1m, 0) * ? / 1000000.0
-                                    + COALESCE(output_per_1m, 0) * ? / 1000000.0
-                                FROM {self.table_prefix}model_pricing
-                                WHERE provider = ? AND model_name = ?
-                            ), 0.0),
-                            ?
-                        )
+                         cache_read_tokens_total, cache_write_tokens_total,
+                         non_cached_prompt_tokens_total, cost_usd_total, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(assistant_id) DO UPDATE SET
                             prompt_tokens_total = prompt_tokens_total + excluded.prompt_tokens_total,
                             completion_tokens_total = completion_tokens_total + excluded.completion_tokens_total,
                             total_tokens_total = total_tokens_total + excluded.total_tokens_total,
-                            cached_prompt_tokens_total = cached_prompt_tokens_total + excluded.cached_prompt_tokens_total,
+                            cache_read_tokens_total = cache_read_tokens_total + excluded.cache_read_tokens_total,
+                            cache_write_tokens_total = cache_write_tokens_total + excluded.cache_write_tokens_total,
                             non_cached_prompt_tokens_total = non_cached_prompt_tokens_total + excluded.non_cached_prompt_tokens_total,
-                            cost_usd_total = cost_usd_total + COALESCE(excluded.cost_usd_total, 0),
+                            cost_usd_total = cost_usd_total + excluded.cost_usd_total,
                             updated_at = excluded.updated_at
                         """,
                         (
@@ -4591,10 +4604,11 @@ class LambDatabaseManager:
                             prompt_tokens,
                             completion_tokens,
                             total_tokens,
-                            cached_tokens,
-                            non_cached_tokens,
-                            non_cached_tokens, cached_tokens, completion_tokens, provider, model_name,
-                            now
+                            buckets["cache_read"],
+                            buckets["cache_write"],
+                            buckets["non_cached"],
+                            cost_usd,
+                            now,
                         )
                     )
                     conn.commit()
