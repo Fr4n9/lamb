@@ -451,6 +451,10 @@ async def run_lamb_assistant(
         connector = plugin_config["connector"]
         provider = _provider_for_connector(connector)
 
+        # Check if model requires explicit cache from model_pricing
+        pricing_info = db_manager.get_model_pricing_row(provider, plugin_config.get("llm")) if provider else {}
+        requires_explicit_cache = pricing_info.get("requires_explicit_cache", False)
+
         task_response = await maybe_route_non_streaming_task(
             request=request,
             assistant_owner=assistant_details.owner,
@@ -481,7 +485,8 @@ async def run_lamb_assistant(
             stream=stream,
             body=request, # Pass the original request dict as body
             llm=llm,
-            assistant_owner=assistant_details.owner
+            assistant_owner=assistant_details.owner,
+            requires_explicit_cache=requires_explicit_cache,
         )
 
         if stream:
