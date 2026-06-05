@@ -1658,6 +1658,25 @@ class LambDatabaseManager:
                         f"ALTER TABLE {self.table_prefix}usage_logs ADD COLUMN cost_usd REAL"
                     )
 
+                # 19f: Seed Qwen pricing row
+                now_19 = int(time.time())
+                cursor.execute(
+                    f"""INSERT OR IGNORE INTO {self.table_prefix}model_pricing
+                        (provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                         output_per_1m, requires_explicit_cache, notes, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        "openai", "qwen3.6-plus",
+                        0.80,   # input_per_1m — placeholder, operator verifies
+                        0.16,   # cache_read_per_1m — ~20% of input
+                        1.00,   # cache_write_per_1m — ~125% of input
+                        2.00,   # output_per_1m — placeholder
+                        1,      # requires_explicit_cache
+                        "Alibaba Qwen 3.6 Plus via compatible API",
+                        now_19,
+                    ),
+                )
+
                 connection.commit()
                 logger.info("Migration 19: Schema additions complete")
 

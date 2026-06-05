@@ -435,3 +435,30 @@ class TestMigration19:
         columns = {row[1] for row in cursor.fetchall()}
         conn.close()
         assert "cost_usd" in columns
+
+    def test_qwen_seed_row_exists(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT model_name, requires_explicit_cache, cache_read_per_1m, cache_write_per_1m "
+            "FROM model_pricing WHERE provider = 'openai' AND model_name = 'qwen3.6-plus'"
+        )
+        row = cursor.fetchone()
+        conn.close()
+        assert row is not None
+        assert row[1] == 1  # requires_explicit_cache
+        assert row[2] is not None and row[2] > 0  # cache_read_per_1m
+        assert row[3] is not None and row[3] > 0  # cache_write_per_1m
+
+    def test_qwen_seed_has_notes(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT notes FROM model_pricing WHERE provider = 'openai' AND model_name = 'qwen3.6-plus'"
+        )
+        row = cursor.fetchone()
+        conn.close()
+        assert row is not None
+        assert "Alibaba" in (row[0] or "")
