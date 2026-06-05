@@ -910,6 +910,10 @@
 			"lessDetails": "Less details",
 			"managePricing": "Manage model pricing",
 			"retry": "Retry",
+			"summary": {
+				"cacheRead": "Cache read",
+				"cacheWrite": "Cache write"
+			},
 			"orgFilter": {
 				"title": "Filter by organization",
 				"placeholder": "Type organization name...",
@@ -922,15 +926,22 @@
 				"provider": "Provider",
 				"model": "Model",
 				"requests": "Requests",
-				"cachedPrompt": "Cached",
-				"pricingNote": "Costs are recalculated using current pricing rates and may differ from the main table if prices were edited."
+				"nonCachedPrompt": "Non-cached",
+				"cacheRead": "Cache read",
+				"cacheWrite": "Cache write",
+				"identityNote": "Prompt = non-cached + cache read + cache write"
 			},
 			"pricing": {
 				"title": "Manage model pricing",
 				"loading": "Loading pricing...",
-				"helperText": "Model name must match the assistant LLM config. Changing prices affects new usage only.",
-				"cachedHelper": "Cached $/1M is the rate for prompt cache hits (OpenAI). Leave empty to bill all prompt tokens at the input rate.",
-				"providerHelper": "Billing provider (usually openai for OpenAI connector).",
+				"helperText": "Model name must match the assistant LLM config. Pricing changes apply to new usage only.",
+				"cacheReadHelper": "Cache read $/1M is the rate for cache hits. Leave empty to bill at input rate.",
+				"cacheWriteHelper": "Cache write $/1M is the rate for cache creation. Leave empty to bill at input rate.",
+				"explicitCacheHelper": "Explicit cache: enable for Alibaba/Anthropic-style APIs that require cache_control markers.",
+				"cacheReadRate": "Cache read $/1M",
+				"cacheWriteRate": "Cache write $/1M",
+				"explicitCache": "Explicit cache",
+				"explicitCacheLabel": "Requires explicit cache treatment",
 				"addModel": "Add model",
 				"addButton": "Add pricing",
 				"manageButton": "Manage model pricing",
