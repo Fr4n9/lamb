@@ -1602,6 +1602,65 @@ class LambDatabaseManager:
                 connection.commit()
                 logger.info("Migration 18 complete")
 
+                # Migration 19: Cache write, explicit cache, immutable costs
+                logger.info("Migration 19: Adding cache write, explicit cache, and immutable cost columns")
+
+                # 19a: Add cache_read_per_1m to model_pricing
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}model_pricing)")
+                pricing_cols_19 = {row[1] for row in cursor.fetchall()}
+
+                if "cache_read_per_1m" not in pricing_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN cache_read_per_1m REAL"
+                    )
+
+                if "cache_write_per_1m" not in pricing_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN cache_write_per_1m REAL"
+                    )
+
+                if "requires_explicit_cache" not in pricing_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN requires_explicit_cache INTEGER DEFAULT 0"
+                    )
+
+                # 19b: Copy cached_input_per_1m values to cache_read_per_1m
+                if "cached_input_per_1m" in pricing_cols_19 and "cache_read_per_1m" in pricing_cols_19:
+                    cursor.execute(
+                        f"UPDATE {self.table_prefix}model_pricing SET cache_read_per_1m = cached_input_per_1m WHERE cache_read_per_1m IS NULL AND cached_input_per_1m IS NOT NULL"
+                    )
+
+                # 19c: Add cache token columns to assistant_usage_totals
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}assistant_usage_totals)")
+                totals_cols_19 = {row[1] for row in cursor.fetchall()}
+
+                if "cache_read_tokens_total" not in totals_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN cache_read_tokens_total INTEGER DEFAULT 0"
+                    )
+
+                if "cache_write_tokens_total" not in totals_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN cache_write_tokens_total INTEGER DEFAULT 0"
+                    )
+
+                # 19d: Copy cached_prompt_tokens_total to cache_read_tokens_total
+                if "cached_prompt_tokens_total" in totals_cols_19:
+                    cursor.execute(
+                        f"UPDATE {self.table_prefix}assistant_usage_totals SET cache_read_tokens_total = cached_prompt_tokens_total WHERE cache_read_tokens_total = 0 AND cached_prompt_tokens_total > 0"
+                    )
+
+                # 19e: Add cost_usd to usage_logs
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}usage_logs)")
+                logs_cols_19 = {row[1] for row in cursor.fetchall()}
+                if "cost_usd" not in logs_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}usage_logs ADD COLUMN cost_usd REAL"
+                    )
+
+                connection.commit()
+                logger.info("Migration 19: Schema additions complete")
+
         except sqlite3.Error as e:
             logger.error(f"Migration error: {e}")
         finally:

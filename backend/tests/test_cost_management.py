@@ -379,3 +379,59 @@ class TestModelPricingCRUD:
 
         resp = admin_client.delete("/admin/model-pricing/1", headers={"Authorization": "Bearer test-token"})
         assert resp.status_code == 200
+
+
+class TestMigration19:
+    def test_model_pricing_has_cache_write_column(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(model_pricing)")
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+        assert "cache_write_per_1m" in columns
+
+    def test_model_pricing_has_requires_explicit_cache_column(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(model_pricing)")
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+        assert "requires_explicit_cache" in columns
+
+    def test_model_pricing_has_cache_read_per_1m_column(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(model_pricing)")
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+        assert "cache_read_per_1m" in columns
+
+    def test_assistant_usage_totals_has_cache_write_column(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(assistant_usage_totals)")
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+        assert "cache_write_tokens_total" in columns
+
+    def test_assistant_usage_totals_has_cache_read_column(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(assistant_usage_totals)")
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+        assert "cache_read_tokens_total" in columns
+
+    def test_usage_logs_has_cost_usd_column(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(usage_logs)")
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+        assert "cost_usd" in columns
