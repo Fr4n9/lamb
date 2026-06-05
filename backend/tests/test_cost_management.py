@@ -820,3 +820,68 @@ class TestMigration19Backfill:
         conn.close()
         assert len(rows) >= 1
         assert rows[0][0] > 0
+
+
+class TestUsageByModelBreakdown:
+    def test_breakdown_returns_three_buckets(self, fresh_db):
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        conn.commit()
+        conn.close()
+
+        usage_data = {
+            "prompt_tokens": 19156,
+            "completion_tokens": 957,
+            "total_tokens": 20113,
+            "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_creation_input_tokens": 18198,
+            },
+        }
+        dm.log_token_usage(assistant_id=1, org_id=1, model_name="qwen3.6-plus", provider="openai", usage_data=usage_data)
+
+        rows = dm.get_assistant_usage_by_model(1)
+        assert len(rows) == 1
+        r = rows[0]
+        assert r["cache_read_tokens"] == 0
+        assert r["cache_write_tokens"] == 18198
+        assert r["non_cached_prompt_tokens"] == 958
+        assert r["prompt_tokens"] == 19156
+        assert "cost_usd" in r
+        assert r["cost_usd"] > 0
+
+    def test_breakdown_cost_uses_stored_values(self, fresh_db):
+        """Breakdown cost must be SUM(usage_logs.cost_usd), not recalculated."""
+        dm, _ = fresh_db
+        conn = dm.get_connection()
+        conn.execute("INSERT INTO organizations (id, name, slug, status, config, created_at, updated_at) VALUES (1, 'TestOrg', 'test-org', 'active', '{}', 1700000000, 1700000000)")
+        conn.execute(
+            "INSERT INTO assistants (id, name, owner, organization_id, api_callback, created_at, updated_at) VALUES (1, 'Bot', 'a@b.com', 1, '{}', 1700000000, 1700000000)"
+        )
+        conn.commit()
+        conn.close()
+
+        usage_data = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 500,
+            "total_tokens": 1500,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        }
+        dm.log_token_usage(assistant_id=1, org_id=1, model_name="gpt-4o", provider="openai", usage_data=usage_data)
+
+        rows_before = dm.get_assistant_usage_by_model(1)
+        cost_before = rows_before[0]["cost_usd"]
+
+        conn = dm.get_connection()
+        conn.execute("UPDATE model_pricing SET input_per_1m = 99.0, output_per_1m = 99.0 WHERE provider = 'openai' AND model_name = 'gpt-4o'")
+        conn.commit()
+        conn.close()
+
+        rows_after = dm.get_assistant_usage_by_model(1)
+        cost_after = rows_after[0]["cost_usd"]
+
+        assert abs(cost_before - cost_after) < 1e-9

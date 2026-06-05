@@ -4862,12 +4862,17 @@ class LambDatabaseManager:
                 ul.provider,
                 ul.model_name,
                 SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0)) AS prompt_tokens,
-                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cached_tokens'), 0)) AS cached_prompt_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cached_tokens'), 0)) AS cache_read_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cache_creation_input_tokens'), 0)) AS cache_write_flat,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cache_creation.ephemeral_5m_input_tokens'), 0)) AS cache_write_nested,
                 SUM(COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0)) AS completion_tokens,
+                SUM(COALESCE(ul.cost_usd, 0)) AS cost_usd,
                 COUNT(*) AS request_count,
                 mp.input_per_1m,
-                mp.cached_input_per_1m,
-                mp.output_per_1m
+                mp.cache_read_per_1m,
+                mp.cache_write_per_1m,
+                mp.output_per_1m,
+                mp.requires_explicit_cache
             FROM {self.table_prefix}usage_logs ul
             LEFT JOIN {self.table_prefix}model_pricing mp
                 ON mp.provider = ul.provider AND mp.model_name = ul.model_name
@@ -4886,36 +4891,44 @@ class LambDatabaseManager:
                 results = []
                 for r in rows:
                     prompt = int(r[2] or 0)
-                    cached = int(r[3] or 0)
-                    non_cached = prompt - cached
-                    completion = int(r[4] or 0)
+                    cache_read = int(r[3] or 0)
+                    cache_write_flat = int(r[4] or 0)
+                    cache_write_nested = int(r[5] or 0)
+                    cache_write = cache_write_flat if cache_write_flat > 0 else cache_write_nested
+                    non_cached = max(0, prompt - cache_read - cache_write)
+                    completion = int(r[6] or 0)
                     total = prompt + completion
-                    inp = float(r[6] or 0)
-                    cached_inp = r[7]
-                    out = float(r[8] or 0)
-                    if cached_inp is not None:
-                        cost = (non_cached * inp / 1e6) + (cached * float(cached_inp) / 1e6) + (completion * out / 1e6)
-                    else:
-                        cost = (prompt * inp / 1e6) + (completion * out / 1e6)
+                    cost_usd = float(r[7] or 0)
+                    inp = float(r[9] or 0)
+                    cache_read_rate = r[10]
+                    cache_write_rate = r[11]
+                    out = float(r[12] or 0)
+                    req_explicit = bool(r[13]) if r[13] is not None else False
                     results.append({
                         "provider": r[0] or "",
                         "model_name": r[1] or "",
                         "prompt_tokens": prompt,
-                        "cached_prompt_tokens": cached,
                         "non_cached_prompt_tokens": non_cached,
+                        "cache_read_tokens": cache_read,
+                        "cache_write_tokens": cache_write,
                         "completion_tokens": completion,
                         "total_tokens": total,
-                        "cost_usd": round(cost, 6),
-                        "request_count": int(r[5] or 0),
-                        "input_per_1m": inp,
-                        "cached_input_per_1m": float(cached_inp) if cached_inp is not None else None,
-                        "output_per_1m": out,
+                        "cost_usd": round(cost_usd, 6),
+                        "request_count": int(r[8] or 0),
+                        "pricing": {
+                            "input_per_1m": inp,
+                            "cache_read_per_1m": float(cache_read_rate) if cache_read_rate is not None else None,
+                            "cache_write_per_1m": float(cache_write_rate) if cache_write_rate is not None else None,
+                            "output_per_1m": out,
+                            "requires_explicit_cache": req_explicit,
+                        },
                     })
                 return results
             finally:
                 conn.close()
         except Exception as e:
             logger.error(f"Error fetching usage by model for assistant {assistant_id}: {e}")
+            return []
             return []
 
     def search_organizations(self, name: str, limit: int = 20) -> list:
