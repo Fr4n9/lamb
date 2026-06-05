@@ -21,6 +21,40 @@ logger = get_logger(__name__, component="API")
 # Set up multimodal logging using centralized config
 multimodal_logger = get_logger('multimodal.openai', component="API")
 
+
+def _usage_to_dict(usage) -> dict:
+    """Normalize an OpenAI SDK usage object into a plain dict.
+
+    Ensures cache_creation_input_tokens is captured even when the SDK's
+    Pydantic model does not include it (e.g. Alibaba-compatible APIs).
+    """
+    if usage is None:
+        return {}
+
+    result = {
+        "prompt_tokens": usage.prompt_tokens,
+        "completion_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+    }
+
+    details = getattr(usage, "prompt_tokens_details", None)
+    if details is not None:
+        prompt_details = {}
+        cached = getattr(details, "cached_tokens", None)
+        if cached is not None:
+            prompt_details["cached_tokens"] = cached
+        creation = getattr(details, "cache_creation_input_tokens", None)
+        if creation is not None:
+            prompt_details["cache_creation_input_tokens"] = creation
+        text_tok = getattr(details, "text_tokens", None)
+        if text_tok is not None:
+            prompt_details["text_tokens"] = text_tok
+        if prompt_details:
+            result["prompt_tokens_details"] = prompt_details
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Shared AsyncOpenAI client pool
 # ---------------------------------------------------------------------------
@@ -848,4 +882,7 @@ Returns:
         # Non-streaming call with fallback
         response = await _make_api_call_with_fallback(params) # Use helper with fallback
         logger.debug(f"Direct response created")
-        return response.model_dump()
+        result = response.model_dump()
+        if hasattr(response, "usage") and response.usage is not None:
+            result["usage"] = _usage_to_dict(response.usage)
+        return result
