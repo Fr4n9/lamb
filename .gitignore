@@ -211,3 +211,4 @@ aac_logs/
 .worktrees/
 .agents/
 skills-lock.json
+testing/load/kv-cache-classroom/
