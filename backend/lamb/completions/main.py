@@ -469,6 +469,13 @@ async def run_lamb_assistant(
         pps, connectors, rag_processors = load_and_validate_plugins(plugin_config)
         rag_context = await get_rag_context(request, rag_processors, plugin_config["rag_processor"], assistant_details)
         document_context = await get_rag_context(request, rag_processors, plugin_config.get("document_rag", ""), assistant_details)
+
+        if document_context and isinstance(document_context, dict):
+            _doc_timing = document_context.pop("_timing", None)
+            if _doc_timing:
+                final_headers["X-Doc-RAG-Time-Ms"] = str(_doc_timing.get("fetch_ms", 0))
+                final_headers["X-Doc-RAG-Cache"] = _doc_timing.get("cache", "unknown")
+
         messages = process_completion_request(request, assistant_details, plugin_config, rag_context, pps, document_context)
         stream = request.get("stream", False)
         llm = plugin_config.get("llm") # Get LLM from config
