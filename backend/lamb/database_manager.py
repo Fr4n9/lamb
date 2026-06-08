@@ -1553,6 +1553,55 @@ class LambDatabaseManager:
                 connection.commit()
                 logger.info("Migration 17 complete")
 
+                # Migration 18: Cache-aware token costs + pricing seed update
+                logger.info("Migration 18: Adding cache-aware columns")
+
+                # 18a: Add cached_input_per_1m to model_pricing
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}model_pricing)")
+                pricing_cols = {row[1] for row in cursor.fetchall()}
+                if "cached_input_per_1m" not in pricing_cols:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN cached_input_per_1m REAL"
+                    )
+
+                # 18b: Add cache columns to assistant_usage_totals
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}assistant_usage_totals)")
+                totals_cols = {row[1] for row in cursor.fetchall()}
+                if "cached_prompt_tokens_total" not in totals_cols:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN cached_prompt_tokens_total INTEGER DEFAULT 0"
+                    )
+                if "non_cached_prompt_tokens_total" not in totals_cols:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN non_cached_prompt_tokens_total INTEGER DEFAULT 0"
+                    )
+
+                # 18c: Update seed pricing with official OpenAI cached rates
+                now = int(time.time())
+                upsert_rows = [
+                    ("openai", "gpt-4.1",       2.00,  1.00,  8.00),
+                    ("openai", "gpt-4.1-mini",   0.40,  0.20,  1.60),
+                    ("openai", "gpt-4.1-nano",   0.10,  0.025, 0.40),
+                    ("openai", "gpt-4o",         2.50,  1.25, 10.00),
+                    ("openai", "gpt-4o-mini",    0.15,  0.075, 0.60),
+                    ("openai", "gpt-4-turbo",   10.00,  None, 30.00),
+                    ("openai", "gpt-4",         30.00,  None, 60.00),
+                    ("openai", "o3-mini",        1.10,  0.55,  4.40),
+                ]
+                for provider, model, inp, cached, out in upsert_rows:
+                    cursor.execute(
+                        f"""UPDATE {self.table_prefix}model_pricing
+                            SET cached_input_per_1m = ?,
+                                input_per_1m = ?,
+                                output_per_1m = ?,
+                                updated_at = ?
+                            WHERE provider = ? AND model_name = ?""",
+                        (cached, inp, out, now, provider, model),
+                    )
+
+                connection.commit()
+                logger.info("Migration 18 complete")
+
         except sqlite3.Error as e:
             logger.error(f"Migration error: {e}")
         finally:
@@ -4418,6 +4467,14 @@ class LambDatabaseManager:
             prompt_tokens = usage_data.get('prompt_tokens', 0)
             completion_tokens = usage_data.get('completion_tokens', 0)
             total_tokens = usage_data.get('total_tokens', 0)
+
+            cached_tokens = 0
+            details = usage_data.get('prompt_tokens_details')
+            if isinstance(details, dict):
+                cached_tokens = details.get('cached_tokens', 0) or 0
+            cached_tokens = min(cached_tokens, prompt_tokens)
+            non_cached_tokens = max(0, prompt_tokens - cached_tokens)
+
             now = int(time.time())
 
             conn = self.get_connection()
@@ -4429,40 +4486,47 @@ class LambDatabaseManager:
                         f"""INSERT INTO {self.table_prefix}usage_logs
                         (organization_id, assistant_id, usage_data, model_name, provider, created_at)
                         VALUES (?, ?, ?, ?, ?, ?)""",
-                    (org_id, assistant_id, json.dumps(usage_data), model_name, provider, now)
-                )
+                        (org_id, assistant_id, json.dumps(usage_data), model_name, provider, now)
+                    )
 
-                conn.execute(
-                    f"""
-                    INSERT INTO {self.table_prefix}assistant_usage_totals 
-                    (assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total, cost_usd_total, updated_at)
-                    VALUES (
-                        ?, 
-                        ?, 
-                        ?, 
-                        ?, 
-                        COALESCE((SELECT COALESCE(input_per_1m, 0) * ? / 1000000.0 + COALESCE(output_per_1m, 0) * ? / 1000000.0 
-                         FROM {self.table_prefix}model_pricing 
-                         WHERE provider = ? AND model_name = ?), 0.0),
-                        ?
+                    conn.execute(
+                        f"""
+                        INSERT INTO {self.table_prefix}assistant_usage_totals
+                        (assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total,
+                         cached_prompt_tokens_total, non_cached_prompt_tokens_total, cost_usd_total, updated_at)
+                        VALUES (
+                            ?, ?, ?, ?, ?, ?,
+                            COALESCE((
+                                SELECT
+                                    COALESCE(input_per_1m, 0) * ? / 1000000.0
+                                    + COALESCE(cached_input_per_1m, input_per_1m, 0) * ? / 1000000.0
+                                    + COALESCE(output_per_1m, 0) * ? / 1000000.0
+                                FROM {self.table_prefix}model_pricing
+                                WHERE provider = ? AND model_name = ?
+                            ), 0.0),
+                            ?
+                        )
+                        ON CONFLICT(assistant_id) DO UPDATE SET
+                            prompt_tokens_total = prompt_tokens_total + excluded.prompt_tokens_total,
+                            completion_tokens_total = completion_tokens_total + excluded.completion_tokens_total,
+                            total_tokens_total = total_tokens_total + excluded.total_tokens_total,
+                            cached_prompt_tokens_total = cached_prompt_tokens_total + excluded.cached_prompt_tokens_total,
+                            non_cached_prompt_tokens_total = non_cached_prompt_tokens_total + excluded.non_cached_prompt_tokens_total,
+                            cost_usd_total = cost_usd_total + COALESCE(excluded.cost_usd_total, 0),
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            assistant_id,
+                            prompt_tokens,
+                            completion_tokens,
+                            total_tokens,
+                            cached_tokens,
+                            non_cached_tokens,
+                            non_cached_tokens, cached_tokens, completion_tokens, provider, model_name,
+                            now
+                        )
                     )
-                    ON CONFLICT(assistant_id) DO UPDATE SET
-                        prompt_tokens_total = prompt_tokens_total + excluded.prompt_tokens_total,
-                        completion_tokens_total = completion_tokens_total + excluded.completion_tokens_total,
-                        total_tokens_total = total_tokens_total + excluded.total_tokens_total,
-                        cost_usd_total = cost_usd_total + COALESCE(excluded.cost_usd_total, 0),
-                        updated_at = excluded.updated_at
-                    """,
-                    (
-                        assistant_id, 
-                        prompt_tokens, 
-                        completion_tokens, 
-                        total_tokens, 
-                        prompt_tokens, completion_tokens, provider, model_name,
-                        now
-                    )
-                )
-                conn.commit()
+                    conn.commit()
             finally:
                 conn.close()
         except Exception as e:
@@ -4581,8 +4645,8 @@ class LambDatabaseManager:
     def get_all_assistants_with_usage(self) -> list:
         """Return all assistants with aggregate token usage and estimated cost (admin view).
 
-        Each row contains: id, name, owner, organization_name, api_callback,
-        prompt_tokens, completion_tokens, total_tokens, cost_usd.
+        Each row contains: id, name, owner, organization_name, organization_id, api_callback,
+        prompt_tokens, completion_tokens, total_tokens, cost_usd, cached_prompt_tokens, non_cached_prompt_tokens.
         Quota fields are derived from api_callback in the calling layer.
         """
         query = f"""
@@ -4591,12 +4655,15 @@ class LambDatabaseManager:
                 a.name,
                 a.owner,
                 o.name  AS organization_name,
+                a.organization_id,
                 a.api_callback,
                 COALESCE(ut.prompt_tokens_total, 0) AS prompt_tokens,
                 COALESCE(ut.completion_tokens_total, 0) AS completion_tokens,
                 COALESCE(ut.total_tokens_total, 0) AS total_tokens,
                 COALESCE(ut.cost_usd_total, 0.0) AS cost_usd,
-                qa.thresholds_config
+                qa.thresholds_config,
+                COALESCE(ut.cached_prompt_tokens_total, 0) AS cached_prompt_tokens,
+                COALESCE(ut.non_cached_prompt_tokens_total, 0) AS non_cached_prompt_tokens
             FROM {self.table_prefix}assistants a
             LEFT JOIN {self.table_prefix}organizations o   ON a.organization_id = o.id
             LEFT JOIN {self.table_prefix}assistant_usage_totals ut ON ut.assistant_id = a.id
@@ -4618,12 +4685,15 @@ class LambDatabaseManager:
                         "name": row[1],
                         "owner": row[2],
                         "organization_name": row[3] or "",
-                        "api_callback": row[4],
-                        "prompt_tokens": int(row[5] or 0),
-                        "completion_tokens": int(row[6] or 0),
-                        "total_tokens": int(row[7] or 0),
-                        "cost_usd": float(row[8] or 0.0),
-                        "thresholds_config": row[9]
+                        "organization_id": row[4],
+                        "api_callback": row[5],
+                        "prompt_tokens": int(row[6] or 0),
+                        "completion_tokens": int(row[7] or 0),
+                        "total_tokens": int(row[8] or 0),
+                        "cost_usd": float(row[9] or 0.0),
+                        "thresholds_config": row[10],
+                        "cached_prompt_tokens": int(row[11] or 0),
+                        "non_cached_prompt_tokens": int(row[12] or 0),
                     })
                 return results
             finally:
@@ -4631,6 +4701,249 @@ class LambDatabaseManager:
         except Exception as e:
             logger.error(f"Error fetching all assistants with usage: {e}")
             return []
+
+    def get_assistant_usage_by_model(self, assistant_id: int) -> list:
+        query = f"""
+            SELECT
+                ul.provider,
+                ul.model_name,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0)) AS prompt_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cached_tokens'), 0)) AS cached_prompt_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0)) AS completion_tokens,
+                COUNT(*) AS request_count,
+                mp.input_per_1m,
+                mp.cached_input_per_1m,
+                mp.output_per_1m
+            FROM {self.table_prefix}usage_logs ul
+            LEFT JOIN {self.table_prefix}model_pricing mp
+                ON mp.provider = ul.provider AND mp.model_name = ul.model_name
+            WHERE ul.assistant_id = ?
+            GROUP BY ul.provider, ul.model_name
+            ORDER BY request_count DESC
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return []
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query, (assistant_id,))
+                rows = cursor.fetchall()
+                results = []
+                for r in rows:
+                    prompt = int(r[2] or 0)
+                    cached = int(r[3] or 0)
+                    non_cached = prompt - cached
+                    completion = int(r[4] or 0)
+                    total = prompt + completion
+                    inp = float(r[6] or 0)
+                    cached_inp = r[7]
+                    out = float(r[8] or 0)
+                    if cached_inp is not None:
+                        cost = (non_cached * inp / 1e6) + (cached * float(cached_inp) / 1e6) + (completion * out / 1e6)
+                    else:
+                        cost = (prompt * inp / 1e6) + (completion * out / 1e6)
+                    results.append({
+                        "provider": r[0] or "",
+                        "model_name": r[1] or "",
+                        "prompt_tokens": prompt,
+                        "cached_prompt_tokens": cached,
+                        "non_cached_prompt_tokens": non_cached,
+                        "completion_tokens": completion,
+                        "total_tokens": total,
+                        "cost_usd": round(cost, 6),
+                        "request_count": int(r[5] or 0),
+                        "input_per_1m": inp,
+                        "cached_input_per_1m": float(cached_inp) if cached_inp is not None else None,
+                        "output_per_1m": out,
+                    })
+                return results
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error fetching usage by model for assistant {assistant_id}: {e}")
+            return []
+
+    def search_organizations(self, name: str, limit: int = 20) -> list:
+        query = f"""
+            SELECT id, name, slug
+            FROM {self.table_prefix}organizations
+            WHERE LOWER(name) LIKE LOWER(?)
+            ORDER BY name
+            LIMIT ?
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return []
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query, (f"%{name}%", limit))
+                return [{"id": r[0], "name": r[1], "slug": r[2]} for r in cursor.fetchall()]
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error searching organizations: {e}")
+            return []
+
+    def get_org_scoped_summary(self, organization_id: int) -> dict:
+        query = f"""
+            SELECT
+                COALESCE(SUM(ut.cost_usd_total), 0.0),
+                COALESCE(SUM(ut.total_tokens_total), 0),
+                COALESCE(SUM(ut.prompt_tokens_total), 0),
+                COALESCE(SUM(ut.completion_tokens_total), 0),
+                COALESCE(SUM(ut.cached_prompt_tokens_total), 0),
+                COUNT(DISTINCT a.id)
+            FROM {self.table_prefix}assistants a
+            LEFT JOIN {self.table_prefix}assistant_usage_totals ut ON ut.assistant_id = a.id
+            WHERE a.organization_id = ?
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return self._empty_summary()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query, (organization_id,))
+                r = cursor.fetchone()
+                return {
+                    "total_cost_usd": round(float(r[0] or 0), 6),
+                    "total_tokens": int(r[1] or 0),
+                    "prompt_tokens": int(r[2] or 0),
+                    "completion_tokens": int(r[3] or 0),
+                    "cached_prompt_tokens": int(r[4] or 0),
+                    "assistant_count": int(r[5] or 0),
+                    "quota_exceeded_count": 0,
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error computing org summary: {e}")
+            return self._empty_summary()
+
+    def _empty_summary(self) -> dict:
+        return {
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cached_prompt_tokens": 0,
+            "assistant_count": 0,
+            "quota_exceeded_count": 0,
+        }
+
+    def list_model_pricing(self) -> list:
+        query = f"""
+            SELECT id, provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at
+            FROM {self.table_prefix}model_pricing
+            ORDER BY provider, model_name
+        """
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return []
+            try:
+                cursor = conn.cursor()
+                cursor.execute(query)
+                return [
+                    {
+                        "id": r[0], "provider": r[1], "model_name": r[2],
+                        "input_per_1m": float(r[3] or 0),
+                        "cached_input_per_1m": float(r[4]) if r[4] is not None else None,
+                        "output_per_1m": float(r[5] or 0),
+                        "updated_at": r[6],
+                    }
+                    for r in cursor.fetchall()
+                ]
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error listing model pricing: {e}")
+            return []
+
+    def create_model_pricing(self, provider: str, model_name: str, input_per_1m: float,
+                              cached_input_per_1m: float | None, output_per_1m: float) -> dict | None:
+        now = int(time.time())
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return None
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"""INSERT INTO {self.table_prefix}model_pricing
+                        (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)""",
+                    (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, now),
+                )
+                conn.commit()
+                new_id = cursor.lastrowid
+                return {
+                    "id": new_id, "provider": provider, "model_name": model_name,
+                    "input_per_1m": input_per_1m, "cached_input_per_1m": cached_input_per_1m,
+                    "output_per_1m": output_per_1m, "updated_at": now,
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error creating model pricing: {e}")
+            return None
+
+    def update_model_pricing(self, pricing_id: int, **fields) -> dict | None:
+        now = int(time.time())
+        allowed = {"provider", "model_name", "input_per_1m", "cached_input_per_1m", "output_per_1m"}
+        updates = {k: v for k, v in fields.items() if k in allowed}
+        if not updates:
+            return None
+        sets = ", ".join(f"{k} = ?" for k in updates)
+        vals = list(updates.values()) + [now, pricing_id]
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return None
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"UPDATE {self.table_prefix}model_pricing SET {sets}, updated_at = ? WHERE id = ?",
+                    vals,
+                )
+                conn.commit()
+                if cursor.rowcount == 0:
+                    return None
+                cursor.execute(
+                    f"SELECT id, provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at FROM {self.table_prefix}model_pricing WHERE id = ?",
+                    (pricing_id,),
+                )
+                r = cursor.fetchone()
+                return {
+                    "id": r[0], "provider": r[1], "model_name": r[2],
+                    "input_per_1m": float(r[3] or 0),
+                    "cached_input_per_1m": float(r[4]) if r[4] is not None else None,
+                    "output_per_1m": float(r[5] or 0),
+                    "updated_at": r[6],
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error updating model pricing: {e}")
+            return None
+
+    def delete_model_pricing(self, pricing_id: int) -> bool:
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return False
+            try:
+                cursor = conn.cursor()
+                cursor.execute(f"DELETE FROM {self.table_prefix}model_pricing WHERE id = ?", (pricing_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error deleting model pricing: {e}")
+            return False
 
     def get_assistant_by_id(self, assistant_id: int) -> Optional[Assistant]:
         connection = self.get_connection()

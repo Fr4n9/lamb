@@ -115,3 +115,41 @@ export async function checkUserDependencies(token, userId) {
 export async function deleteUser(token, userId) {
 	return jsonRequest(`/admin/users/${userId}`, token, { method: 'DELETE' });
 }
+
+export async function fetchCostOverview(token) {
+	return jsonRequest('/admin/cost-overview', token, { method: 'GET' });
+}
+
+export async function fetchCostSummaryByOrg(token, organizationId) {
+	return jsonRequest(`/admin/cost-overview/summary?organization_id=${organizationId}`, token, { method: 'GET' });
+}
+
+export async function searchOrganizations(token, name) {
+	return jsonRequest(`/admin/organizations/search?name=${encodeURIComponent(name)}`, token, { method: 'GET' });
+}
+
+export async function fetchAssistantUsageByModel(token, assistantId) {
+	return jsonRequest(`/admin/assistant/${assistantId}/usage-by-model`, token, { method: 'GET' });
+}
+
+export async function fetchModelPricing(token) {
+	return jsonRequest('/admin/model-pricing', token, { method: 'GET' });
+}
+
+export async function createModelPricing(token, data) {
+	return jsonRequest('/admin/model-pricing', token, {
+		method: 'POST',
+		body: JSON.stringify(data)
+	});
+}
+
+export async function updateModelPricing(token, id, data) {
+	return jsonRequest(`/admin/model-pricing/${id}`, token, {
+		method: 'PUT',
+		body: JSON.stringify(data)
+	});
+}
+
+export async function deleteModelPricing(token, id) {
+	return jsonRequest(`/admin/model-pricing/${id}`, token, { method: 'DELETE' });
+}
