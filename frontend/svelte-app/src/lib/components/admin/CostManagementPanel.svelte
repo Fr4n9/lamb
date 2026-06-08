@@ -54,13 +54,14 @@
 	// Replace the activeSummary block from Step 5.6 with this updated version
 	let activeSummary = $derived(
 		orgFilterActive
-			? (orgSummary ?? { total_cost_usd: 0, total_tokens: 0, prompt_tokens: 0, completion_tokens: 0, cached_prompt_tokens: 0, assistant_count: 0, quota_exceeded_count: 0 })
+			? (orgSummary ?? { total_cost_usd: 0, total_tokens: 0, prompt_tokens: 0, completion_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, assistant_count: 0, quota_exceeded_count: 0 })
 			: serverSummary || {
 				total_cost_usd: costTotals.total_cost,
 				total_tokens: costTotals.total_tokens,
 				prompt_tokens: costTotals.prompt_tokens,
 				completion_tokens: costTotals.completion_tokens,
-				cached_prompt_tokens: costTotals.cached_prompt_tokens,
+				cache_read_tokens: costTotals.cache_read_tokens ?? 0,
+				cache_write_tokens: costTotals.cache_write_tokens ?? 0,
 				assistant_count: costData.length,
 				quota_exceeded_count: costData.filter(a => a.quota_exceeded).length
 			}
@@ -309,7 +310,9 @@
 			<p class="mt-0.5 text-xs text-gray-400">
 				Prompt: {activeSummary.prompt_tokens.toLocaleString()} · Completion: {activeSummary.completion_tokens.toLocaleString()}
 			</p>
-			<p class="text-xs text-gray-400">Cached prompt: {activeSummary.cached_prompt_tokens.toLocaleString()}</p>
+			<p class="text-xs text-gray-400">
+				{$_('admin.costManagement.summary.cacheRead', { default: 'Cache read' })}: {(activeSummary.cache_read_tokens ?? 0).toLocaleString()} · {$_('admin.costManagement.summary.cacheWrite', { default: 'Cache write' })}: {(activeSummary.cache_write_tokens ?? 0).toLocaleString()}
+			</p>
 		</div>
 		<div class="rounded-lg bg-white p-4 shadow">
 			<p class="mb-1 text-xs tracking-wide text-gray-500 uppercase">Assistants</p>

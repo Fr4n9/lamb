@@ -910,6 +910,10 @@
 			"lessDetails": "Xehetasun gutxiago",
 			"managePricing": "Kudeatu ereduen prezioak",
 			"retry": "Saiatu berriro",
+			"summary": {
+				"cacheRead": "Cache irakurketa",
+				"cacheWrite": "Cache idazketa"
+			},
 			"orgFilter": {
 				"title": "Iragazi erakundearen arabera",
 				"placeholder": "Idatzi erakundearen izena...",
@@ -922,15 +926,22 @@
 				"provider": "Hornitzailea",
 				"model": "Eredua",
 				"requests": "Eskaerak",
-				"cachedPrompt": "Cachean",
-				"pricingNote": "Kostuak uneko tarifekin birkalkulatzen dira eta taula nagusitik desberdinak izan daitezke prezioak aldatu badira."
+				"nonCachedPrompt": "Cacheatu gabeak",
+				"cacheRead": "Cache irakurketa",
+				"cacheWrite": "Cache idazketa",
+				"identityNote": "Prompt = cacheatu gabeak + cache irakurketa + cache idazketa"
 			},
 			"pricing": {
 				"title": "Kudeatu ereduen prezioak",
 				"loading": "Prezioak kargatzen...",
 				"helperText": "Ereduaren izenak laguntzailearen LLM konfigurazioarekin bat etorri behar du. Prezio aldaketek erabilera berriari bakarrik eragiten diote.",
-				"cachedHelper": "Cached $/1M prompt cache asmatzeen tarifa da (OpenAI). Hutsik utzi prompt token guztiak sarrera tarifarekin fakturatzeko.",
-				"providerHelper": "Fakturazio hornitzailea (normalean openai OpenAI konektorearentzat).",
+				"cacheReadHelper": "Cache irakurketa $/1M cache asmatzeen tarifa da. Hutsik utzi sarrera tarifarekin fakturatzeko.",
+				"cacheWriteHelper": "Cache idazketa $/1M cache sorreraren tarifa da. Hutsik utzi sarrera tarifarekin fakturatzeko.",
+				"explicitCacheHelper": "Cache esplizitua: aktibatu Alibaba/Anthropic motako APIetarako cache_control markatzaileak behar dituztenak.",
+				"cacheReadRate": "Cache irakurketa $/1M",
+				"cacheWriteRate": "Cache idazketa $/1M",
+				"explicitCache": "Cache esplizitua",
+				"explicitCacheLabel": "Cache esplizituaren tratamendua behar du",
 				"addModel": "Gehitu eredua",
 				"addButton": "Gehitu prezioa",
 				"manageButton": "Kudeatu ereduen prezioak",

@@ -27,7 +27,8 @@ export function computeCostTotals(costData) {
 		total_tokens: costData.reduce((s, a) => s + (a.total_tokens || 0), 0),
 		prompt_tokens: costData.reduce((s, a) => s + (a.prompt_tokens || 0), 0),
 		completion_tokens: costData.reduce((s, a) => s + (a.completion_tokens || 0), 0),
-		cached_prompt_tokens: costData.reduce((s, a) => s + (a.cached_prompt_tokens || 0), 0)
+		cache_read_tokens: costData.reduce((s, a) => s + (a.cache_read_tokens || a.cached_prompt_tokens || 0), 0),
+		cache_write_tokens: costData.reduce((s, a) => s + (a.cache_write_tokens || 0), 0)
 	};
 }
 

@@ -910,6 +910,10 @@
 			"lessDetails": "Menys detalls",
 			"managePricing": "Gestiona preus de models",
 			"retry": "Reintenta",
+			"summary": {
+				"cacheRead": "Lectura memòria",
+				"cacheWrite": "Escriptura memòria"
+			},
 			"orgFilter": {
 				"title": "Filtra per organització",
 				"placeholder": "Escriu el nom de l'organització...",
@@ -922,15 +926,22 @@
 				"provider": "Proveïdor",
 				"model": "Model",
 				"requests": "Peticions",
-				"cachedPrompt": "En cau",
-				"pricingNote": "Els costos es recalculen amb les tarifes actuals i poden diferir de la taula principal si es van editar els preus."
+				"nonCachedPrompt": "No emmagatzemats",
+				"cacheRead": "Lectura memòria",
+				"cacheWrite": "Escriptura memòria",
+				"identityNote": "Prompt = no emmagatzemats + lectura memòria + escriptura memòria"
 			},
 			"pricing": {
 				"title": "Gestiona preus de models",
 				"loading": "Carregant preus...",
 				"helperText": "El nom del model ha de coincidir amb la configuració LLM de l'assistent. Els canvis de preu només afecten l'ús nou.",
-				"cachedHelper": "Cached $/1M és la tarifa per a encerts de memòria cau de prompt (OpenAI). Deixa-ho buit per facturar tots els tokens de prompt a la tarifa d'entrada.",
-				"providerHelper": "Proveïdor de facturació (normalment openai per al connector OpenAI).",
+				"cacheReadHelper": "Lectura memòria $/1M és la tarifa per a encerts de memòria cau. Buit per facturar a tarifa d'entrada.",
+				"cacheWriteHelper": "Escriptura memòria $/1M és la tarifa per a creació de memòria cau. Buit per facturar a tarifa d'entrada.",
+				"explicitCacheHelper": "Memòria cau explícita: activa per a APIs tipus Alibaba/Anthropic que requereixen marcadors cache_control.",
+				"cacheReadRate": "Lectura memòria $/1M",
+				"cacheWriteRate": "Escriptura memòria $/1M",
+				"explicitCache": "Memòria cau explícita",
+				"explicitCacheLabel": "Requereix tractament de memòria cau explícita",
 				"addModel": "Afegeix model",
 				"addButton": "Afegeix preu",
 				"manageButton": "Gestiona preus de models",

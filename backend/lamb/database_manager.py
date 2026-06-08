@@ -1308,28 +1308,21 @@ class LambDatabaseManager:
                 logger.info("Migration 13: Backfilling assistant_usage_totals from usage_logs")
                 cursor.execute(f"""
                     INSERT INTO {self.table_prefix}assistant_usage_totals (
-                        assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total, cost_usd_total, updated_at
+                        assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total, updated_at
                     )
                     SELECT
                         a.id AS assistant_id,
                         COALESCE(SUM(json_extract(ul.usage_data, '$.prompt_tokens')), 0) AS prompt_tokens_total,
                         COALESCE(SUM(json_extract(ul.usage_data, '$.completion_tokens')), 0) AS completion_tokens_total,
                         COALESCE(SUM(json_extract(ul.usage_data, '$.total_tokens')), 0) AS total_tokens_total,
-                        COALESCE(SUM(
-                            COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0) * COALESCE(mp.input_per_1m, 0) / 1000000.0
-                            + 
-                            COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0) * COALESCE(mp.output_per_1m, 0) / 1000000.0
-                        ), 0.0) AS cost_usd_total,
                         strftime('%s', 'now') AS updated_at
                     FROM {self.table_prefix}assistants a
                     JOIN {self.table_prefix}usage_logs ul ON ul.assistant_id = a.id
-                    LEFT JOIN {self.table_prefix}model_pricing mp ON ul.model_name = mp.model_name AND ul.provider = mp.provider
                     GROUP BY a.id
                     ON CONFLICT(assistant_id) DO UPDATE SET
                         prompt_tokens_total = excluded.prompt_tokens_total,
                         completion_tokens_total = excluded.completion_tokens_total,
                         total_tokens_total = excluded.total_tokens_total,
-                        cost_usd_total = excluded.cost_usd_total,
                         updated_at = excluded.updated_at
                 """)
 
@@ -1601,6 +1594,167 @@ class LambDatabaseManager:
 
                 connection.commit()
                 logger.info("Migration 18 complete")
+
+                # Migration 19: Cache write, explicit cache, immutable costs
+                logger.info("Migration 19: Adding cache write, explicit cache, and immutable cost columns")
+
+                # 19a: Add cache_read_per_1m to model_pricing
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}model_pricing)")
+                pricing_cols_19 = {row[1] for row in cursor.fetchall()}
+
+                if "cache_read_per_1m" not in pricing_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN cache_read_per_1m REAL"
+                    )
+
+                if "cache_write_per_1m" not in pricing_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN cache_write_per_1m REAL"
+                    )
+
+                if "requires_explicit_cache" not in pricing_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}model_pricing ADD COLUMN requires_explicit_cache INTEGER DEFAULT 0"
+                    )
+
+                # 19b: Copy cached_input_per_1m values to cache_read_per_1m
+                # Re-check columns since ALTER TABLE may have added them
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}model_pricing)")
+                pricing_cols_19b = {row[1] for row in cursor.fetchall()}
+                if "cached_input_per_1m" in pricing_cols_19b and "cache_read_per_1m" in pricing_cols_19b:
+                    cursor.execute(
+                        f"UPDATE {self.table_prefix}model_pricing SET cache_read_per_1m = cached_input_per_1m WHERE cache_read_per_1m IS NULL AND cached_input_per_1m IS NOT NULL"
+                    )
+
+                # 19c: Add cache token columns to assistant_usage_totals
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}assistant_usage_totals)")
+                totals_cols_19 = {row[1] for row in cursor.fetchall()}
+
+                if "cache_read_tokens_total" not in totals_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN cache_read_tokens_total INTEGER DEFAULT 0"
+                    )
+
+                if "cache_write_tokens_total" not in totals_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}assistant_usage_totals ADD COLUMN cache_write_tokens_total INTEGER DEFAULT 0"
+                    )
+
+                # 19d: Copy cached_prompt_tokens_total to cache_read_tokens_total
+                if "cached_prompt_tokens_total" in totals_cols_19:
+                    cursor.execute(
+                        f"UPDATE {self.table_prefix}assistant_usage_totals SET cache_read_tokens_total = cached_prompt_tokens_total WHERE cache_read_tokens_total = 0 AND cached_prompt_tokens_total > 0"
+                    )
+
+                # 19e: Add cost_usd to usage_logs
+                cursor.execute(f"PRAGMA table_info({self.table_prefix}usage_logs)")
+                logs_cols_19 = {row[1] for row in cursor.fetchall()}
+                if "cost_usd" not in logs_cols_19:
+                    cursor.execute(
+                        f"ALTER TABLE {self.table_prefix}usage_logs ADD COLUMN cost_usd REAL"
+                    )
+
+                # 19f: Seed Qwen pricing row
+                now_19 = int(time.time())
+                cursor.execute(
+                    f"""INSERT OR IGNORE INTO {self.table_prefix}model_pricing
+                        (provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                         output_per_1m, requires_explicit_cache, notes, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        "openai", "qwen3.6-plus",
+                        0.80,   # input_per_1m — placeholder, operator verifies
+                        0.16,   # cache_read_per_1m — ~20% of input
+                        1.00,   # cache_write_per_1m — ~125% of input
+                        2.00,   # output_per_1m — placeholder
+                        1,      # requires_explicit_cache
+                        "Alibaba Qwen 3.6 Plus via compatible API",
+                        now_19,
+                    ),
+                )
+
+                # 19g: Backfill cost_usd for existing usage_logs rows where cost_usd IS NULL
+                cursor.execute(
+                    f"SELECT id, usage_data, model_name, provider FROM {self.table_prefix}usage_logs WHERE cost_usd IS NULL"
+                )
+                legacy_rows = cursor.fetchall()
+                if legacy_rows:
+                    logger.info(f"Migration 19: Backfilling cost_usd for {len(legacy_rows)} legacy usage_logs rows")
+                    from .completions.token_repartition import extract_token_buckets
+                    from .completions.cost_formula import compute_cost_usd
+
+                    pricing_cache = {}
+                    for legacy_id, usage_json, leg_model, leg_provider in legacy_rows:
+                        try:
+                            usage_obj = json.loads(usage_json) if isinstance(usage_json, str) else {}
+                        except Exception:
+                            usage_obj = {}
+
+                        pricing_key = (leg_provider, leg_model)
+                        if pricing_key not in pricing_cache:
+                            cursor.execute(
+                                f"""SELECT input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                                           output_per_1m, requires_explicit_cache
+                                    FROM {self.table_prefix}model_pricing
+                                    WHERE provider = ? AND model_name = ?""",
+                                (leg_provider, leg_model),
+                            )
+                            p_row = cursor.fetchone()
+                            if p_row:
+                                pricing_cache[pricing_key] = {
+                                    "input_per_1m": p_row[0],
+                                    "cache_read_per_1m": p_row[1],
+                                    "cache_write_per_1m": p_row[2],
+                                    "output_per_1m": p_row[3],
+                                    "requires_explicit_cache": bool(p_row[4]),
+                                }
+                            else:
+                                pricing_cache[pricing_key] = None
+
+                        buckets = extract_token_buckets(usage_obj)
+                        cost = compute_cost_usd(pricing_cache[pricing_key], buckets)
+                        cursor.execute(
+                            f"UPDATE {self.table_prefix}usage_logs SET cost_usd = ? WHERE id = ?",
+                            (cost, legacy_id),
+                        )
+
+                    # Rebuild cost_usd_total from usage_logs.cost_usd
+                    cursor.execute(f"""
+                        UPDATE {self.table_prefix}assistant_usage_totals
+                        SET cost_usd_total = COALESCE((
+                            SELECT SUM(ul.cost_usd)
+                            FROM {self.table_prefix}usage_logs ul
+                            WHERE ul.assistant_id = {self.table_prefix}assistant_usage_totals.assistant_id
+                        ), 0.0)
+                    """)
+
+                    # Rebuild cache_read_tokens_total, cache_write_tokens_total, non_cached_prompt_tokens_total
+                    cursor.execute(f"""
+                        SELECT assistant_id,
+                               SUM(COALESCE(json_extract(usage_data, '$.prompt_tokens'), 0)),
+                               SUM(COALESCE(json_extract(usage_data, '$.prompt_tokens_details.cached_tokens'), 0)),
+                               SUM(COALESCE(json_extract(usage_data, '$.prompt_tokens_details.cache_creation_input_tokens'), 0))
+                        FROM {self.table_prefix}usage_logs
+                        GROUP BY assistant_id
+                    """)
+                    for aid, prompt_sum, read_sum, write_sum in cursor.fetchall():
+                        prompt_sum = int(prompt_sum or 0)
+                        read_sum = int(read_sum or 0)
+                        write_sum = int(write_sum or 0)
+                        non_cached = max(0, prompt_sum - read_sum - write_sum)
+                        cursor.execute(
+                            f"""UPDATE {self.table_prefix}assistant_usage_totals
+                                SET cache_read_tokens_total = ?,
+                                    cache_write_tokens_total = ?,
+                                    non_cached_prompt_tokens_total = ?
+                                WHERE assistant_id = ?""",
+                            (read_sum, write_sum, non_cached, aid),
+                        )
+
+                    logger.info("Migration 19: Backfill complete (cost_usd + cache_read + cache_write + non_cached)")
+
+                connection.commit()
+                logger.info("Migration 19: Schema additions complete")
 
         except sqlite3.Error as e:
             logger.error(f"Migration error: {e}")
@@ -4460,20 +4614,18 @@ class LambDatabaseManager:
     def log_token_usage(self, assistant_id: int, org_id: int, model_name: str, provider: str, usage_data: dict):
         """Write one row to usage_logs for a completed request.
 
-        usage_data should contain: prompt_tokens, completion_tokens, total_tokens.
+        Computes and freezes cost_usd at insert time using current model_pricing.
+        Stores three prompt token buckets (non_cached, cache_read, cache_write).
         Errors are caught and logged — never propagated to callers.
         """
         try:
-            prompt_tokens = usage_data.get('prompt_tokens', 0)
-            completion_tokens = usage_data.get('completion_tokens', 0)
-            total_tokens = usage_data.get('total_tokens', 0)
+            from .completions.token_repartition import extract_token_buckets
+            from .completions.cost_formula import compute_cost_usd
 
-            cached_tokens = 0
-            details = usage_data.get('prompt_tokens_details')
-            if isinstance(details, dict):
-                cached_tokens = details.get('cached_tokens', 0) or 0
-            cached_tokens = min(cached_tokens, prompt_tokens)
-            non_cached_tokens = max(0, prompt_tokens - cached_tokens)
+            buckets = extract_token_buckets(usage_data)
+            prompt_tokens = buckets["prompt_tokens"]
+            completion_tokens = buckets["completion_tokens"]
+            total_tokens = prompt_tokens + completion_tokens
 
             now = int(time.time())
 
@@ -4481,38 +4633,50 @@ class LambDatabaseManager:
             if not conn:
                 return
             try:
+                pricing_row = None
                 with conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        f"""SELECT input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                                   output_per_1m, requires_explicit_cache
+                            FROM {self.table_prefix}model_pricing
+                            WHERE provider = ? AND model_name = ?""",
+                        (provider, model_name),
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        pricing_row = {
+                            "input_per_1m": row[0],
+                            "cache_read_per_1m": row[1],
+                            "cache_write_per_1m": row[2],
+                            "output_per_1m": row[3],
+                            "requires_explicit_cache": bool(row[4]),
+                        }
+
+                    cost_usd = compute_cost_usd(pricing_row, buckets)
+
                     conn.execute(
                         f"""INSERT INTO {self.table_prefix}usage_logs
-                        (organization_id, assistant_id, usage_data, model_name, provider, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?)""",
-                        (org_id, assistant_id, json.dumps(usage_data), model_name, provider, now)
+                        (organization_id, assistant_id, usage_data, model_name, provider, cost_usd, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (org_id, assistant_id, json.dumps(usage_data), model_name, provider, cost_usd, now)
                     )
 
                     conn.execute(
                         f"""
                         INSERT INTO {self.table_prefix}assistant_usage_totals
                         (assistant_id, prompt_tokens_total, completion_tokens_total, total_tokens_total,
-                         cached_prompt_tokens_total, non_cached_prompt_tokens_total, cost_usd_total, updated_at)
-                        VALUES (
-                            ?, ?, ?, ?, ?, ?,
-                            COALESCE((
-                                SELECT
-                                    COALESCE(input_per_1m, 0) * ? / 1000000.0
-                                    + COALESCE(cached_input_per_1m, input_per_1m, 0) * ? / 1000000.0
-                                    + COALESCE(output_per_1m, 0) * ? / 1000000.0
-                                FROM {self.table_prefix}model_pricing
-                                WHERE provider = ? AND model_name = ?
-                            ), 0.0),
-                            ?
-                        )
+                         cache_read_tokens_total, cache_write_tokens_total,
+                         non_cached_prompt_tokens_total, cost_usd_total, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(assistant_id) DO UPDATE SET
                             prompt_tokens_total = prompt_tokens_total + excluded.prompt_tokens_total,
                             completion_tokens_total = completion_tokens_total + excluded.completion_tokens_total,
                             total_tokens_total = total_tokens_total + excluded.total_tokens_total,
-                            cached_prompt_tokens_total = cached_prompt_tokens_total + excluded.cached_prompt_tokens_total,
+                            cache_read_tokens_total = cache_read_tokens_total + excluded.cache_read_tokens_total,
+                            cache_write_tokens_total = cache_write_tokens_total + excluded.cache_write_tokens_total,
                             non_cached_prompt_tokens_total = non_cached_prompt_tokens_total + excluded.non_cached_prompt_tokens_total,
-                            cost_usd_total = cost_usd_total + COALESCE(excluded.cost_usd_total, 0),
+                            cost_usd_total = cost_usd_total + excluded.cost_usd_total,
                             updated_at = excluded.updated_at
                         """,
                         (
@@ -4520,10 +4684,11 @@ class LambDatabaseManager:
                             prompt_tokens,
                             completion_tokens,
                             total_tokens,
-                            cached_tokens,
-                            non_cached_tokens,
-                            non_cached_tokens, cached_tokens, completion_tokens, provider, model_name,
-                            now
+                            buckets["cache_read"],
+                            buckets["cache_write"],
+                            buckets["non_cached"],
+                            cost_usd,
+                            now,
                         )
                     )
                     conn.commit()
@@ -4572,25 +4737,14 @@ class LambDatabaseManager:
             return True # Fail open to avoid blocking
 
     def get_assistant_cost_usd(self, assistant_id: int) -> float:
-        """Return the total estimated cost in USD for all logged requests for this assistant.
+        """Return the frozen total cost for this assistant from assistant_usage_totals.
 
-        Returns 0.0 when there is no pricing data or no usage logged.
-        Uses SQLite json_extract to pull token counts from the JSON blob.
+        Reads the pre-computed cost_usd_total — never recalculates from current pricing.
         """
         query = f"""
-            SELECT
-              COALESCE(SUM(
-                COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0)
-                  * COALESCE(mp.input_per_1m, 0) / 1000000.0
-                +
-                COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0)
-                  * COALESCE(mp.output_per_1m, 0) / 1000000.0
-              ), 0.0)
-            FROM {self.table_prefix}usage_logs ul
-            LEFT JOIN {self.table_prefix}model_pricing mp
-                   ON ul.model_name = mp.model_name
-                  AND ul.provider   = mp.provider
-            WHERE ul.assistant_id = ?
+            SELECT COALESCE(cost_usd_total, 0.0)
+            FROM {self.table_prefix}assistant_usage_totals
+            WHERE assistant_id = ?
         """
         try:
             connection = self.get_connection()
@@ -4604,7 +4758,7 @@ class LambDatabaseManager:
             finally:
                 connection.close()
         except Exception as e:
-            logger.error(f"Error computing cost for assistant {assistant_id}: {e}")
+            logger.error(f"Error reading cost for assistant {assistant_id}: {e}")
             return 0.0
 
     def get_assistant_token_usage(self, assistant_id: int) -> dict:
@@ -4646,7 +4800,7 @@ class LambDatabaseManager:
         """Return all assistants with aggregate token usage and estimated cost (admin view).
 
         Each row contains: id, name, owner, organization_name, organization_id, api_callback,
-        prompt_tokens, completion_tokens, total_tokens, cost_usd, cached_prompt_tokens, non_cached_prompt_tokens.
+        prompt_tokens, completion_tokens, total_tokens, cost_usd, cache_read_tokens, cache_write_tokens, non_cached_prompt_tokens.
         Quota fields are derived from api_callback in the calling layer.
         """
         query = f"""
@@ -4662,7 +4816,8 @@ class LambDatabaseManager:
                 COALESCE(ut.total_tokens_total, 0) AS total_tokens,
                 COALESCE(ut.cost_usd_total, 0.0) AS cost_usd,
                 qa.thresholds_config,
-                COALESCE(ut.cached_prompt_tokens_total, 0) AS cached_prompt_tokens,
+                COALESCE(ut.cache_read_tokens_total, ut.cached_prompt_tokens_total, 0) AS cache_read_tokens,
+                COALESCE(ut.cache_write_tokens_total, 0) AS cache_write_tokens,
                 COALESCE(ut.non_cached_prompt_tokens_total, 0) AS non_cached_prompt_tokens
             FROM {self.table_prefix}assistants a
             LEFT JOIN {self.table_prefix}organizations o   ON a.organization_id = o.id
@@ -4692,8 +4847,9 @@ class LambDatabaseManager:
                         "total_tokens": int(row[8] or 0),
                         "cost_usd": float(row[9] or 0.0),
                         "thresholds_config": row[10],
-                        "cached_prompt_tokens": int(row[11] or 0),
-                        "non_cached_prompt_tokens": int(row[12] or 0),
+                        "cache_read_tokens": int(row[11] or 0),
+                        "cache_write_tokens": int(row[12] or 0),
+                        "non_cached_prompt_tokens": int(row[13] or 0),
                     })
                 return results
             finally:
@@ -4708,12 +4864,17 @@ class LambDatabaseManager:
                 ul.provider,
                 ul.model_name,
                 SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens'), 0)) AS prompt_tokens,
-                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cached_tokens'), 0)) AS cached_prompt_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cached_tokens'), 0)) AS cache_read_tokens,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cache_creation_input_tokens'), 0)) AS cache_write_flat,
+                SUM(COALESCE(json_extract(ul.usage_data, '$.prompt_tokens_details.cache_creation.ephemeral_5m_input_tokens'), 0)) AS cache_write_nested,
                 SUM(COALESCE(json_extract(ul.usage_data, '$.completion_tokens'), 0)) AS completion_tokens,
+                SUM(COALESCE(ul.cost_usd, 0)) AS cost_usd,
                 COUNT(*) AS request_count,
                 mp.input_per_1m,
-                mp.cached_input_per_1m,
-                mp.output_per_1m
+                mp.cache_read_per_1m,
+                mp.cache_write_per_1m,
+                mp.output_per_1m,
+                mp.requires_explicit_cache
             FROM {self.table_prefix}usage_logs ul
             LEFT JOIN {self.table_prefix}model_pricing mp
                 ON mp.provider = ul.provider AND mp.model_name = ul.model_name
@@ -4732,30 +4893,37 @@ class LambDatabaseManager:
                 results = []
                 for r in rows:
                     prompt = int(r[2] or 0)
-                    cached = int(r[3] or 0)
-                    non_cached = prompt - cached
-                    completion = int(r[4] or 0)
+                    cache_read = int(r[3] or 0)
+                    cache_write_flat = int(r[4] or 0)
+                    cache_write_nested = int(r[5] or 0)
+                    cache_write = cache_write_flat if cache_write_flat > 0 else cache_write_nested
+                    non_cached = max(0, prompt - cache_read - cache_write)
+                    completion = int(r[6] or 0)
                     total = prompt + completion
-                    inp = float(r[6] or 0)
-                    cached_inp = r[7]
-                    out = float(r[8] or 0)
-                    if cached_inp is not None:
-                        cost = (non_cached * inp / 1e6) + (cached * float(cached_inp) / 1e6) + (completion * out / 1e6)
-                    else:
-                        cost = (prompt * inp / 1e6) + (completion * out / 1e6)
+                    cost_usd = float(r[7] or 0)
+                    inp = float(r[9] or 0)
+                    cache_read_rate = r[10]
+                    cache_write_rate = r[11]
+                    out = float(r[12] or 0)
+                    req_explicit = bool(r[13]) if r[13] is not None else False
                     results.append({
                         "provider": r[0] or "",
                         "model_name": r[1] or "",
                         "prompt_tokens": prompt,
-                        "cached_prompt_tokens": cached,
                         "non_cached_prompt_tokens": non_cached,
+                        "cache_read_tokens": cache_read,
+                        "cache_write_tokens": cache_write,
                         "completion_tokens": completion,
                         "total_tokens": total,
-                        "cost_usd": round(cost, 6),
-                        "request_count": int(r[5] or 0),
-                        "input_per_1m": inp,
-                        "cached_input_per_1m": float(cached_inp) if cached_inp is not None else None,
-                        "output_per_1m": out,
+                        "cost_usd": round(cost_usd, 6),
+                        "request_count": int(r[8] or 0),
+                        "pricing": {
+                            "input_per_1m": inp,
+                            "cache_read_per_1m": float(cache_read_rate) if cache_read_rate is not None else None,
+                            "cache_write_per_1m": float(cache_write_rate) if cache_write_rate is not None else None,
+                            "output_per_1m": out,
+                            "requires_explicit_cache": req_explicit,
+                        },
                     })
                 return results
             finally:
@@ -4793,7 +4961,8 @@ class LambDatabaseManager:
                 COALESCE(SUM(ut.total_tokens_total), 0),
                 COALESCE(SUM(ut.prompt_tokens_total), 0),
                 COALESCE(SUM(ut.completion_tokens_total), 0),
-                COALESCE(SUM(ut.cached_prompt_tokens_total), 0),
+                COALESCE(SUM(ut.cache_read_tokens_total), 0),
+                COALESCE(SUM(ut.cache_write_tokens_total), 0),
                 COUNT(DISTINCT a.id)
             FROM {self.table_prefix}assistants a
             LEFT JOIN {self.table_prefix}assistant_usage_totals ut ON ut.assistant_id = a.id
@@ -4812,8 +4981,9 @@ class LambDatabaseManager:
                     "total_tokens": int(r[1] or 0),
                     "prompt_tokens": int(r[2] or 0),
                     "completion_tokens": int(r[3] or 0),
-                    "cached_prompt_tokens": int(r[4] or 0),
-                    "assistant_count": int(r[5] or 0),
+                    "cache_read_tokens": int(r[4] or 0),
+                    "cache_write_tokens": int(r[5] or 0),
+                    "assistant_count": int(r[6] or 0),
                     "quota_exceeded_count": 0,
                 }
             finally:
@@ -4828,14 +4998,47 @@ class LambDatabaseManager:
             "total_tokens": 0,
             "prompt_tokens": 0,
             "completion_tokens": 0,
-            "cached_prompt_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
             "assistant_count": 0,
             "quota_exceeded_count": 0,
         }
 
+    def get_model_pricing_row(self, provider: str, model_name: str) -> dict:
+        """Return pricing dict for (provider, model_name) or empty dict if not found."""
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return {}
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"""SELECT input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                               output_per_1m, requires_explicit_cache
+                        FROM {self.table_prefix}model_pricing
+                        WHERE provider = ? AND model_name = ?""",
+                    (provider, model_name),
+                )
+                r = cursor.fetchone()
+                if not r:
+                    return {}
+                return {
+                    "input_per_1m": r[0],
+                    "cache_read_per_1m": r[1],
+                    "cache_write_per_1m": r[2],
+                    "output_per_1m": r[3],
+                    "requires_explicit_cache": bool(r[4]) if r[4] is not None else False,
+                }
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error fetching model pricing for ({provider}, {model_name}): {e}")
+            return {}
+
     def list_model_pricing(self) -> list:
         query = f"""
-            SELECT id, provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at
+            SELECT id, provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                   output_per_1m, requires_explicit_cache, updated_at
             FROM {self.table_prefix}model_pricing
             ORDER BY provider, model_name
         """
@@ -4850,9 +5053,11 @@ class LambDatabaseManager:
                     {
                         "id": r[0], "provider": r[1], "model_name": r[2],
                         "input_per_1m": float(r[3] or 0),
-                        "cached_input_per_1m": float(r[4]) if r[4] is not None else None,
-                        "output_per_1m": float(r[5] or 0),
-                        "updated_at": r[6],
+                        "cache_read_per_1m": float(r[4]) if r[4] is not None else None,
+                        "cache_write_per_1m": float(r[5]) if r[5] is not None else None,
+                        "output_per_1m": float(r[6] or 0),
+                        "requires_explicit_cache": bool(r[7]) if r[7] is not None else False,
+                        "updated_at": r[8],
                     }
                     for r in cursor.fetchall()
                 ]
@@ -4863,7 +5068,9 @@ class LambDatabaseManager:
             return []
 
     def create_model_pricing(self, provider: str, model_name: str, input_per_1m: float,
-                              cached_input_per_1m: float | None, output_per_1m: float) -> dict | None:
+                              output_per_1m: float, cache_read_per_1m: float | None = None,
+                              cache_write_per_1m: float | None = None, requires_explicit_cache: bool = False,
+                              **kwargs) -> dict | None:
         now = int(time.time())
         try:
             conn = self.get_connection()
@@ -4873,16 +5080,21 @@ class LambDatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute(
                     f"""INSERT INTO {self.table_prefix}model_pricing
-                        (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    (provider, model_name, input_per_1m, cached_input_per_1m, output_per_1m, now),
+                        (provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                         output_per_1m, requires_explicit_cache, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (provider, model_name, input_per_1m, cache_read_per_1m, cache_write_per_1m,
+                     output_per_1m, int(requires_explicit_cache), now),
                 )
                 conn.commit()
                 new_id = cursor.lastrowid
                 return {
                     "id": new_id, "provider": provider, "model_name": model_name,
-                    "input_per_1m": input_per_1m, "cached_input_per_1m": cached_input_per_1m,
-                    "output_per_1m": output_per_1m, "updated_at": now,
+                    "input_per_1m": input_per_1m, "cache_read_per_1m": cache_read_per_1m,
+                    "cache_write_per_1m": cache_write_per_1m,
+                    "output_per_1m": output_per_1m,
+                    "requires_explicit_cache": requires_explicit_cache,
+                    "updated_at": now,
                 }
             finally:
                 conn.close()
@@ -4892,10 +5104,13 @@ class LambDatabaseManager:
 
     def update_model_pricing(self, pricing_id: int, **fields) -> dict | None:
         now = int(time.time())
-        allowed = {"provider", "model_name", "input_per_1m", "cached_input_per_1m", "output_per_1m"}
+        allowed = {"provider", "model_name", "input_per_1m", "cache_read_per_1m", "cache_write_per_1m",
+                    "output_per_1m", "requires_explicit_cache"}
         updates = {k: v for k, v in fields.items() if k in allowed}
         if not updates:
             return None
+        if "requires_explicit_cache" in updates:
+            updates["requires_explicit_cache"] = int(updates["requires_explicit_cache"])
         sets = ", ".join(f"{k} = ?" for k in updates)
         vals = list(updates.values()) + [now, pricing_id]
         try:
