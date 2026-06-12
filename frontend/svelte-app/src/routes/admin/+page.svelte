@@ -10,6 +10,7 @@
 	import { user } from '$lib/stores/userStore'; // Import user store for auth token
 	import * as adminService from '$lib/services/adminService'; // Import admin service for bulk operations
 	import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
+	import NotificationModal from '$lib/components/modals/NotificationModal.svelte';
 
 	// Import filtering/pagination components
 	import Pagination from '$lib/components/common/Pagination.svelte';
@@ -87,6 +88,20 @@
 	let actionType = $state(''); // 'single' or 'bulk'
 	/** @type {any | null} */
 	let targetUser = $state(null);
+
+	// --- Notification Modal State ---
+	/** @type {{ isOpen: boolean, title: string, message: string, variant: 'success' | 'error' | 'info' }} */
+	let notification = $state({ isOpen: false, title: '', message: '', variant: 'success' });
+
+	/**
+	 * Show a notification modal (replaces alert() calls)
+	 * @param {'success' | 'error' | 'info'} variant
+	 * @param {string} title
+	 * @param {string} message
+	 */
+	function showNotification(variant, title, message) {
+		notification = { isOpen: true, title, message, variant };
+	}
 
 	// --- Create User Modal State ---
 	let isCreateUserModalOpen = $state(false);
@@ -464,23 +479,21 @@
 				throw new Error('Authentication token not found');
 			}
 
-			if (actionType === 'single') {
+		if (actionType === 'single') {
 				await adminService.disableUser(token, targetUser.id);
 				console.log(`User ${targetUser.email} disabled`);
-				alert(`User ${targetUser.name} has been disabled successfully.`);
+				showNotification('success', 'User Disabled', `User ${targetUser.name} has been disabled successfully.`);
 			} else {
 				const result = await adminService.disableUsersBulk(token, selectedUsers);
 				console.log(`Disabled ${result.disabled} user(s)`);
-				alert(
-					`Successfully disabled ${result.disabled} user(s)${result.failed > 0 ? `. Failed: ${result.failed}` : ''}`
-				);
+				showNotification('success', 'Users Disabled', `Successfully disabled ${result.disabled} user(s)${result.failed > 0 ? `. Failed: ${result.failed}` : ''}`);
 			}
-
+			
 			clearSelection();
 			await fetchUsers(); // Refresh list
 		} catch (error) {
 			console.error('Failed to disable user(s):', error);
-			alert(`Error: ${error.message || 'Failed to disable user(s)'}`);
+			showNotification('error', 'Error', error.message || 'Failed to disable user(s)');
 		} finally {
 			showDisableConfirm = false;
 			targetUser = null;
@@ -497,20 +510,18 @@
 			if (actionType === 'single') {
 				await adminService.enableUser(token, targetUser.id);
 				console.log(`User ${targetUser.email} enabled`);
-				alert(`User ${targetUser.name} has been enabled successfully.`);
+				showNotification('success', 'User Enabled', `User ${targetUser.name} has been enabled successfully.`);
 			} else {
 				const result = await adminService.enableUsersBulk(token, selectedUsers);
 				console.log(`Enabled ${result.enabled} user(s)`);
-				alert(
-					`Successfully enabled ${result.enabled} user(s)${result.failed > 0 ? `. Failed: ${result.failed}` : ''}`
-				);
+				showNotification('success', 'Users Enabled', `Successfully enabled ${result.enabled} user(s)${result.failed > 0 ? `. Failed: ${result.failed}` : ''}`);
 			}
 
 			clearSelection();
 			await fetchUsers(); // Refresh list
 		} catch (error) {
 			console.error('Failed to enable user(s):', error);
-			alert(`Error: ${error.message || 'Failed to enable user(s)'}`);
+			showNotification('error', 'Error', error.message || 'Failed to enable user(s)');
 		} finally {
 			showEnableConfirm = false;
 			targetUser = null;
@@ -568,15 +579,15 @@
 				throw new Error('Authentication token not found');
 			}
 
-			await adminService.deleteUser(token, deleteTargetUser.id);
+		await adminService.deleteUser(token, deleteTargetUser.id);
 			console.log(`User ${deleteTargetUser.email} deleted`);
-			alert(`User ${deleteTargetUser.name} has been deleted successfully.`);
-
+			showNotification('success', 'User Deleted', `User ${deleteTargetUser.name} has been deleted successfully.`);
+			
 			await fetchUsers(); // Refresh list
 		} catch (err) {
 			const error = err instanceof Error ? err : new Error('Unknown error');
 			console.error('Failed to delete user:', error);
-			alert(`Error: ${error.message || 'Failed to delete user'}`);
+			showNotification('error', 'Error', error.message || 'Failed to delete user');
 		} finally {
 			showDeleteConfirm = false;
 			deleteTargetUser = null;
@@ -1452,8 +1463,8 @@
 			// Refresh organizations list
 			fetchOrganizations();
 
-			// Show success message (you might want to add a toast notification here)
-			alert('System organization synced successfully!');
+			// Show success message
+			showNotification('success', 'Sync Complete', 'System organization synced successfully!');
 		} catch (err) {
 			console.error('Error syncing system organization:', err);
 			let errorMessage = 'Failed to sync system organization.';
@@ -1464,7 +1475,7 @@
 				errorMessage = err.message;
 			}
 
-			alert(`Error: ${errorMessage}`);
+			showNotification('error', 'Error', errorMessage);
 		}
 	}
 
@@ -1506,10 +1517,10 @@
 
 			// Close modal and reset state
 			showDeleteOrgModal = false;
-			orgToDelete = null;
-
+		orgToDelete = null;
+			
 			// Show success message
-			alert(`Organization deleted successfully!`);
+			showNotification('success', 'Organization Deleted', 'Organization deleted successfully!');
 		} catch (err) {
 			console.error('Error deleting organization:', err);
 			let errorMessage = 'Failed to delete organization.';
@@ -1520,7 +1531,7 @@
 				errorMessage = err.message;
 			}
 
-			alert(`Error: ${errorMessage}`);
+			showNotification('error', 'Error', errorMessage);
 		} finally {
 			isDeletingOrg = false;
 		}
@@ -3918,6 +3929,15 @@
 	variant="danger"
 	onconfirm={confirmDeleteOrganization}
 	oncancel={cancelDeleteOrganization}
+/>
+
+<!-- Notification Modal (replaces browser alert() dialogs) -->
+<NotificationModal
+	bind:isOpen={notification.isOpen}
+	title={notification.title}
+	message={notification.message}
+	variant={notification.variant}
+	onclose={() => { notification.isOpen = false; }}
 />
 
 <style>
