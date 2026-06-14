@@ -1,10 +1,9 @@
 <script>
-    import { onMount } from 'svelte';
-    import { _ } from '$lib/i18n';
-    import { getSessions, deleteSession } from '$lib/services/aacService';
-    import { openTab } from '$lib/stores/aacStore.svelte';
-    import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
-    import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { _ } from '$lib/i18n';
+	import { getSessions, deleteSession } from '$lib/services/aacService';
+	import { openTab } from '$lib/stores/aacStore.svelte';
+	import { goto } from '$app/navigation';
 
     /** @type {Array<any>} */
     let sessions = $state([]);
@@ -12,11 +11,6 @@
     let filter = $state('all');
     let skillFilter = $state('');
     let search = $state('');
-
-    // --- Delete Session Confirmation Modal ---
-    let showDeleteModal = $state(false);
-    /** @type {any | null} */
-    let sessionToDelete = $state(null);
 
     onMount(async () => {
         await loadSessions();
@@ -83,15 +77,8 @@
     }
 
     async function removeSession(s) {
-        sessionToDelete = s;
-        showDeleteModal = true;
-    }
-
-    async function confirmDeleteSession() {
-        if (!sessionToDelete) return;
-        showDeleteModal = false;
-        const s = sessionToDelete;
-        sessionToDelete = null;
+        const ok = confirm(`Delete session "${s.title || s.id.slice(0, 8)}"?`);
+        if (!ok) return;
         try {
             await deleteSession(s.id);
             await loadSessions();
@@ -198,14 +185,3 @@
         </div>
     {/if}
 </div>
-
-<!-- Delete Session Confirmation Modal -->
-<ConfirmationModal
-    bind:isOpen={showDeleteModal}
-    title={$_('agent.history.deleteSessionTitle', { default: 'Delete Session' })}
-    message={sessionToDelete ? `${$_('agent.history.confirmDeleteSession', { default: 'Are you sure you want to delete the session' })} "${sessionToDelete.title || sessionToDelete.id?.slice(0, 8)}"?` : ''}
-    confirmText={$_('common.delete', { default: 'Delete' })}
-    variant="danger"
-    onconfirm={confirmDeleteSession}
-    oncancel={() => { showDeleteModal = false; sessionToDelete = null; }}
-/>

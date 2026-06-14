@@ -1,54 +1,65 @@
 <script>
-    import AssistantsList from '$lib/components/AssistantsList.svelte';
-    import AssistantForm from '$lib/components/assistants/AssistantForm.svelte'; 
-    import AssistantSharingModal from '$lib/components/assistants/AssistantSharingModal.svelte';
-    import ChatInterface from '$lib/components/ChatInterface.svelte';
-    import ChatAnalytics from '$lib/components/analytics/ChatAnalytics.svelte';
-    import { _, locale } from '$lib/i18n';
-    import { user } from '$lib/stores/userStore';
-    import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte'; // Generic confirmation modal
-    import NotificationModal from '$lib/components/modals/NotificationModal.svelte';
-    import { onMount, onDestroy } from 'svelte';
-    import { page } from '$app/stores'; // Import page store to read URL params
-    import { getAssistantById, createAssistant, deleteAssistant, setAssistantPublishStatus } from '$lib/services/assistantService'; // Import service
-    import { getKnowledgeBases } from '$lib/services/knowledgeBaseService'; // <<< Import KB service
-    import { fetchRubricMarkdown } from '$lib/services/rubricService'; // <<< Import rubric service
-    import { goto } from '$app/navigation'; // <<< Add import for goto
-    import { base } from '$app/paths'; // <<< Add import for base path
-    import { writable } from 'svelte/store'; // Import from svelte/store instead of type import
-    import { getConfig, getLambApiUrl } from '$lib/config'; // <<< Import config helper
-    import { browser } from '$app/environment'; // <<< Import browser
-    import { formatDateForTable } from '$lib/utils/dateHelpers'; // Import date formatting utility
-    // Import template store functions
-    import {
-        currentTab,
-        currentTemplates,
-        currentLoading,
-        userTemplates,
-        sharedTemplates,
-        loadAllUserTemplates,
-        loadAllSharedTemplates,
-        switchTab,
-        createTemplate,
-        updateTemplate,
-        deleteTemplate,
-        duplicateTemplate,
-        toggleSharing,
-        selectedTemplateIds,
-        toggleTemplateSelection,
-        clearSelection,
-        exportSelected,
-        templateError
-    } from '$lib/stores/templateStore';
-    import Pagination from '$lib/components/common/Pagination.svelte';
-    import FilterBar from '$lib/components/common/FilterBar.svelte';
-    import { processListData } from '$lib/utils/listHelpers';
-    import { getAssistantMetadataObject, normalizeAssistantData } from '$lib/utils/assistantData';
-    import PromptTemplatesContent from '$lib/components/promptTemplates/PromptTemplatesContent.svelte';
-    import AacTerminal from '$lib/components/aac/AacTerminal.svelte';
-    import AssistantTests from '$lib/components/aac/AssistantTests.svelte';
-    import { createSession } from '$lib/services/aacService';
-    import { openTab, closeTab, setActiveTab, getOpenTabs, getActiveTabId, openTabs as openTabsStore } from '$lib/stores/aacStore.svelte';
+	import AssistantsList from '$lib/components/AssistantsList.svelte';
+	import AssistantForm from '$lib/components/assistants/AssistantForm.svelte';
+	import AssistantSharingModal from '$lib/components/assistants/AssistantSharingModal.svelte';
+	import ChatInterface from '$lib/components/ChatInterface.svelte';
+	import ChatAnalytics from '$lib/components/analytics/ChatAnalytics.svelte';
+	import { _, locale } from '$lib/i18n';
+	import { user } from '$lib/stores/userStore';
+	import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
+	import NotificationModal from '$lib/components/modals/NotificationModal.svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/stores';
+	import {
+		getAssistantById,
+		createAssistant,
+		deleteAssistant,
+		setAssistantPublishStatus
+	} from '$lib/services/assistantService';
+	import { getKnowledgeBases } from '$lib/services/knowledgeBaseService';
+	import { fetchRubricMarkdown } from '$lib/services/rubricService';
+	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
+	import { writable } from 'svelte/store';
+	import { getConfig, getLambApiUrl } from '$lib/config';
+	import { browser } from '$app/environment';
+	import { formatDateForTable } from '$lib/utils/dateHelpers';
+	import {
+		currentTab,
+		currentTemplates,
+		currentLoading,
+		userTemplates,
+		sharedTemplates,
+		loadAllUserTemplates,
+		loadAllSharedTemplates,
+		switchTab,
+		createTemplate,
+		updateTemplate,
+		deleteTemplate,
+		duplicateTemplate,
+		toggleSharing,
+		selectedTemplateIds,
+		toggleTemplateSelection,
+		clearSelection,
+		exportSelected,
+		templateError
+	} from '$lib/stores/templateStore';
+	import Pagination from '$lib/components/common/Pagination.svelte';
+	import FilterBar from '$lib/components/common/FilterBar.svelte';
+	import { processListData } from '$lib/utils/listHelpers';
+	import { getAssistantMetadataObject, normalizeAssistantData } from '$lib/utils/assistantData';
+	import PromptTemplatesContent from '$lib/components/promptTemplates/PromptTemplatesContent.svelte';
+	import AacTerminal from '$lib/components/aac/AacTerminal.svelte';
+	import AssistantTests from '$lib/components/aac/AssistantTests.svelte';
+	import { createSession } from '$lib/services/aacService';
+	import {
+		openTab,
+		closeTab,
+		setActiveTab,
+		getOpenTabs,
+		getActiveTabId,
+		openTabs as openTabsStore
+	} from '$lib/stores/aacStore.svelte';
 
     // --- State Management ---
     /** @type {'list' | 'create' | 'detail' | 'shared' | 'templates'} */
@@ -145,26 +156,26 @@
     /** @type {number | null} */
     let exportingId = $state(null);
 
-    // --- Publish State ---
-    let isPublishing = $state(false);
-    let publishError = $state('');
+	// --- Publish State ---
+	let isPublishing = $state(false);
+	let publishError = $state('');
 
-    // --- Notification Modal State ---
-    /** @type {{ isOpen: boolean, title: string, message: string, variant: 'success' | 'error' | 'info' }} */
-    let notification = $state({ isOpen: false, title: '', message: '', variant: 'success' });
+	// --- Notification Modal State ---
+	/** @type {{ isOpen: boolean, title: string, message: string, variant: 'success' | 'error' | 'info' }} */
+	let notification = $state({ isOpen: false, title: '', message: '', variant: 'success' });
 
-    /**
-     * Show a notification modal (replaces alert() calls)
-     * @param {'success' | 'error' | 'info'} variant
-     * @param {string} title
-     * @param {string} message
-     */
-    function showNotification(variant, title, message) {
-        notification = { isOpen: true, title, message, variant };
-    }
+	/**
+	 * Show a notification modal (replaces alert() calls)
+	 * @param {'success' | 'error' | 'info'} variant
+	 * @param {string} title
+	 * @param {string} message
+	 */
+	function showNotification(variant, title, message) {
+		notification = { isOpen: true, title, message, variant };
+	}
 
-    // --- Knowledge Base State (for detail view) ---
-    /** @type {import('$lib/services/knowledgeBaseService').KnowledgeBase[]} */
+	// --- Knowledge Base State (for detail view) ---
+	/** @type {import('$lib/services/knowledgeBaseService').KnowledgeBase[]} */
 	let accessibleKnowledgeBases = $state([]);
 	let loadingKnowledgeBases = $state(false);
 	let knowledgeBaseError = $state('');
@@ -449,34 +460,33 @@
         }
     });
 
-    // Effect to handle programmatic navigation to detail view (e.g., after creation)
-    /**
-     * Handles successful assistant creation.
-     * Navigates to the list view.
-     * @param {{ assistantId: number }} detail
-     */
-    function handleAssistantCreated({ assistantId }) {
-    if (typeof assistantId === 'number') {
-      const newAssistantId = assistantId;
-      console.log(`Assistant created with ID: ${newAssistantId}, navigating to list view.`);
-      goto(`${base}/assistants`, { replaceState: true });
-    } else {
-      console.error('handleAssistantCreated received invalid details');
-      detailError = 'Failed to navigate to new assistant. Event detail missing.'; 
-      showList();
-    }
-  }
+	/**
+	 * Handles successful assistant creation.
+	 * Navigates to the list view.
+	 * @param {{ assistantId: number }} detail
+	 */
+	function handleAssistantCreated({ assistantId }) {
+		if (typeof assistantId === 'number') {
+			const newAssistantId = assistantId;
+			console.log(`Assistant created with ID: ${newAssistantId}, navigating to list view.`);
+			goto(`${base}/assistants`, { replaceState: true });
+		} else {
+			console.error('handleAssistantCreated received invalid details');
+			detailError = 'Failed to navigate to new assistant. Event detail missing.';
+			showList();
+		}
+	}
 
-    /**
-     * Handles successful assistant update.
-     * Navigates back to the list view.
-     * @param {{ assistantId: number }} detail
-     */
-    function handleAssistantUpdated({ assistantId }) {
-    const updatedAssistantId = assistantId;
-    console.log(`Assistant updated with ID: ${updatedAssistantId}, navigating back to list view.`);
-    showList(); 
-  }
+	/**
+	 * Handles successful assistant update.
+	 * Navigates back to the list view.
+	 * @param {{ assistantId: number }} detail
+	 */
+	function handleAssistantUpdated({ assistantId }) {
+		const updatedAssistantId = assistantId;
+		console.log(`Assistant updated with ID: ${updatedAssistantId}, navigating back to list view.`);
+		showList();
+	}
 
 
 
@@ -492,10 +502,10 @@
         const { id, name, published } = detail;
         console.log(`Delete request received for ID: ${id}, Name: ${name}, Published: ${published}`);
 
-        if (published) {
-            showNotification('info', 'Cannot Delete Published Assistant', currentLocale ? $_('assistants.deleteErrorPublished') : 'Cannot delete a published assistant. Please unpublish it first.');
-            return;
-        }
+	if (published) {
+		showNotification('info', 'Cannot Delete Published Assistant', currentLocale ? $_('assistants.deleteErrorPublished') : 'Cannot delete a published assistant. Please unpublish it first.');
+		return;
+	}
 
         // Set state for the modal
         assistantToDeleteId = id;
@@ -639,14 +649,14 @@
 
             console.log(`Successfully triggered download for ${filename}`);
 
-        } catch (error) {
-            console.error('Error during assistant export:', error);
-            showNotification('error', 'Export Failed', error instanceof Error ? error.message : 'Unknown error');
-        } finally {
-            isExporting = false;
-            exportingId = null;
-        }
-    }
+	} catch (error) {
+		console.error('Error during assistant export:', error);
+		showNotification('error', 'Export Failed', error instanceof Error ? error.message : 'Unknown error');
+	} finally {
+		isExporting = false;
+		exportingId = null;
+	}
+}
 
     /**
      * Handles toggling the publish status of the currently viewed assistant.
@@ -682,14 +692,14 @@
 
             // Optional: Show success message (e.g., toast)
 
-        } catch (error) {
-            console.error('Error toggling publish status:', error);
-            publishError = error instanceof Error ? error.message : 'Failed to update publish status.';
-            showNotification('error', 'Error', publishError);
-        } finally {
-            isPublishing = false;
-        }
-    }
+	} catch (error) {
+		console.error('Error toggling publish status:', error);
+		publishError = error instanceof Error ? error.message : 'Failed to update publish status.';
+		showNotification('error', 'Error', publishError);
+	} finally {
+		isPublishing = false;
+	}
+}
 
     /** Fetches accessible knowledge bases if needed for the detail view */
 	async function fetchKnowledgeBasesForDetail() {
@@ -968,8 +978,7 @@
         </div>
     </div>
 {:else if currentView === 'create'}
-    <!-- Pass null to indicate creation mode -->
-    <AssistantForm assistant={null} onFormSuccess={handleAssistantCreated} />
+	<AssistantForm assistant={null} onFormSuccess={handleAssistantCreated} />
 {:else if currentView === 'detail'}
     <!-- Detail View Sub-Tabs -->
     <div class="mb-4 border-b border-gray-300 flex space-x-4">
@@ -1447,42 +1456,36 @@
             {/if}
             {/key}
 
-        {:else if detailSubView === 'edit'}
-            <!-- Edit View -->
-            <div class="px-6 py-4">
-                <div class="mb-6 pb-4 border-b border-gray-200">
-                    <h2 class="text-xl font-semibold text-gray-800">
-                        {currentLocale ? $_('assistants.detail.editTitle', { default: 'Edit Assistant' }) : 'Edit Assistant'}
-                    </h2>
-                </div>
-                
-                <!-- Assistant Form -->
-                <div class="w-full">
-                    <AssistantForm 
-                        assistant={selectedAssistantData}
-                        onFormSuccess={() => {
-                            // Refresh the assistant data after successful update with forceRefresh
-                            fetchAssistantDetail(selectedAssistantData.id, true);
-                            detailSubView = 'properties'; // Switch back to properties view
-                        }}
-                        onCancel={() => {
-                            // Switch back to properties view when user cancels
-                            detailSubView = 'properties';
-                        }}
-                    />
-                </div>
-            </div>
-        {:else if detailSubView === 'share'}
-            <!-- Share Tab Content - Clean List View -->
-            <div class="px-6 py-6">
-                <div class="mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-2">
-                        {currentLocale ? $_('assistants.sharing.title', { default: 'Shared Users' }) : 'Shared Users'}
-                    </h2>
-                    <p class="text-sm text-gray-600 mb-4">
-                        {currentLocale ? $_('assistants.sharing.description', { default: 'Manage who has access to this assistant' }) : 'Manage who has access to this assistant'}
-                    </p>
-                </div>
+	{:else if detailSubView === 'edit'}
+		<div class="px-6 py-4">
+			<div class="mb-6 pb-4 border-b border-gray-200">
+				<h2 class="text-xl font-semibold text-gray-800">
+					{currentLocale ? $_('assistants.detail.editTitle', { default: 'Edit Assistant' }) : 'Edit Assistant'}
+				</h2>
+			</div>
+			<div class="w-full">
+				<AssistantForm
+					assistant={selectedAssistantData}
+					onFormSuccess={() => {
+						fetchAssistantDetail(selectedAssistantData.id, true);
+						detailSubView = 'properties';
+					}}
+					onCancel={() => {
+						detailSubView = 'properties';
+					}}
+				/>
+			</div>
+		</div>
+	{:else if detailSubView === 'share'}
+		<div class="px-6 py-6">
+			<div class="mb-4">
+				<h2 class="text-xl font-semibold text-gray-800 mb-2">
+					{currentLocale ? $_('assistants.sharing.title', { default: 'Shared Users' }) : 'Shared Users'}
+				</h2>
+				<p class="text-sm text-gray-600 mb-4">
+					{currentLocale ? $_('assistants.sharing.description', { default: 'Manage who has access to this assistant' }) : 'Manage who has access to this assistant'}
+				</p>
+			</div>
 
                 {#if loadingShares}
                     <div class="flex items-center justify-center py-8">
@@ -1618,15 +1621,6 @@
         assistantToDeleteName = null;
         deleteError = ''; // Clear errors on close
     }}
-/>
-
-<!-- Notification Modal (replaces browser alert() dialogs) -->
-<NotificationModal
-    bind:isOpen={notification.isOpen}
-    title={notification.title}
-    message={notification.message}
-    variant={notification.variant}
-    onclose={() => { notification.isOpen = false; }}
 />
 
 <!-- Loading state for detail view -->

@@ -16,7 +16,13 @@
 
 import { get } from 'svelte/store';
 import { assistantConfigStore } from '$lib/stores/assistantConfigStore';
-import { isKbBasedRag, isKsBasedRag, isSingleFileRag, isRubricRag, normalizeRagProcessor } from '$lib/utils/ragProcessorHelpers.js';
+import {
+	isKbBasedRag,
+	isKsBasedRag,
+	isSingleFileRag,
+	isRubricRag,
+	normalizeRagProcessor
+} from '$lib/utils/ragProcessorHelpers.js';
 import { loadRagPlaceholders, selectModel } from './assistantFormUtils.svelte.js';
 import { getAssistantMetadataObject } from '$lib/utils/assistantData';
 
@@ -154,10 +160,13 @@ export function resetFormFieldsToDefaults(form, getAvailableModels) {
 	form.system_prompt = defaults.system_prompt || '';
 	form.prompt_template = defaults.prompt_template || '';
 	form.RAG_Top_k = parseInt(defaults.RAG_Top_k || '3', 10) || 3;
-	form.selectedPromptProcessor = defaults.prompt_processor || (form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
-	form.selectedConnector = defaults.connector || (form.connectorsList.length > 0 ? form.connectorsList[0] : '');
+	form.selectedPromptProcessor =
+		defaults.prompt_processor || (form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
+	form.selectedConnector =
+		defaults.connector || (form.connectorsList.length > 0 ? form.connectorsList[0] : '');
 	let defaultRag = normalizeRagProcessor(defaults.rag_processor);
-	form.selectedRagProcessor = defaultRag || (form.ragProcessors.length > 0 ? form.ragProcessors[0] : '');
+	form.selectedRagProcessor =
+		defaultRag || (form.ragProcessors.length > 0 ? form.ragProcessors[0] : '');
 
 	form.ragPlaceholders = loadRagPlaceholders(defaults);
 	form.selectedLlm = selectModel(defaults.llm || '', getAvailableModels());
@@ -195,9 +204,18 @@ export function populateFormFields(form, data, getAvailableModels, preserveDescr
 	form.RAG_Top_k = data.RAG_Top_k ?? 3;
 
 	if (form.configInitialized) {
-		form.selectedPromptProcessor = data.prompt_processor || metadata.prompt_processor || (form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
-		form.selectedConnector = data.connector || metadata.connector || (form.connectorsList.length > 0 ? form.connectorsList[0] : '');
-		form.selectedRagProcessor = data.rag_processor || metadata.rag_processor || (form.ragProcessors.length > 0 ? form.ragProcessors[0] : '');
+		form.selectedPromptProcessor =
+			data.prompt_processor ||
+			metadata.prompt_processor ||
+			(form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
+		form.selectedConnector =
+			data.connector ||
+			metadata.connector ||
+			(form.connectorsList.length > 0 ? form.connectorsList[0] : '');
+		form.selectedRagProcessor =
+			data.rag_processor ||
+			metadata.rag_processor ||
+			(form.ragProcessors.length > 0 ? form.ragProcessors[0] : '');
 
 		const targetLlm = data.llm || metadata.llm;
 		// Evaluate availableModels AFTER selectedConnector is set
@@ -276,7 +294,12 @@ export function revertToInitial(form, getAvailableModels) {
  * @param {ReturnType<typeof createAssistantFormState>} form
  */
 export function clearRagDependentState(form) {
-	if (form.accessibleKnowledgeBases.length > 0 || form.selectedKnowledgeBases.length > 0 || form.knowledgeBaseError || form.kbFetchAttempted) {
+	if (
+		form.accessibleKnowledgeBases.length > 0 ||
+		form.selectedKnowledgeBases.length > 0 ||
+		form.knowledgeBaseError ||
+		form.kbFetchAttempted
+	) {
 		form.ownedKnowledgeBases = [];
 		form.sharedKnowledgeBases = [];
 		form.selectedKnowledgeBases = [];
@@ -284,7 +307,13 @@ export function clearRagDependentState(form) {
 		form.kbFetchAttempted = false;
 	}
 
-	if (!isKsBasedRag(form.selectedRagProcessor) && (form.selectedKnowledgeStores.length > 0 || form.ownedKnowledgeStores.length > 0 || form.sharedKnowledgeStores.length > 0 || form.ksFetchAttempted)) {
+	if (
+		!isKsBasedRag(form.selectedRagProcessor) &&
+		(form.selectedKnowledgeStores.length > 0 ||
+			form.ownedKnowledgeStores.length > 0 ||
+			form.sharedKnowledgeStores.length > 0 ||
+			form.ksFetchAttempted)
+	) {
 		form.ownedKnowledgeStores = [];
 		form.sharedKnowledgeStores = [];
 		form.selectedKnowledgeStores = [];
@@ -292,11 +321,17 @@ export function clearRagDependentState(form) {
 		form.ksFetchAttempted = false;
 	}
 
-	if (!isSingleFileRag(form.selectedRagProcessor) && (form.selectedFilePath || form.userFiles.length > 0)) {
+	if (
+		!isSingleFileRag(form.selectedRagProcessor) &&
+		(form.selectedFilePath || form.userFiles.length > 0)
+	) {
 		form.selectedFilePath = '';
 	}
 
-	if (!isRubricRag(form.selectedRagProcessor) && (form.selectedRubricId || form.accessibleRubrics.length > 0)) {
+	if (
+		!isRubricRag(form.selectedRagProcessor) &&
+		(form.selectedRubricId || form.accessibleRubrics.length > 0)
+	) {
 		form.selectedRubricId = '';
 		form.rubricFormat = 'markdown';
 	}

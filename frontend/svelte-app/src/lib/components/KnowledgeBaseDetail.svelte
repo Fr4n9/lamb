@@ -1,25 +1,35 @@
 <script>
-    import { onMount } from 'svelte';
-    import { getKnowledgeBaseDetails, getIngestionPlugins, uploadFileWithPlugin, runBaseIngestionPlugin, deleteKnowledgeBaseFile, listIngestionJobs, retryIngestionJob, cancelIngestionJob, getIngestionJobStatus, getIngestionConfig } from '$lib/services/knowledgeBaseService';
-    import { _ } from '$lib/i18n';
-    import { page } from '$app/stores';
-    import axios from 'axios'; // Import axios
-    import { getApiUrl } from '$lib/config'; // Import getApiUrl
-    import { browser } from '$app/environment'; // Import browser
-    import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
-    import NotificationModal from '$lib/components/modals/NotificationModal.svelte';
-    
-    /** 
-     * @typedef {import('$lib/services/knowledgeBaseService').IngestionPlugin} IngestionPlugin
-     * @typedef {import('$lib/services/knowledgeBaseService').IngestionParameterDetail} IngestionParameterDetail
-     * @typedef {Object} KnowledgeBaseFile
-     * @property {string} id
-     * @property {string} filename
-     * @property {number} [size]
-     * @property {string} [content_type]
-     * @property {number} [created_at] // Assuming this might come from backend eventually
-     * @property {string} [file_url] // Add the file_url property
-     */
+	import { onMount } from 'svelte';
+	import {
+		getKnowledgeBaseDetails,
+		getIngestionPlugins,
+		uploadFileWithPlugin,
+		runBaseIngestionPlugin,
+		deleteKnowledgeBaseFile,
+		listIngestionJobs,
+		retryIngestionJob,
+		cancelIngestionJob,
+		getIngestionJobStatus,
+		getIngestionConfig
+	} from '$lib/services/knowledgeBaseService';
+	import { _ } from '$lib/i18n';
+	import { page } from '$app/stores';
+	import axios from 'axios';
+	import { getApiUrl } from '$lib/config';
+	import { browser } from '$app/environment';
+	import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
+
+	/**
+	 * @typedef {import('$lib/services/knowledgeBaseService').IngestionPlugin} IngestionPlugin
+	 * @typedef {import('$lib/services/knowledgeBaseService').IngestionParameterDetail} IngestionParameterDetail
+	 * @typedef {Object} KnowledgeBaseFile
+	 * @property {string} id
+	 * @property {string} filename
+	 * @property {number} [size]
+	 * @property {string} [content_type]
+	 * @property {number} [created_at]
+	 * @property {string} [file_url]
+	 */
 
     /**
      * @typedef {Object} QueryResultMetadata
@@ -233,19 +243,19 @@
     let ingestionJobs = $state([]);
     let loadingJobs = $state(false);
     let jobsError = $state('');
-    
+
     // State for job detail modal
     /** @type {IngestionJob | null} */
     let selectedJob = $state(null);
     let showJobModal = $state(false);
     let jobActionLoading = $state(false);
-    
+
     // State for delete file confirmation modal
     let showDeleteFileModal = $state(false);
     /** @type {{ id: string|null, filename: string }} */
     let deleteFileTarget = $state({ id: null, filename: '' });
     let isDeletingFile = $state(false);
-    
+
     // State for cancel job confirmation modal
     let showCancelJobModal = $state(false);
     /** @type {number|null} */
@@ -265,9 +275,9 @@
     function showNotification(variant, title, message) {
         notification = { isOpen: true, title, message, variant };
     }
-    
+
     // Polling configuration
-    let pollingRefreshRate = $state(3000); // Default 3 seconds, will be fetched from backend
+    let pollingRefreshRate = $state(3000);
 
     // Initialization and cleanup
     onMount(() => {
@@ -388,25 +398,22 @@
             fileInput.value = '';
         }
     }
-    
+
     /**
      * Load knowledge base details
      * @param {string} id - Knowledge base ID
      */
     async function loadKnowledgeBase(id) {
-        // Keep loading state related to the main KB details
-        // If not already loading, set loading = true ? Maybe not, only for initial load.
-        if (!kb) loading = true; 
+        if (!kb) loading = true;
         error = '';
-        serverOffline = false; // Assume server is online unless KB detail fetch fails
-        
+        serverOffline = false;
+
         try {
             const data = await getKnowledgeBaseDetails(id);
             kb = data;
             console.log('Knowledge base details loaded:', kb);
             console.log('can_modify value:', kb?.can_modify, 'type:', typeof kb?.can_modify);
-            
-            // Fetch ingestion jobs alongside KB details
+
             await loadIngestionJobs(id);
         } catch (/** @type {unknown} */ err) {
             console.error('Error loading knowledge base details:', err);
@@ -418,7 +425,7 @@
             loading = false;
         }
     }
-    
+
     /**
      * Load ingestion jobs for the knowledge base
      * @param {string} id - Knowledge base ID
@@ -703,14 +710,11 @@
     async function fetchPlugins() {
         loadingPlugins = true;
         pluginsError = '';
-        // Assume server is online unless plugin fetch fails with specific error
-        // serverOffline = false;
-        
+
         try {
             plugins = await getIngestionPlugins();
             console.log('Fetched plugins:', plugins);
-            
-            // Select the first plugin by default if available
+
             if (plugins.length > 0) {
                 selectPlugin(0);
             }
@@ -718,13 +722,13 @@
             console.error('Error fetching plugins:', err);
             pluginsError = err instanceof Error ? err.message : 'Failed to load ingestion plugins';
             if (err instanceof Error && err.message.includes('server offline')) {
-                serverOffline = true; // Set server offline if plugin fetch confirms it
+                serverOffline = true;
             }
         } finally {
             loadingPlugins = false;
         }
     }
-    
+
     /**
      * Resets plugin parameters to their default values
      */
@@ -733,7 +737,7 @@
             /** @type {Record<string, any>} */
             const newParams = {};
             for (const paramName in selectedPlugin.parameters) {
-                if (paramName.startsWith('_')) continue; // Skip info-only params
+                if (paramName.startsWith('_')) continue;
                 newParams[paramName] = selectedPlugin.parameters[paramName].default;
             }
             pluginParams = newParams;
@@ -751,12 +755,12 @@
             selectedPluginIndex = index;
             selectedPlugin = plugins[index];
             advancedMode = false;
-            
+
             resetPluginParams();
             console.log('Selected plugin:', selectedPlugin?.name, 'with params:', pluginParams);
         }
     }
-    
+
     /**
      * Handles file selection
      * @param {Event} event - The file input change event
@@ -764,17 +768,17 @@
     function handleFileSelect(/** @type {Event} */ event) {
         /** @type {HTMLInputElement} */
         const input = /** @type {HTMLInputElement} */ (event.target);
-        
+
         if (input.files && input.files.length > 0) {
             selectedFile = input.files[0];
-            uploadSuccess = false; // Reset success message on new file selection
+            uploadSuccess = false;
             uploadError = '';
             console.log('Selected file:', selectedFile.name, selectedFile.type, selectedFile.size);
         } else {
             selectedFile = null;
         }
     }
-    
+
     /**
      * Updates a plugin parameter value
      * @param {string} paramName - The name of the parameter to update
@@ -782,16 +786,14 @@
      */
     function updateParamValue(paramName, /** @type {Event} */ event) {
         const input = /** @type {HTMLInputElement} */ (event.target);
-        // Find the parameter definition using the key in the parameters object
         const paramDef = selectedPlugin?.parameters?.[paramName];
-        
+
         if (paramDef) {
             if (paramDef.type === 'integer' || paramDef.type === 'number') {
                 pluginParams[paramName] = input.value ? Number(input.value) : paramDef.default;
             } else if (paramDef.type === 'boolean') {
                 pluginParams[paramName] = input.checked;
             } else if (paramDef.type === 'array') {
-                // Split textarea value by newlines to create an array
                 pluginParams[paramName] = input.value
                     ? input.value.split('\n').map(s => s.trim()).filter(s => s !== '')
                     : [];
@@ -801,27 +803,24 @@
             console.log(`Updated param ${paramName} to:`, pluginParams[paramName]);
         }
     }
-    
+
     /**
      * Check if a parameter should be visible based on visible_when conditions
      * @param {IngestionParameterDetail} paramDef - The parameter definition
      * @returns {boolean} Whether the parameter should be shown
      */
     function shouldShowParameter(paramDef) {
-        // If no visible_when condition, always show
         if (!paramDef.visible_when) return true;
-        
-        // Check all conditions in visible_when
+
         for (const [field, allowedValues] of Object.entries(paramDef.visible_when)) {
             const currentValue = pluginParams[field];
-            // If the current value is not in the allowed values array, hide the parameter
             if (!Array.isArray(allowedValues) || !allowedValues.includes(currentValue)) {
                 return false;
             }
         }
         return true;
     }
-    
+
     /**
      * Check if a parameter controls visibility of other parameters (has dependents)
      * @param {string} paramName - The parameter name to check
@@ -829,7 +828,7 @@
      */
     function hasVisibleWhenDependents(paramName) {
         if (!selectedPlugin?.parameters) return false;
-        
+
         for (const [, paramDef] of Object.entries(selectedPlugin.parameters)) {
             if (paramDef.visible_when && paramName in paramDef.visible_when) {
                 return true;
@@ -837,7 +836,7 @@
         }
         return false;
     }
-    
+
     /**
      * Get the label for an enum value using enum_labels if available
      * @param {IngestionParameterDetail} paramDef - The parameter definition
@@ -850,7 +849,7 @@
         }
         return enumValue;
     }
-    
+
     /**
      * Validate numeric input against min/max constraints
      * @param {number} value - The input value
@@ -890,25 +889,25 @@
         }
         return plugin.supported_file_types.map(ext => `.${ext}`).join(',');
     }
-    
+
     /**
      * Uploads the selected file with the selected plugin
      */
     async function uploadFile() {
         console.log('uploadFile called, selectedFile:', selectedFile?.name, 'selectedPlugin:', selectedPlugin?.name);
-        
+
         if (!selectedFile || !selectedPlugin) {
             uploadError = 'Please select a file and plugin.';
             console.warn('Upload aborted: missing file or plugin');
             return;
         }
-        
+
         uploading = true;
         uploadError = '';
         uploadSuccess = false;
-        
+
         console.log('Upload parameters:', { kbId, fileName: selectedFile.name, fileSize: selectedFile.size, fileType: selectedFile.type, pluginName: selectedPlugin.name, pluginParams });
-        
+
         try {
             const result = await uploadFileWithPlugin(kbId, selectedFile, selectedPlugin.name, pluginParams);
             console.log('Upload result:', result);
@@ -916,10 +915,7 @@
             selectedFile = null;
             resetFileInput();
             resetPluginParams();
-            // Reload the KB details to show the new file in the list
             await loadKnowledgeBase(kbId);
-            // Optionally hide the ingestion box after success
-            // showIngestionBox = false;
         } catch (/** @type {unknown} */ err) {
             console.error('Error uploading file:', err);
             uploadError = err instanceof Error ? err.message : 'Failed to upload file';
@@ -938,7 +934,6 @@
             uploadError = 'Please select a plugin.';
             return;
         }
-        // Guard: if plugin actually requires a file (defensive)
         if (selectedPlugin.kind === 'file-ingest') {
             uploadError = 'Selected plugin requires a file.';
             return;
@@ -1227,7 +1222,7 @@
                                     {$_('knowledgeBases.detail.refreshStatus', { default: 'Refresh Status' })}
                                 </button>
                             </div>
-                            
+
                              {#if kb.files && kb.files.length > 0}
                                 <div class="overflow-x-auto">
                                     <table class="min-w-full divide-y divide-gray-200">
@@ -1259,9 +1254,9 @@
                                                         <div class="flex items-center">
                                                             <div class="text-sm font-medium text-gray-900 truncate" title={file.filename}>
                                                                 {#if file.file_url}
-                                                                    <a 
-                                                                        href={file.file_url} 
-                                                                        target="_blank" 
+                                                                    <a
+                                                                        href={file.file_url}
+                                                                        target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         class="text-[#2271b3] hover:text-[#195a91] hover:underline truncate block"
                                                                         style="color: #2271b3;"
@@ -1323,7 +1318,7 @@
                                                     </td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                         {#if kb.can_modify === true}
-                                                        <button 
+                                                        <button
                                                             onclick={() => handleDeleteFile(file.id, file.filename)}
                                                             class="text-red-600 hover:text-red-900"
                                                         >
@@ -2185,13 +2180,4 @@
     variant="warning"
     onconfirm={confirmCancelJob}
     oncancel={cancelCancelJobModal}
-/>
-
-<!-- Notification Modal (replaces browser alert() dialogs) -->
-<NotificationModal
-    bind:isOpen={notification.isOpen}
-    title={notification.title}
-    message={notification.message}
-    variant={notification.variant}
-    onclose={() => { notification.isOpen = false; }}
 />

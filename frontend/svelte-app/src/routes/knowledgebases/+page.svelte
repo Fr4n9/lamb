@@ -67,45 +67,56 @@
     }
 </script>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <div class="pb-5 border-b border-gray-200">
-        {#if view === 'detail' && kbId}
-            <div class="flex items-center">
-                <button 
-                    type="button"
-                    onclick={backToList}
-                    aria-label={$_('knowledgeBases.backButton', { default: 'Back to knowledge bases list' })}
-                    class="mr-3 inline-flex items-center p-1 border border-transparent rounded-full shadow-sm text-white bg-[#2271b3] hover:bg-[#195a91] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2271b3]"
-                    style="background-color: #2271b3;"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-                <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate sm:leading-10">
-                    {$_('knowledgeBases.detailTitle', { default: 'Knowledge Base Details' })}
-                </h1>
-            </div>
-            <p class="mt-1 text-sm text-gray-500">
-                {$_('knowledgeBases.detailDescription', { default: 'View details and manage files for this knowledge base.' })}
-            </p>
-        {:else}
-            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl sm:truncate sm:leading-10">
-                {$_('knowledgeBases.pageTitle', { default: 'Knowledge Bases' })}
-            </h1>
-            <p class="mt-1 text-sm text-gray-500">
-                {$_('knowledgeBases.pageDescription', { default: 'Manage your knowledge bases for use with learning assistants.' })}
-            </p>
-        {/if}
-    </div>
-    
-    <div class="mt-6">
-        {#if view === 'detail' && kbId}
-            <!-- Debug info -->
-            <!-- <div class="mb-4 p-2 bg-gray-100 text-xs">Debug: view={view}, kbId={kbId}</div> -->
-            <KnowledgeBaseDetail kbId={kbId} />
-        {:else}
-            <KnowledgeBasesList on:view={handleView} />
-        {/if}
-    </div>
-</div> 
+<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+	<div class="border-b border-gray-200 pb-5">
+		{#if view === 'detail' && kbId}
+			<div class="flex items-center">
+				<button
+					type="button"
+					onclick={backToList}
+					aria-label={$_('knowledgeBases.backButton', { default: 'Back to knowledge bases list' })}
+					class="mr-3 inline-flex items-center rounded-full border border-transparent bg-[#2271b3] p-1 text-white shadow-sm hover:bg-[#195a91] focus:ring-2 focus:ring-[#2271b3] focus:ring-offset-2 focus:outline-none"
+					style="background-color: #2271b3;"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				</button>
+				<h1 class="text-2xl leading-7 font-bold text-gray-900 sm:truncate sm:text-3xl">
+					{$_('knowledgeBases.detailTitle', { default: 'Knowledge Base Details' })}
+				</h1>
+			</div>
+			<p class="mt-1 text-sm text-gray-500">
+				{$_('knowledgeBases.detailDescription', {
+					default: 'View details and manage files for this knowledge base.'
+				})}
+			</p>
+		{:else}
+			<h1 class="text-2xl leading-7 font-bold text-gray-900 sm:truncate sm:text-3xl">
+				{$_('knowledgeBases.pageTitle', { default: 'Knowledge Bases' })}
+			</h1>
+			<p class="mt-1 text-sm text-gray-500">
+				{$_('knowledgeBases.pageDescription', {
+					default: 'Manage your knowledge bases for use with learning assistants.'
+				})}
+			</p>
+		{/if}
+	</div>
+
+	<div class="mt-6">
+		{#if view === 'detail' && kbId}
+			<KnowledgeBaseDetail {kbId} />
+		{:else}
+			<KnowledgeBasesList on:view={handleView} />
+		{/if}
+	</div>
+</div>
