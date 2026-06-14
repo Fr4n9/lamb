@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/AssistantFormHeader.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 
 	/** @type {{ formState: 'edit' | 'create', assistantId: number | null, importError: string, onImportFile: (event: Event) => void }} */
 	let { formState, assistantId = null, importError = '', onImportFile } = $props();

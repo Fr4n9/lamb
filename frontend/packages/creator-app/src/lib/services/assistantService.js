@@ -48,10 +48,8 @@ export async function getAssistants(limit = 10, offset = 0) {
 		limit: limit.toString(),
 		offset: offset.toString()
 	});
-	const apiUrl = getApiUrl(`/assistant/get_assistants?${urlParams}`);
-
 	// Token auto-attached by apiJson
-	const data = await apiJson(apiUrl, { method: 'GET' });
+	const data = await apiJson(`/assistant/get_assistants?${urlParams}`, { method: 'GET' });
 
 	// Return the expected structure { assistants: [], total_count: 0 }
 	// Ensure defaults if API response is malformed
@@ -72,10 +70,8 @@ export async function getAssistantById(assistantId) {
 		throw new Error('getAssistantById called outside browser context');
 	}
 
-	const apiUrl = getApiUrl(`/assistant/get_assistant/${assistantId}`);
-
 	// Token auto-attached by apiJson
-	const data = await apiJson(apiUrl, {
+	const data = await apiJson(`/assistant/get_assistant/${assistantId}`, {
 		method: 'GET',
 		headers: {
 			'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -96,7 +92,7 @@ export async function getAssistantById(assistantId) {
  */
 export async function publishAssistant(assistantId, assistantName, groupName, oauthConsumerName) {
 
-	const apiUrl = getApiUrl(`/assistant/update_assistant/${assistantId}`);
+
 
 	const bodyData = {
 		name: assistantName,
@@ -106,7 +102,7 @@ export async function publishAssistant(assistantId, assistantName, groupName, oa
 	};
 
 	// Token auto-attached by apiJson
-	const data = await apiJson(apiUrl, {
+	const data = await apiJson(`/assistant/update_assistant/${assistantId}`, {
 		method: 'PUT',
 		body: JSON.stringify(bodyData)
 	});
@@ -123,9 +119,8 @@ export async function publishAssistant(assistantId, assistantName, groupName, oa
  */
 export async function unpublishAssistant(assistantId, groupId, userEmail) {
 	// Use the correct publish status endpoint and method
-	const apiUrl = getApiUrl(`/assistant/publish/${assistantId}`);
 	// Token auto-attached by apiJson
-	const data = await apiJson(apiUrl, {
+	const data = await apiJson(`/assistant/publish/${assistantId}`, {
 		method: 'PUT',
 		body: JSON.stringify({ publish_status: false })
 	});
@@ -144,12 +139,12 @@ export async function deleteAssistant(id) {
 		}
 
 		// Correct endpoint based on likely pattern, confirm if needed
-		const apiUrl = getApiUrl(
-			`/assistant/delete_assistant/${id}?owner=${encodeURIComponent(userEmail)}`
-		);
+		// Token auto-attached by apiFetch
+		const response = await apiFetch(
+			`/assistant/delete_assistant/${id}?owner=${encodeURIComponent(userEmail)}`,
 
 		// Token auto-attached by apiFetch
-		const response = await apiFetch(apiUrl, {
+			{
 			method: 'DELETE'
 		});
 
@@ -197,7 +192,7 @@ export async function deleteAssistant(id) {
  */
 export async function getSystemCapabilities() {
 	// Token auto-attached by apiJson
-	const data = await apiJson(getApiUrl(`/system/capabilities`), {
+	const data = await apiJson(`/system/capabilities`, {
 		method: 'GET'
 	});
 	return data;
@@ -261,11 +256,11 @@ export async function createAssistant(assistantData) {
  */
 export async function downloadAssistant(assistantId) {
 	// TODO: Confirm this endpoint exists and works as expected
-	const apiUrl = getApiUrl(`/assistant/download_assistant/${assistantId}`);
+	// TODO: Confirm this endpoint exists and works as expected
 
 	try {
 		// Token auto-attached by apiFetch
-		const response = await apiFetch(apiUrl, {
+		const response = await apiFetch(`/assistant/download_assistant/${assistantId}`, {
 			method: 'GET'
 		});
 
@@ -344,11 +339,11 @@ export async function updateAssistant(assistantId, assistantData) {
 			return typedObj;
 		}, /** @type {Partial<Assistant>} */({}));
 
-	const url = getApiUrl(`/assistant/update_assistant/${assistantId}`);
+
 
 	try {
 		// Token auto-attached by apiJson
-		const data = await apiJson(url, {
+		const data = await apiJson(`/assistant/update_assistant/${assistantId}`, {
 			method: 'PUT',
 			body: JSON.stringify(filteredData)
 		});
@@ -377,11 +372,11 @@ export async function setAssistantPublishStatus(assistantId, publishStatus) {
 		throw new Error('Cannot change publish status in server environment');
 	}
 
-	const apiUrl = getApiUrl(`/assistant/publish/${assistantId}`);
+
 
 	try {
 		// Token auto-attached by apiFetch
-		const response = await apiFetch(apiUrl, {
+		const response = await apiFetch(`/assistant/publish/${assistantId}`, {
 			method: 'PUT',
 			headers: {
 				'Content-Type': 'application/json'

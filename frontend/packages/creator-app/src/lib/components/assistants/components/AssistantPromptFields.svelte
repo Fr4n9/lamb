@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/AssistantPromptFields.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { tick } from 'svelte';
 	import { openTemplateSelectModal } from '$lib/stores/templateStore';
 	import TemplateSelectModal from '$lib/components/modals/TemplateSelectModal.svelte';

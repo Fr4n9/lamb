@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/AssistantDescriptionField.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { apiFetch } from '$lib/services/apiClient';
 
 	const GENERATE_DESCRIPTION_TIMEOUT_MS = 15000;

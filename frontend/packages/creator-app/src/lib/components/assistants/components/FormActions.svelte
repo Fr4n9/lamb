@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/FormActions.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { assistantConfigStore } from '$lib/stores/assistantConfigStore';
 
 	let { formState, formLoading = false, formError = '', successMessage = '', oncancel } = $props();

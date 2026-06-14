@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/SingleFileSelector.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { apiFetch } from '$lib/services/apiClient';
 
 	let {

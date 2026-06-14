@@ -11,7 +11,7 @@
 <script>
 	import { onDestroy } from 'svelte';
 	import { getApiUrl } from '$lib/config';
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { Loader2 } from 'lucide-svelte';
 
 	/**

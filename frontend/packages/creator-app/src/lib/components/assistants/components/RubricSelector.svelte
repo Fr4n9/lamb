@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/RubricSelector.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 
 	let {
 		rubrics = [],

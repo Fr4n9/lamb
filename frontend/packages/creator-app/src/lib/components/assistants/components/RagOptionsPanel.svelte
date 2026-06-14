@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/RagOptionsPanel.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { isKbBasedRag, isKsBasedRag, isSingleFileRag, isRubricRag } from '$lib/utils/ragProcessorHelpers.js';
 	import KnowledgeBaseSelector from './KnowledgeBaseSelector.svelte';
 	import KnowledgeStoreSelector from './KnowledgeStoreSelector.svelte';

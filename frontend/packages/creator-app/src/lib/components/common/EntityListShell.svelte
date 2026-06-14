@@ -42,7 +42,7 @@
 	import FilterBar from '$lib/components/common/FilterBar.svelte';
 	import FilterChip from '$lib/components/common/FilterChip.svelte';
 	import Pagination from '$lib/components/common/Pagination.svelte';
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { Banner, Button, SkeletonTable } from '$lib/components/ui';
 	import { Inbox } from '$lib/components/ui/icons.js';
 	import { RefreshCw } from 'lucide-svelte';

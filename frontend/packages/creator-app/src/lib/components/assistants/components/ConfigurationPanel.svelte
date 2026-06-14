@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/ConfigurationPanel.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { tick } from 'svelte';
 	import { assistantConfigStore } from '$lib/stores/assistantConfigStore';
 	import {

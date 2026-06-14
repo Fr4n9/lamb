@@ -436,32 +436,30 @@
 
     // Effect to handle programmatic navigation to detail view (e.g., after creation)
     /**
-     * Handles the custom event dispatched when an assistant is successfully created.
+     * Handles the callback when an assistant is successfully created.
      * Navigates to the list view.
-     * @param {CustomEvent<{ assistantId: number }>} event - The custom event containing the new assistant's ID.
+     * @param {{ assistantId: number }} result - The result object containing the new assistant's ID.
      */
-    function handleAssistantCreated(event) {
-        // Add check for event.detail
-        if (event.detail && typeof event.detail.assistantId === 'number') {
-            const newAssistantId = event.detail.assistantId;
-            console.log(`Assistant created with ID: ${newAssistantId}, navigating to list view.`);
+    function handleAssistantCreated({ assistantId }) {
+        if (typeof assistantId === 'number') {
+            console.log(`Assistant created with ID: ${assistantId}, navigating to list view.`);
             // Navigate to assistants base path without query params
             goto(`${base}/assistants`, { replaceState: true });
         } else {
-            console.error('handleAssistantCreated received event without expected detail:', event);
+            console.error('handleAssistantCreated received invalid assistantId:', assistantId);
             // Optionally show an error message to the user or navigate to list view
-            detailError = 'Failed to navigate to new assistant. Event detail missing.'; 
+            detailError = 'Failed to navigate to new assistant. Invalid assistant ID.'; 
             showList(); // Go back to list as a fallback
         }
     }
 
     /**
-     * Handles the custom event dispatched when an assistant is successfully updated.
+     * Handles successful assistant update.
      * Navigates back to the list view.
-     * @param {CustomEvent<{ assistantId: number }>} event - The custom event containing the updated assistant's ID.
+     * @param {{ assistantId: number }} detail
      */
-    function handleAssistantUpdated(event) {
-        const updatedAssistantId = event.detail.assistantId;
+    function handleAssistantUpdated({ assistantId }) {
+        const updatedAssistantId = assistantId;
         console.log(`Assistant updated with ID: ${updatedAssistantId}, navigating back to list view.`);
         showList(); 
     }
@@ -958,7 +956,7 @@
     </div>
 {:else if currentView === 'create'}
     <!-- Pass null to indicate creation mode -->
-    <AssistantForm assistant={null} on:formSuccess={handleAssistantCreated} />
+    <AssistantForm assistant={null} onFormSuccess={handleAssistantCreated} />
 {:else if currentView === 'detail'}
     <!-- Detail View Sub-Tabs -->
     <div class="mb-4 border-b border-gray-300 flex space-x-4">
@@ -1449,12 +1447,12 @@
                 <div class="w-full">
                     <AssistantForm 
                         assistant={selectedAssistantData}
-                        on:formSuccess={() => {
+                        onFormSuccess={() => {
                             // Refresh the assistant data after successful update with forceRefresh
                             fetchAssistantDetail(selectedAssistantData.id, true);
                             detailSubView = 'properties'; // Switch back to properties view
                         }}
-                        on:cancel={() => {
+                        onCancel={() => {
                             // Switch back to properties view when user cancels
                             detailSubView = 'properties';
                         }}

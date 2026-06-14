@@ -6,7 +6,7 @@
 -->
 <script>
 	import { SvelteSet } from 'svelte/reactivity';
-	import { _, locale } from '$lib/i18n';
+	import { _, locale } from '@lamb/ui';
 	import { highlightMatch } from './treeOps.js';
 	import { Folder, FileText, Youtube, Link, ChevronRight } from 'lucide-svelte';
 

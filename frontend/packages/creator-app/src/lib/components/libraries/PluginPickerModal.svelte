@@ -16,7 +16,7 @@
     - oncancel: () => void
 -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { Modal, Button } from '$lib/components/ui';
 
 	/**

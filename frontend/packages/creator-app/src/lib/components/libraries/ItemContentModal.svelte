@@ -5,7 +5,7 @@
   directly in its preview pane.
 -->
 <script>
-	import { _, locale } from '$lib/i18n';
+	import { _, locale } from '@lamb/ui';
 	import ItemContentTabs from './ItemContentTabs.svelte';
 	import { Modal, Button } from '$lib/components/ui';
 

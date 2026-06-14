@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/components/KnowledgeStoreSelector.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 
 	let {
 		ownedKnowledgeStores = [],

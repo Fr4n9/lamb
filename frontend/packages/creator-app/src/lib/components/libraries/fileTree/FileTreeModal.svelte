@@ -12,7 +12,7 @@
 -->
 <script>
 	import { SvelteSet } from 'svelte/reactivity';
-	import { _, locale } from '$lib/i18n';
+	import { _, locale } from '@lamb/ui';
 	import {
 		getLibraryTree,
 		createFolder,
@@ -40,7 +40,7 @@
 	import FileTreeNode from './FileTreeNode.svelte';
 	import TreePreviewPane from './TreePreviewPane.svelte';
 	import MoveToFolderPicker from './MoveToFolderPicker.svelte';
-	import ConfirmationModal from '../../modals/ConfirmationModal.svelte';
+	import { ConfirmationModal } from '@lamb/ui';
 	import {
 		Modal,
 		Button,

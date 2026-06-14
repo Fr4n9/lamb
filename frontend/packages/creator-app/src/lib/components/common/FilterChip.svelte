@@ -4,7 +4,7 @@
   Clicking the × calls onClear — does not affect other chips.
 -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 
 	/**
 	 * @type {{ id: string, label: string, value: string, onClear: () => void }}

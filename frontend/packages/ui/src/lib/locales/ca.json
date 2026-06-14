@@ -950,7 +950,6 @@
         "member": "membre",
         "members": "membres"
       },
-
       "activityConfig": "Configuració de l'Activitat",
       "editConfig": "Editar",
       "save": "Guardar",
@@ -1010,6 +1009,110 @@
       "idle": "Inactiu",
       "in_progress": "En Progrés",
       "completed_with_errors": "Completada amb Errors"
+    }
+  },
+  "knowledgeStores": {
+    "title": "Magatzems de Coneixement",
+    "pageTitle": "Magatzems de Coneixement",
+    "pageDescription": "Gestiona els Magatzems de Coneixement — índexs vectorials construïts a partir del contingut de les biblioteques.",
+    "detailTitle": "Detalls del Magatzem de Coneixement",
+    "backButton": "Tornar als Magatzems de Coneixement",
+    "loading": "Carregant Magatzems de Coneixement...",
+    "loginRequired": "Has d'iniciar sessió per veure els Magatzems de Coneixement.",
+    "myStores": "Els meus Magatzems de Coneixement",
+    "sharedStores": "Compartits",
+    "createNew": "Nou Magatzem de Coneixement",
+    "createNewTitle": "Crea un Magatzem de Coneixement a partir del contingut d'una biblioteca existent",
+    "noOwned": "Encara no tens Magatzems de Coneixement. Crea'n un per començar a indexar contingut de la biblioteca.",
+    "noShared": "No hi ha Magatzems de Coneixement compartits disponibles.",
+    "noResults": "Cap Magatzem de Coneixement coincideix amb la teva cerca.",
+    "noContent": "Encara no hi ha contingut de biblioteca enllaçat. Afegeix contingut per començar a indexar.",
+    "name": "Nom",
+    "namePlaceholder": "Nom",
+    "descriptionPlaceholder": "Descripció",
+    "embedding": "Embedding",
+    "embeddingVendor": "Embedding",
+    "embeddingModel": "Model",
+    "chunking": "Fragmentació",
+    "vectorDb": "Vector DB",
+    "contentCount": "#",
+    "createdAt": "Creat",
+    "updatedAt": "Actualitzat",
+    "created": "Creat",
+    "updated": "Actualitzat",
+    "owner": "Propietari",
+    "actions": "Accions",
+    "view": "Veure",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "remove": "Treure",
+    "query": "Consultar",
+    "runQuery": "Consultar",
+    "querying": "Consultant...",
+    "queryPlaceholder": "Fes una pregunta...",
+    "topK": "Top K",
+    "testQuery": "Consulta de prova",
+    "testQueryHelp": "Executa una cerca per similitud contra aquest Magatzem de Coneixement per verificar que retorna fragments útils.",
+    "score": "puntuació",
+    "linkedContent": "Contingut de Biblioteca Enllaçat",
+    "addContent": "Afegir Contingut",
+    "contentTitle": "Títol",
+    "library": "Biblioteca",
+    "status": "Estat",
+    "chunks": "Fragments",
+    "lockedNotice": "L'estratègia de fragmentació, el proveïdor / model d'embedding i la Vector DB es fixen en crear i no es poden canviar.",
+    "shareSuccess": "Magatzem de Coneixement compartit amb l'organització.",
+    "unshareSuccess": "El Magatzem de Coneixement és ara privat.",
+    "updateSuccess": "Magatzem de Coneixement actualitzat.",
+    "deleteSuccess": "Magatzem de Coneixement eliminat.",
+    "removeContentSuccess": "Contingut tret del Magatzem de Coneixement.",
+    "addContentSuccess": "Contingut a la cua per a la ingesta.",
+    "sharing": {
+      "label": "Compartir",
+      "shared": "Compartit",
+      "private": "Privat",
+      "share": "Compartir",
+      "makePrivate": "Fer privat"
+    },
+    "permalinks": {
+      "original": "Font",
+      "markdown": "Markdown",
+      "page": "Pàgina"
+    },
+    "deleteModal": {
+      "title": "Eliminar Magatzem de Coneixement",
+      "message": "Eliminar el Magatzem de Coneixement \"{name}\"? Aquesta acció no es pot desfer. Tots els vectors s'eliminaran permanentment. Els elements de biblioteca vinculats no es veuran afectats.",
+      "confirm": "Eliminar"
+    },
+    "empty": {
+      "title": "Encara no hi ha Magatzems de Coneixement",
+      "description": "Crea'n un per començar a indexar contingut de biblioteques.",
+      "badge": "Buit"
+    },
+    "ingestionProgress": {
+      "itemsIngested": "elements ingerits",
+      "runInBackground": "Continuar en segon pla",
+      "retry": "Tornar a intentar la ingestió",
+      "backgroundToast": "La ingestió continua en segon pla. Pots seguir el progrés a la pàgina del Magatzem de Coneixement."
+    },
+    "removeModal": {
+      "title": "Treure del Magatzem de Coneixement",
+      "message": "Treure aquest contingut del Magatzem de Coneixement? Els vectors s'eliminaran però l'element de la biblioteca quedarà intacte.",
+      "confirm": "Treure"
+    },
+    "addContentModal": {
+      "title": "Afegir Contingut de Biblioteca al Magatzem de Coneixement",
+      "description": "Tria una biblioteca i els elements a ingerir. Només es poden ingerir elements amb estat \"a punt\".",
+      "libraryLabel": "Biblioteca",
+      "itemsLabel": "Elements a ingerir",
+      "selectAll": "Seleccionar tots",
+      "deselectAll": "Desseleccionar tots",
+      "selected": "seleccionats",
+      "noLibraries": "No hi ha biblioteques disponibles. Crea una biblioteca i importa contingut primer.",
+      "noItems": "Selecciona almenys un element.",
+      "noItems2": "Aquesta biblioteca no té elements a punt per ingerir.",
+      "submit": "Afegir al Magatzem de Coneixement",
+      "submitting": "Afegint..."
     }
   }
 }

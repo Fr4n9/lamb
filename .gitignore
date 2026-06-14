@@ -249,6 +249,26 @@ testing/load/document-cache-test/
 testing/load/kv-cache-classroom/
 backend/testing/context_dumps/
 
+# Documentación de trabajo y planes
+Documentation/
+docs/superpowers/plans/
+
+# Notas de trabajo de frontend
+frontend/DOCKER_CI_UPDATES.md
+frontend/FILES_CREATED.md
+frontend/MERGE_DEV_TO_PHASE4.md
+frontend/MIGRATION_MONOREPO.md
+frontend/PHASE2_BUGS.md
+frontend/PHASE2_COMMIT_GUIDE.md
+frontend/PHASE2_COMPLETION_SUMMARY.md
+frontend/PHASE2_EXECUTION_PLAN.md
+frontend/README_PHASE2_COMPLETE.md
+fix5_axios_interceptor_plan.md
+
+# Dumps y resultados de testing
+**/context_dumps/
+.last-run.json
+
 
 ./clinerules
 
@@ -263,7 +283,6 @@ package-lock.json
 .playwright-mcp
 
 aac_logs/
-<<<<<<< HEAD
 .env.old
 
 # Worktrees
@@ -273,10 +292,3 @@ skills-lock.json
 test-results/
 testing/load/document-cache-test/
 testing/load/kv-cache-classroom/
-=======
-
-
-
-
-.playwright-mcp
->>>>>>> feature/issue#277/phase4_lamba_port

@@ -5,7 +5,7 @@
   otherwise.
 -->
 <script>
-	import { _, locale } from '$lib/i18n';
+	import { _, locale } from '@lamb/ui';
 	import { getItemContent } from '$lib/services/libraryService';
 	import ItemContentTabs from '../ItemContentTabs.svelte';
 	import { EmptyState, Card } from '$lib/components/ui';

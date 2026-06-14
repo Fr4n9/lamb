@@ -7,7 +7,7 @@
   Capability content is lazy-loaded — fetched only when its tab is activated.
 -->
 <script>
-	import { _, locale } from '$lib/i18n';
+	import { _, locale } from '@lamb/ui';
 	import { renderMarkdownStrict } from '$lib/utils/sanitize';
 	import { getItemCapabilities, getItemContentByCapability } from '$lib/services/libraryService';
 	import { getRenderer } from '$lib/components/libraries/capabilities/index.js';

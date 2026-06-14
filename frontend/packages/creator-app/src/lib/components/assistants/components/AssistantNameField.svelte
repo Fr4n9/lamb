@@ -1,6 +1,6 @@
 <!-- src/lib/components/assistants/AssistantNameField.svelte -->
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { sanitizeName } from '$lib/utils/nameSanitizer';
 
 	let {

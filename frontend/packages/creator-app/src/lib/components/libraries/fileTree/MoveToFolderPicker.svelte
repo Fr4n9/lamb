@@ -4,7 +4,7 @@
   Receives the already-loaded tree via prop to avoid a refetch.
 -->
 <script>
-	import { _, locale } from '$lib/i18n';
+	import { _, locale } from '@lamb/ui';
 	import { Modal, Button } from '$lib/components/ui';
 	import { Folder } from 'lucide-svelte';
 

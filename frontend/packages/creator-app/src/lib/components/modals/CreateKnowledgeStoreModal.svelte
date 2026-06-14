@@ -21,7 +21,7 @@
 		KnowledgeStoreUnavailableError
 	} from '$lib/services/knowledgeStoreService';
 	import PluginParamFields from '$lib/components/plugins/PluginParamFields.svelte';
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 
 	const dispatch = createEventDispatcher();
 

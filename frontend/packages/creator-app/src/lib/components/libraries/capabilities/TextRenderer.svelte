@@ -11,7 +11,7 @@
 -->
 <script>
 	import { renderMarkdownStrict } from '$lib/utils/sanitize';
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { EmptyState } from '$lib/components/ui';
 	import { FileText } from 'lucide-svelte';
 

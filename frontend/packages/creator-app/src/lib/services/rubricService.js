@@ -1,16 +1,6 @@
-import { getApiUrl } from '$lib/config';
 import { browser } from '$app/environment';
-// Routed through apiFetch so 401 triggers global session recovery (#352).
 import { apiFetch } from '$lib/services/apiClient';
 
-/**
- * Make authenticated fetch request — wraps apiFetch with the JSON Content-Type
- * default this service relies on. Token is auto-attached by apiFetch.
- * @param {string} url - The URL to fetch (full URL, since most callers
- *                       already build it with getApiUrl)
- * @param {Object} options - Fetch options
- * @returns {Promise<Response>}
- */
 async function authenticatedFetch(url, options = {}) {
     return apiFetch(url, {
         headers: { 'Content-Type': 'application/json' },
@@ -19,64 +9,50 @@ async function authenticatedFetch(url, options = {}) {
 }
 
 /**
- * @typedef {Object} Rubric - Defines the structure of a rubric object
- * @property {number} id - Internal database ID
- * @property {string} rubricId - External UUID identifier
- * @property {string} title - Rubric title
- * @property {string} description - Rubric description
- * @property {string} subject - Academic subject
- * @property {string} gradeLevel - Target grade level
- * @property {string} ownerEmail - Creator's email
- * @property {number} organizationId - Organization ID
- * @property {boolean} isPublic - Whether rubric is visible to organization
- * @property {boolean} isShowcase - Whether marked as showcase template
- * @property {string} rubricData - JSON string of full rubric structure
- * @property {number} createdAt - Unix timestamp
- * @property {number} updatedAt - Unix timestamp
+ * @typedef {Object} Rubric
+ * @property {number} id
+ * @property {string} rubricId
+ * @property {string} title
+ * @property {string} description
+ * @property {string} subject
+ * @property {string} gradeLevel
+ * @property {string} ownerEmail
+ * @property {number} organizationId
+ * @property {boolean} isPublic
+ * @property {boolean} isShowcase
+ * @property {string} rubricData
+ * @property {number} createdAt
+ * @property {number} updatedAt
  */
 
 /**
- * @typedef {Object} RubricData - The complete rubric JSON structure
- * @property {string} rubricId - Unique identifier
- * @property {string} title - Rubric title
- * @property {string} description - Rubric description
- * @property {Object} metadata - Rubric metadata
- * @property {Array} criteria - Array of criterion objects
- * @property {string} scoringType - Type of scoring (points, percentage, etc.)
- * @property {number} maxScore - Maximum possible score
+ * @typedef {Object} RubricData
+ * @property {string} rubricId
+ * @property {string} title
+ * @property {string} description
+ * @property {Object} metadata
+ * @property {Array} criteria
+ * @property {string} scoringType
+ * @property {number} maxScore
  */
 
-/**
- * Fetch all rubrics for the current user
- * @param {number} [limit=10] - Number of rubrics per page
- * @param {number} [offset=0] - Offset for pagination
- * @param {Object} [filters={}] - Optional filters (subject, gradeLevel, etc.)
- * @returns {Promise<{rubrics: Rubric[], total: number}>}
- * @throws {Error} If not authenticated or fetch fails
- */
 export async function fetchRubrics(limit = 10, offset = 0, filters = {}) {
     if (!browser) {
         throw new Error('fetchRubrics called outside browser context');
     }
 
-    // Build query parameters
     const params = new URLSearchParams({
         limit: limit.toString(),
         offset: offset.toString()
     });
 
-    // Add filters if provided
     Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
             params.append(key, value.toString());
         }
     });
 
-    const apiUrl = getApiUrl(`/rubrics?${params}`);
-    console.log('Fetching rubrics from:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch and apiFetch interceptor
-    const response = await authenticatedFetch(apiUrl);
+    const response = await authenticatedFetch(`/rubrics?${params}`);
 
     if (!response.ok) {
         let errorDetail = 'Failed to fetch rubrics';
@@ -84,7 +60,7 @@ export async function fetchRubrics(limit = 10, offset = 0, filters = {}) {
             const error = await response.json();
             errorDetail = error?.detail || errorDetail;
         } catch (e) {
-            // Ignore if response is not JSON
+            // Ignore
         }
         console.error('API error response status:', response.status, 'Detail:', errorDetail);
         throw new Error(errorDetail);
@@ -92,21 +68,12 @@ export async function fetchRubrics(limit = 10, offset = 0, filters = {}) {
 
     const data = await response.json();
 
-    // Return expected structure
     return {
         rubrics: Array.isArray(data?.rubrics) ? data.rubrics : [],
         total: typeof data?.total === 'number' ? data.total : 0
     };
 }
 
-/**
- * Fetch public rubrics in the organization
- * @param {number} [limit=10] - Number of rubrics per page
- * @param {number} [offset=0] - Offset for pagination
- * @param {Object} [filters={}] - Optional filters
- * @returns {Promise<{rubrics: Rubric[], total: number}>}
- * @throws {Error} If not authenticated or fetch fails
- */
 export async function fetchPublicRubrics(limit = 10, offset = 0, filters = {}) {
     if (!browser) {
         throw new Error('fetchPublicRubrics called outside browser context');
@@ -123,11 +90,7 @@ export async function fetchPublicRubrics(limit = 10, offset = 0, filters = {}) {
         }
     });
 
-    const apiUrl = getApiUrl(`/rubrics/public?${params}`);
-    console.log('Fetching public rubrics from:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch and apiFetch interceptor
-    const response = await authenticatedFetch(apiUrl);
+    const response = await authenticatedFetch(`/rubrics/public?${params}`);
 
     if (!response.ok) {
         let errorDetail = 'Failed to fetch public rubrics';
@@ -148,21 +111,12 @@ export async function fetchPublicRubrics(limit = 10, offset = 0, filters = {}) {
     };
 }
 
-/**
- * Fetch showcase templates
- * @returns {Promise<Rubric[]>}
- * @throws {Error} If not authenticated or fetch fails
- */
 export async function fetchShowcaseRubrics() {
     if (!browser) {
         throw new Error('fetchShowcaseRubrics called outside browser context');
     }
 
-    const apiUrl = getApiUrl('/rubrics/showcase');
-    console.log('Fetching showcase rubrics from:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch and apiFetch interceptor
-    const response = await authenticatedFetch(apiUrl);
+    const response = await authenticatedFetch('/rubrics/showcase');
 
     if (!response.ok) {
         let errorDetail = 'Failed to fetch showcase rubrics';
@@ -180,22 +134,12 @@ export async function fetchShowcaseRubrics() {
     return Array.isArray(data?.rubrics) ? data.rubrics : [];
 }
 
-/**
- * Fetch a single rubric by ID
- * @param {string} rubricId - The rubric ID
- * @returns {Promise<Rubric>} The rubric details
- * @throws {Error} If not authenticated, not found, or fetch fails
- */
 export async function fetchRubric(rubricId) {
     if (!browser) {
         throw new Error('fetchRubric called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}`);
-    console.log('Fetching rubric from:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch and apiFetch interceptor
-    const response = await authenticatedFetch(apiUrl);
+    const response = await authenticatedFetch(`/rubrics/${rubricId}`);
 
     if (!response.ok) {
         let errorDetail = `Failed to fetch rubric with ID ${rubricId}`;
@@ -212,18 +156,11 @@ export async function fetchRubric(rubricId) {
     return await response.json();
 }
 
-/**
- * Create a new rubric
- * @param {RubricData} rubricData - The rubric data to create
- * @returns {Promise<Rubric>} The created rubric
- * @throws {Error} If not authenticated or creation fails
- */
 export async function createRubric(rubricData) {
     if (!browser) {
         throw new Error('createRubric called outside browser context');
     }
 
-    // Convert rubric data to form data format expected by backend
     const formData = new FormData();
     formData.append('title', rubricData.title || '');
     formData.append('description', rubricData.description || '');
@@ -233,11 +170,7 @@ export async function createRubric(rubricData) {
     formData.append('maxScore', (rubricData.maxScore || 100).toString());
     formData.append('criteria', JSON.stringify(rubricData.criteria || []));
 
-    const apiUrl = getApiUrl('/rubrics');
-    console.log('Creating rubric at:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch('/rubrics', {
         method: 'POST',
         body: formData
     });
@@ -257,19 +190,11 @@ export async function createRubric(rubricData) {
     return await response.json();
 }
 
-/**
- * Update an existing rubric
- * @param {string} rubricId - The rubric ID to update
- * @param {RubricData} rubricData - The updated rubric data
- * @returns {Promise<Rubric>} The updated rubric
- * @throws {Error} If not authenticated, not owner, or update fails
- */
 export async function updateRubric(rubricId, rubricData) {
     if (!browser) {
         throw new Error('updateRubric called outside browser context');
     }
 
-    // Convert to form data
     const formData = new FormData();
     formData.append('title', rubricData.title || '');
     formData.append('description', rubricData.description || '');
@@ -277,15 +202,9 @@ export async function updateRubric(rubricId, rubricData) {
     formData.append('gradeLevel', rubricData.metadata?.gradeLevel || '');
     formData.append('scoringType', rubricData.scoringType || 'points');
     formData.append('maxScore', (rubricData.maxScore || 100).toString());
-
-    // Keep IDs in criteria (backend validator requires them)
     formData.append('criteria', JSON.stringify(rubricData.criteria || []));
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}`);
-    console.log('Updating rubric at:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch(`/rubrics/${rubricId}`, {
         method: 'PUT',
         body: formData
     });
@@ -305,22 +224,12 @@ export async function updateRubric(rubricId, rubricData) {
     return await response.json();
 }
 
-/**
- * Delete a rubric
- * @param {string} rubricId - The rubric ID to delete
- * @returns {Promise<boolean>} True if deleted successfully
- * @throws {Error} If not authenticated, not owner, or delete fails
- */
 export async function deleteRubric(rubricId) {
     if (!browser) {
         throw new Error('deleteRubric called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}`);
-    console.log('Deleting rubric at:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch(`/rubrics/${rubricId}`, {
         method: 'DELETE'
     });
 
@@ -339,22 +248,12 @@ export async function deleteRubric(rubricId) {
     return true;
 }
 
-/**
- * Duplicate a rubric
- * @param {string} rubricId - The rubric ID to duplicate
- * @returns {Promise<Rubric>} The new duplicated rubric
- * @throws {Error} If not authenticated or duplication fails
- */
 export async function duplicateRubric(rubricId) {
     if (!browser) {
         throw new Error('duplicateRubric called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}/duplicate`);
-    console.log('Duplicating rubric at:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch(`/rubrics/${rubricId}/duplicate`, {
         method: 'POST'
     });
 
@@ -373,27 +272,15 @@ export async function duplicateRubric(rubricId) {
     return await response.json();
 }
 
-/**
- * Toggle rubric visibility (public/private)
- * @param {string} rubricId - The rubric ID
- * @param {boolean} isPublic - Whether to make it public
- * @returns {Promise<Rubric>} The updated rubric
- * @throws {Error} If not authenticated or toggle fails
- */
 export async function toggleRubricVisibility(rubricId, isPublic) {
     if (!browser) {
         throw new Error('toggleRubricVisibility called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}/visibility`);
-    console.log('Toggling rubric visibility at:', apiUrl);
-
-    // Use form data as expected by Creator Interface
     const formData = new FormData();
     formData.append('is_public', isPublic.toString());
 
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch(`/rubrics/${rubricId}/visibility`, {
         method: 'PUT',
         body: formData
     });
@@ -413,23 +300,12 @@ export async function toggleRubricVisibility(rubricId, isPublic) {
     return await response.json();
 }
 
-/**
- * Set showcase status for a rubric (admin only)
- * @param {string} rubricId - The rubric ID
- * @param {boolean} isShowcase - Whether to mark as showcase
- * @returns {Promise<Rubric>} The updated rubric
- * @throws {Error} If not admin or operation fails
- */
 export async function setShowcaseStatus(rubricId, isShowcase) {
     if (!browser) {
         throw new Error('setShowcaseStatus called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}/showcase`);
-    console.log('Setting showcase status at:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch(`/rubrics/${rubricId}/showcase`, {
         method: 'PUT',
         body: JSON.stringify({ isShowcase })
     });
@@ -449,22 +325,12 @@ export async function setShowcaseStatus(rubricId, isShowcase) {
     return await response.json();
 }
 
-/**
- * Export rubric as JSON
- * @param {string} rubricId - The rubric ID to export
- * @returns {Promise<void>} Triggers download
- * @throws {Error} If not authenticated or export fails
- */
 export async function exportRubricJSON(rubricId) {
     if (!browser) {
         throw new Error('exportRubricJSON called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}/export/json`);
-    console.log('Exporting rubric JSON from:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl);
+    const response = await authenticatedFetch(`/rubrics/${rubricId}/export/json`);
 
     if (!response.ok) {
         let errorDetail = 'Failed to export rubric as JSON';
@@ -489,7 +355,6 @@ export async function exportRubricJSON(rubricId) {
         }
     }
 
-    // Create download link
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.setAttribute('download', filename);
@@ -499,22 +364,12 @@ export async function exportRubricJSON(rubricId) {
     URL.revokeObjectURL(link.href);
 }
 
-/**
- * Fetch rubric markdown content as text (for display, not download)
- * @param {string} rubricId - The rubric ID to fetch
- * @returns {Promise<string>} The markdown content
- * @throws {Error} If not authenticated or fetch fails
- */
 export async function fetchRubricMarkdown(rubricId) {
     if (!browser) {
         throw new Error('fetchRubricMarkdown called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}/export/markdown`);
-    console.log('Fetching rubric Markdown from:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl);
+    const response = await authenticatedFetch(`/rubrics/${rubricId}/export/markdown`);
 
     if (!response.ok) {
         let errorDetail = 'Failed to fetch rubric as Markdown';
@@ -532,22 +387,12 @@ export async function fetchRubricMarkdown(rubricId) {
     return text;
 }
 
-/**
- * Export rubric as Markdown
- * @param {string} rubricId - The rubric ID to export
- * @returns {Promise<void>} Triggers download
- * @throws {Error} If not authenticated or export fails
- */
 export async function exportRubricMarkdown(rubricId) {
     if (!browser) {
         throw new Error('exportRubricMarkdown called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}/export/markdown`);
-    console.log('Exporting rubric Markdown from:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl);
+    const response = await authenticatedFetch(`/rubrics/${rubricId}/export/markdown`);
 
     if (!response.ok) {
         let errorDetail = 'Failed to export rubric as Markdown';
@@ -572,7 +417,6 @@ export async function exportRubricMarkdown(rubricId) {
         }
     }
 
-    // Create download link
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.setAttribute('download', filename);
@@ -582,26 +426,15 @@ export async function exportRubricMarkdown(rubricId) {
     URL.revokeObjectURL(link.href);
 }
 
-/**
- * Import rubric from JSON file
- * @param {File} file - The JSON file to import
- * @returns {Promise<Rubric>} The imported rubric
- * @throws {Error} If not authenticated, file invalid, or import fails
- */
 export async function importRubric(file) {
     if (!browser) {
         throw new Error('importRubric called outside browser context');
     }
 
-    // Create form data with file
     const formData = new FormData();
     formData.append('file', file);
 
-    const apiUrl = getApiUrl('/rubrics/import');
-    console.log('Importing rubric at:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch('/rubrics/import', {
         method: 'POST',
         body: formData
     });
@@ -621,35 +454,17 @@ export async function importRubric(file) {
     return await response.json();
 }
 
-/**
- * Generate rubric using AI from natural language prompt
- * @param {string} prompt - Natural language description of desired rubric
- * @returns {Promise<{rubric: RubricData, explanation: string}>}
- * @throws {Error} If not authenticated or generation fails
- */
-/**
- * Generate a new rubric using AI (returns preview, does not save)
- * @param {string} prompt - Natural language description of desired rubric
- * @param {string} language - Language code (en, es, eu, ca) - defaults to 'en'
- * @param {string} model - Optional specific model override
- * @returns {Promise<{success: boolean, rubric: Object, markdown: string, explanation: string, prompt_used: string}>}
- * @throws {Error} If not authenticated or generation fails
- */
 export async function aiGenerateRubric(prompt, language = 'en', model = null) {
     if (!browser) {
         throw new Error('aiGenerateRubric called outside browser context');
     }
-
-    const apiUrl = getApiUrl('/rubrics/ai-generate');
-    console.log('Generating rubric with AI at:', apiUrl, 'language:', language);
 
     const requestBody = { prompt, language };
     if (model) {
         requestBody.model = model;
     }
 
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch('/rubrics/ai-generate', {
         method: 'POST',
         body: JSON.stringify(requestBody)
     });
@@ -660,39 +475,27 @@ export async function aiGenerateRubric(prompt, language = 'en', model = null) {
             const error = await response.json();
             errorDetail = error?.detail || error?.error || errorDetail;
         } catch (e) {
-            // Ignore JSON parse error
+            // Ignore
         }
         console.error('API error response status:', response.status, 'Detail:', errorDetail);
         throw new Error(errorDetail);
     }
 
     const result = await response.json();
-    
-    // Handle both success and failure responses
+
     if (!result.success && result.error) {
         console.warn('AI generation failed:', result.error);
     }
-    
+
     return result;
 }
 
-/**
- * Modify existing rubric using AI
- * @param {string} rubricId - The rubric ID to modify
- * @param {string} prompt - Natural language modification instructions
- * @returns {Promise<{rubric: RubricData, explanation: string, changes_summary: Object}>}
- * @throws {Error} If not authenticated or modification fails
- */
 export async function aiModifyRubric(rubricId, prompt) {
     if (!browser) {
         throw new Error('aiModifyRubric called outside browser context');
     }
 
-    const apiUrl = getApiUrl(`/rubrics/${rubricId}/ai-modify`);
-    console.log('Modifying rubric with AI at:', apiUrl);
-
-    // Token auto-attached by authenticatedFetch
-    const response = await authenticatedFetch(apiUrl, {
+    const response = await authenticatedFetch(`/rubrics/${rubricId}/ai-modify`, {
         method: 'POST',
         body: JSON.stringify({ prompt })
     });
@@ -712,12 +515,8 @@ export async function aiModifyRubric(rubricId, prompt) {
     return await response.json();
 }
 
-/**
- * Fetch accessible rubrics for assistant attachment
- * @returns {Promise<{rubrics: Array, total: number}>}
- */
 export async function fetchAccessibleRubrics() {
-    const response = await authenticatedFetch(`${getApiUrl('/rubrics/accessible')}`);
+    const response = await authenticatedFetch('/rubrics/accessible');
 
     if (!response.ok) {
         let errorDetail = "Failed to fetch accessible rubrics";
