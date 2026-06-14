@@ -235,10 +235,20 @@ test.describe.serial("FR-10 - UI surface", () => {
     const rowText = page.getByText("FR-10 UI Doc").first();
     await expect(rowText).toBeVisible({ timeout: 10000 });
 
-    // Click the per-row Delete button (has title="Delete").
-    const deleteButtons = page.getByRole("button", { name: /Delete|Eliminar|Borrar/i });
-    expect(await deleteButtons.count()).toBeGreaterThan(0);
-    await deleteButtons.first().click();
+    // Click the per-row OverflowMenu (More actions) button.
+    const row = page.locator("tr").filter({ hasText: "FR-10 UI Doc" }).first();
+    const moreActionsBtn = row.getByRole("button", { name: /More actions/i });
+    await expect(moreActionsBtn).toBeVisible({ timeout: 5000 });
+    await moreActionsBtn.click();
+
+    // Wait for the menu to be visible before searching for the item
+    const menu = page.locator('[role="menu"]').first();
+    await expect(menu).toBeVisible({ timeout: 5000 });
+
+    // Click Delete from the dropdown menu (rendered as button with role="menuitem").
+    const deleteMenuItem = menu.getByRole("menuitem", { name: /Delete|Eliminar|Borrar/i });
+    await expect(deleteMenuItem).toBeVisible({ timeout: 5000 });
+    await deleteMenuItem.click();
 
     // The UI opens a "blocked" modal (pre-flight KS check found references).
     // The confirm button is hidden (hideConfirm=true) in this mode; instead

@@ -99,6 +99,8 @@
 	const iconColor = $derived(HEADER_ICON_COLOR[variant] || HEADER_ICON_COLOR.danger);
 	const confirmVariant = $derived(CONFIRM_VARIANT[variant] || 'danger');
 
+	const titleId = `confirm-modal-${Math.random().toString(36).slice(2, 9)}`;
+
 	function handleConfirm() {
 		if (isLoading) return;
 		onconfirm();
@@ -116,6 +118,7 @@
 	onclose={handleCancel}
 	size="sm"
 	title=""
+	labelledBy={titleId}
 	showClose={false}
 	closeOnEscape={!isLoading}
 	closeOnBackdrop={!isLoading}
@@ -124,7 +127,7 @@
 		<div class="border-border bg-surface flex items-start justify-between gap-3 border-b px-6 py-4">
 			<div class="flex min-w-0 flex-1 items-center gap-2">
 				<HeaderIcon size={20} class="shrink-0 {iconColor}" aria-hidden="true" />
-				<h2 class="type-section-title truncate">{displayTitle}</h2>
+				<h2 id={titleId} class="type-section-title truncate">{displayTitle}</h2>
 			</div>
 			<IconButton
 				icon={X}
