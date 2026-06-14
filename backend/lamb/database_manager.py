@@ -1081,6 +1081,9 @@ class LambDatabaseManager:
                             configured_by_email TEXT NOT NULL,
                             configured_by_name TEXT,
                             chat_visibility_enabled INTEGER NOT NULL DEFAULT 0,
+                            activity_type TEXT NOT NULL DEFAULT 'chat',
+                            setup_config TEXT DEFAULT '{{}}',
+                            lis_outcome_service_url TEXT,
                             status TEXT NOT NULL DEFAULT 'active',
                             created_at INTEGER NOT NULL,
                             updated_at INTEGER NOT NULL,
@@ -1096,6 +1099,18 @@ class LambDatabaseManager:
                     # Migrate existing table: add new columns if missing
                     cursor.execute(f"PRAGMA table_info({self.table_prefix}lti_activities)")
                     existing_cols = {row[1] for row in cursor.fetchall()}
+                    if 'activity_type' not in existing_cols:
+                        logger.info("Migrating lti_activities: adding activity_type")
+                        cursor.execute(f"ALTER TABLE {self.table_prefix}lti_activities ADD COLUMN activity_type TEXT NOT NULL DEFAULT 'chat'")
+                        logger.info("Migrated lti_activities with activity_type field")
+                    if 'setup_config' not in existing_cols:
+                        logger.info("Migrating lti_activities: adding setup_config")
+                        cursor.execute(f"ALTER TABLE {self.table_prefix}lti_activities ADD COLUMN setup_config TEXT DEFAULT '{{}}'")
+                        logger.info("Migrated lti_activities with setup_config field")
+                    if 'lis_outcome_service_url' not in existing_cols:
+                        logger.info("Migrating lti_activities: adding lis_outcome_service_url")
+                        cursor.execute(f"ALTER TABLE {self.table_prefix}lti_activities ADD COLUMN lis_outcome_service_url TEXT")
+                        logger.info("Migrated lti_activities with lis_outcome_service_url field")
                     if 'owner_email' not in existing_cols:
                         logger.info("Migrating lti_activities: adding owner_email, owner_name, chat_visibility_enabled")
                         cursor.execute(f"ALTER TABLE {self.table_prefix}lti_activities ADD COLUMN owner_email TEXT NOT NULL DEFAULT ''")
@@ -1139,6 +1154,7 @@ class LambDatabaseManager:
                             user_display_name TEXT NOT NULL DEFAULT '',
                             lms_user_id TEXT,
                             owi_user_id TEXT,
+                            is_instructor INTEGER NOT NULL DEFAULT 0,
                             consent_given_at INTEGER,
                             last_access_at INTEGER,
                             access_count INTEGER NOT NULL DEFAULT 0,
@@ -1159,6 +1175,10 @@ class LambDatabaseManager:
                         cursor.execute(f"ALTER TABLE {self.table_prefix}lti_activity_users ADD COLUMN last_access_at INTEGER")
                         cursor.execute(f"ALTER TABLE {self.table_prefix}lti_activity_users ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0")
                         logger.info("Migrated lti_activity_users with dashboard fields")
+                    if 'is_instructor' not in existing_cols:
+                        logger.info("Migrating lti_activity_users: adding is_instructor column")
+                        cursor.execute(f"ALTER TABLE {self.table_prefix}lti_activity_users ADD COLUMN is_instructor INTEGER NOT NULL DEFAULT 0")
+                        logger.info("Migrated lti_activity_users with is_instructor field")
 
                 # lti_identity_links — map LMS identities to LAMB Creator users
                 cursor.execute(
@@ -6030,7 +6050,7 @@ class LambDatabaseManager:
             token (str): JWT token to verify
 
         Returns:
-            Optional[Dict]: User details if token is valid, None otherwise
+            Optional[Dict]: User details if token is valid and account is enabled, None otherwise
         """
         try:
             # Decode JWT token
@@ -6042,7 +6062,14 @@ class LambDatabaseManager:
                 return None
 
             # Get user details from database
-            return self.get_creator_user_by_email(user_email)
+            user = self.get_creator_user_by_email(user_email)
+
+            # Check if the user account is disabled
+            if user and not user.get('enabled', True):
+                logger.warning(f"Disabled user {user_email} attempted API access with valid JWT token")
+                return None
+
+            return user
 
         except jwt.InvalidTokenError:
             logger.error("Invalid JWT token")
@@ -9456,7 +9483,8 @@ class LambDatabaseManager:
                             configured_by_email: str, configured_by_name: str = None,
                             context_id: str = None, context_title: str = None,
                             activity_name: str = None,
-                            chat_visibility_enabled: bool = False) -> Optional[int]:
+                            chat_visibility_enabled: bool = False,
+                            activity_type: str = 'chat') -> Optional[int]:
         """Create a new LTI activity. Returns the activity id."""
         connection = self.get_connection()
         if not connection:
@@ -9470,13 +9498,13 @@ class LambDatabaseManager:
                     (resource_link_id, organization_id, context_id, context_title, activity_name,
                      owi_group_id, owi_group_name, owner_email, owner_name,
                      configured_by_email, configured_by_name,
-                     chat_visibility_enabled, status, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+                     chat_visibility_enabled, activity_type, status, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
                 """, (resource_link_id, organization_id, context_id, context_title,
                       activity_name, owi_group_id, owi_group_name,
                       configured_by_email, configured_by_name,
                       configured_by_email, configured_by_name,
-                      1 if chat_visibility_enabled else 0, now, now))
+                      1 if chat_visibility_enabled else 0, activity_type, now, now))
                 return cursor.lastrowid
         except sqlite3.Error as e:
             logger.error(f"Error creating LTI activity: {e}")
@@ -9507,7 +9535,7 @@ class LambDatabaseManager:
 
     def update_lti_activity(self, activity_id: int, **kwargs) -> bool:
         """Update an LTI activity. Pass fields to update as keyword arguments."""
-        allowed_fields = {'activity_name', 'status', 'context_title', 'chat_visibility_enabled', 'owner_email', 'owner_name'}
+        allowed_fields = {'activity_name', 'status', 'context_title', 'chat_visibility_enabled', 'owner_email', 'owner_name', 'owi_group_id', 'owi_group_name', 'lis_outcome_service_url'}
         updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
         if not updates:
             return False
@@ -9603,7 +9631,8 @@ class LambDatabaseManager:
     def create_lti_activity_user(self, activity_id: int, user_email: str,
                                   user_name: str = '', user_display_name: str = '',
                                   lms_user_id: str = None,
-                                  owi_user_id: str = None) -> Optional[int]:
+                                  owi_user_id: str = None,
+                                  is_instructor: bool = False) -> Optional[int]:
         """Create or get an LTI activity user record. Updates access tracking on each call. Returns the user record id."""
         connection = self.get_connection()
         if not connection:
@@ -9632,15 +9661,22 @@ class LambDatabaseManager:
                             SET owi_user_id = ?
                             WHERE id = ? AND (owi_user_id IS NULL OR owi_user_id = '')
                         """, (owi_user_id, existing[0]))
+                    # Promote to instructor if needed (never demote)
+                    if is_instructor:
+                        cursor.execute(f"""
+                            UPDATE {self.table_prefix}lti_activity_users
+                            SET is_instructor = 1
+                            WHERE id = ? AND is_instructor = 0
+                        """, (existing[0],))
                     return existing[0]
                 # Create
                 cursor.execute(f"""
                     INSERT INTO {self.table_prefix}lti_activity_users
                     (activity_id, user_email, user_name, user_display_name,
-                     lms_user_id, owi_user_id, last_access_at, access_count, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+                     lms_user_id, owi_user_id, is_instructor, last_access_at, access_count, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
                 """, (activity_id, user_email, user_name, user_display_name,
-                      lms_user_id, owi_user_id, now, now))
+                      lms_user_id, owi_user_id, 1 if is_instructor else 0, now, now))
                 return cursor.lastrowid
         except sqlite3.Error as e:
             logger.error(f"Error creating LTI activity user: {e}")
@@ -9840,6 +9876,24 @@ class LambDatabaseManager:
         finally:
             connection.close()
 
+    @staticmethod
+    def assistant_has_rubric_for_eval(api_callback: Optional[str]) -> bool:
+        """Check if an assistant's metadata indicates it is ready for rubric-based evaluation.
+
+        Requires both ``rubric_id`` (non-empty) **and** ``rag_processor == "rubric_rag"``
+        so the completions pipeline will actually inject the rubric as context.
+        """
+        if not api_callback:
+            return False
+        try:
+            meta = json.loads(api_callback)
+        except (json.JSONDecodeError, TypeError):
+            return False
+        rubric_id = meta.get("rubric_id")
+        if not rubric_id or not str(rubric_id).strip():
+            return False
+        return meta.get("rag_processor") == "rubric_rag"
+
     def get_published_assistants_for_org_user(self, organization_id: int,
                                                creator_user_id: int,
                                                creator_user_email: str) -> List[Dict[str, Any]]:
@@ -9857,7 +9911,8 @@ class LambDatabaseManager:
                 cursor.execute(f"""
                     SELECT a.id, a.name, a.description, a.owner,
                            ap.oauth_consumer_name, ap.group_id, ap.group_name,
-                           'owned' as access_type
+                           'owned' as access_type,
+                           a.api_callback
                     FROM {self.table_prefix}assistants a
                     JOIN {self.table_prefix}assistant_publish ap ON a.id = ap.assistant_id
                     WHERE a.owner = ? AND a.organization_id = ?
@@ -9872,7 +9927,8 @@ class LambDatabaseManager:
                 cursor.execute(f"""
                     SELECT a.id, a.name, a.description, a.owner,
                            ap.oauth_consumer_name, ap.group_id, ap.group_name,
-                           'shared' as access_type
+                           'shared' as access_type,
+                           a.api_callback
                     FROM {self.table_prefix}assistant_shares s
                     JOIN {self.table_prefix}assistants a ON s.assistant_id = a.id
                     JOIN {self.table_prefix}assistant_publish ap ON a.id = ap.assistant_id
@@ -9884,11 +9940,14 @@ class LambDatabaseManager:
                 columns = [col[0] for col in cursor.description]
                 shared = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-                # Deduplicate (in case somehow both owned and shared)
+                # Deduplicate and add rubric_eval_ready flag (strip raw api_callback)
                 seen = set()
                 result = []
                 for a in owned + shared:
                     if a['id'] not in seen:
+                        a['rubric_eval_ready'] = self.assistant_has_rubric_for_eval(
+                            a.pop('api_callback', None)
+                        )
                         result.append(a)
                         seen.add(a['id'])
                 return result

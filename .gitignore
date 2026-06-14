@@ -60,6 +60,12 @@ backend/pipelines/*
 backend/lamb_assistants/*
 backend/static/public
 backend/timelog.md
+# File evaluation module: student submission files (runtime; do not commit)
+# Ignores this directory and everything under it recursively.
+backend/uploads/file-eval/
+# Local DB dump and module dev snapshot (do not commit)
+lamb_v4_dump.sql
+backend/file_eval_snapshot.txt
 
 # Database
 *.db
@@ -84,6 +90,10 @@ config.json
 /frontend/node_modules
 /frontend/build
 /frontend/.svelte-kit
+frontend/svelte-app/.svelte-kit/
+frontend/svelte-app/package-lock.json
+frontend/svelte-app/src/lib/version.js
+/frontend/svelte-app
 /frontend/package
 /frontend/.env
 /frontend/.env.*
@@ -91,9 +101,28 @@ config.json
 /frontend/vite.config.js.timestamp-*
 /frontend/vite.config.ts.timestamp-*
 
-# Allow committing Svelte/Vite config for the frontend app
-!frontend/svelte-app/svelte.config.js
-!frontend/svelte-app/vite.config.js
+# pnpm store and lockfiles
+.pnpm-store/
+frontend/.pnpm-store/
+**/.pnpm-store/
+pnpm-lock.yaml
+frontend/pnpm-lock.yaml
+frontend/packages/**/pnpm-lock.yaml
+
+# SvelteKit generated files (all packages)
+frontend/packages/**/.svelte-kit/
+
+# package-lock.json files (using pnpm instead)
+frontend/package-lock.json
+frontend/packages/**/package-lock.json
+
+# Local tooling / scratch (not product source)
+aac_logs/
+
+# Generated dev version stamps — regenerate with each package's scripts/generate-version.js
+# (Do not commit local timestamps; build/dev runs the generator.)
+frontend/packages/creator-app/src/lib/version.js
+frontend/packages/module-chat/src/lib/version.js
 
 # IDE and editors
 .idea/
@@ -145,7 +174,6 @@ out/
 build/
 Documentation/human-context.md
 testcurls.md
-frontend/svelte-app/static/config.js
 
 # Open-WebUI specific ignores
 open-webui/backend/data/
@@ -182,14 +210,44 @@ static/
 data/
 Documentation/test-scripts/package-lock.json
 testing/package-lock.json
-testing/playwright/test-results/.last-run.json
+test-results/
+.last-run.json
 backend/static/cache
 docker-compose.yaml
 .pnpm-store/
 backend/testing/
 backend/uploads/
-frontend/packages/
-.opencode
+
+#OPENCODE
+.opencode/                # Carpeta de skills y caché local
+opencode.json             # Tu configuración con paths absolutos
+.env                      # SIEMPRE ignora esto (aquí van las API keys)
+AGENTS.md                 # Tu archivo de contexto (si quieres que sea privado)
+CONTEXT.md
+
+
+./clinerules
+
+Documentation/assistantform-refactoring-log.md
+Documentation/tfg-capitol-5-prototipado.md
+Documentation/tfg-structure-guide.md
+diagram-17-clean.md
+docs/
+frontend-architecture-diagrams.md
+package-lock.json
+.playwright-mcp
+
+aac_logs/
+.env.old
+
+# Worktrees
+.worktrees/
+.agents/
+skills-lock.json
+test-results/
+testing/load/document-cache-test/
+testing/load/kv-cache-classroom/
+backend/testing/context_dumps/
 
 
 ./clinerules
@@ -205,6 +263,7 @@ package-lock.json
 .playwright-mcp
 
 aac_logs/
+<<<<<<< HEAD
 .env.old
 
 # Worktrees
@@ -214,3 +273,10 @@ skills-lock.json
 test-results/
 testing/load/document-cache-test/
 testing/load/kv-cache-classroom/
+=======
+
+
+
+
+.playwright-mcp
+>>>>>>> feature/issue#277/phase4_lamba_port
