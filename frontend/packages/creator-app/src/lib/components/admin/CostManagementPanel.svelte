@@ -47,6 +47,8 @@
 	);
 
 	let displayData = $derived(filterCostData(tableData, costSearch));
+	let filteredCostData = $derived(filterCostData(costData, costSearch));
+	let costTotals = $derived(computeCostTotals(costData));
 
 	/** @type {object | null} */
 	let serverSummary = $state(null);
@@ -88,9 +90,6 @@
 		orgFilterName = '';
 		orgSummary = null;
 	}
-
-	let filteredCostData = $derived(filterCostData(costData, costSearch));
-	let costTotals = $derived(computeCostTotals(costData));
 
 	// --- Quota Edit Modal State ---
 	/** @type {any | null} */
