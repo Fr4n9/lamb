@@ -1,3 +1,7 @@
+<script context="module">
+	let checkboxCounter = 0;
+</script>
+
 <script>
 	/**
 	 * Styled checkbox primitive.
@@ -38,7 +42,7 @@
 		...rest
 	} = $props();
 
-	const cid = id || `cb-${Math.random().toString(36).slice(2, 9)}`;
+	const cid = id || `cb-${++checkboxCounter}`;
 
 	/** @type {HTMLInputElement | undefined} */
 	let inputEl;

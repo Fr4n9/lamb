@@ -3,8 +3,8 @@
 
 export const VERSION_INFO = {
   "version": "0.6",
-  "commit": "4689f244",
-  "branch": "lamba_refactor_merge_kvcache_v2",
-  "commitDate": "2026-06-15",
+  "commit": "e87ac756",
+  "branch": "lamba_refactor_merge_kvcache_v2_with_cost_management",
+  "commitDate": "2026-06-16",
   "buildDate": "2026-06-15"
 };

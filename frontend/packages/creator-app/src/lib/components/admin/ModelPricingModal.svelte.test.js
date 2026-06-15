@@ -9,12 +9,15 @@ vi.mock('$lib/services/adminService', () => ({
 	updateModelPricing: vi.fn(),
 	deleteModelPricing: vi.fn()
 }));
-vi.mock('$lib/stores/userStore', () => ({
-	user: { subscribe: vi.fn((fn) => { fn({ isLoggedIn: true, token: 'tok' }); return vi.fn(); }) }
-}));
-vi.mock('$lib/i18n', async () => {
+vi.mock('@lamb/ui', async () => {
 	const { readable } = await import('svelte/store');
-	return { _: readable((k, o) => o?.default || k), locale: readable('en'), waitLocale: vi.fn(), setupI18n: vi.fn() };
+	return {
+		user: { subscribe: vi.fn((fn) => { fn({ isLoggedIn: true, token: 'tok' }); return vi.fn(); }) },
+		_: readable((k, o) => o?.default || k),
+		locale: readable('en'),
+		waitLocale: vi.fn(),
+		setupI18n: vi.fn()
+	};
 });
 vi.mock('$lib/stores/toast', () => ({
 	toast: { success: vi.fn(), error: vi.fn() }
