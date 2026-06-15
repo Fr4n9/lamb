@@ -38,6 +38,8 @@ class LambDatabaseManager:
     # LambDatabaseManager() per-request; running sync on every instantiation would
     # overwrite user-saved provider config (e.g. custom base_url/api_key) with .env defaults.
     _system_org_initialized = False
+    _optimizations_applied = False
+    _migrations_applied = False
 
     def __init__(self):
         try:
@@ -54,11 +56,13 @@ class LambDatabaseManager:
                 self.create_database_and_tables()
                 logger.info(f"Created database at: {self.db_path}")
 
-            # Configure database optimizations
-            self._configure_database_optimizations()
-            
-            # Always run migrations on initialization (handles existing databases)
-            self.run_migrations()
+            if not LambDatabaseManager._optimizations_applied:
+                self._configure_database_optimizations()
+                LambDatabaseManager._optimizations_applied = True
+
+            if not LambDatabaseManager._migrations_applied:
+                self.run_migrations()
+                LambDatabaseManager._migrations_applied = True
 
             # Initialize system organization AFTER migrations so that
             # Creator_users columns (enabled, password_hash, role) exist.
