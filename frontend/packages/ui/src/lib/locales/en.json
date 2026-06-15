@@ -556,7 +556,8 @@
     "tabs": {
       "dashboard": "Dashboard",
       "users": "Users",
-      "organizations": "Organizations"
+      "organizations": "Organizations",
+      "costManagement": "Cost Management"
     },
     "dashboard": {
       "title": "Admin Dashboard",
@@ -722,6 +723,82 @@
         "authTokenNotFound": "Authentication token not found. Please log in again.",
         "createFailed": "Failed to create organization.",
         "unknownError": "An unknown error occurred while creating the organization."
+      }
+    },
+    "costManagement": {
+      "title": "Cost Management",
+      "subtitle": "Token usage and estimated cost per assistant across the platform.",
+      "loading": "Loading usage data...",
+      "errorTitle": "Error:",
+      "retry": "Retry",
+      "noData": "No assistants found.",
+      "table": {
+        "assistant": "Assistant",
+        "owner": "Owner",
+        "organization": "Organization",
+        "model": "Model",
+        "promptTokens": "Prompt Tokens",
+        "completionTokens": "Completion Tokens",
+        "totalTokens": "Total Tokens",
+        "cost": "Estimated Cost",
+        "quota": "Quota",
+        "status": "Status"
+      },
+      "quota": {
+        "noQuota": "No quota",
+        "disabled": "Disabled",
+        "active": "Active",
+        "exceeded": "Exceeded"
+      },
+      "totals": {
+        "label": "Platform totals:",
+        "cost": "Total estimated cost:",
+        "tokens": "Total tokens:"
+      },
+      "cachedPromptTokens": "Cached prompt tokens",
+      "filterByOrg": "Filter by organization",
+      "clearFilter": "Clear filter",
+      "filteredOrg": "Filtered: {name}",
+      "moreDetails": "More details",
+      "lessDetails": "Less details",
+      "managePricing": "Manage model pricing",
+      "summary": {
+        "cacheRead": "Cache read",
+        "cacheWrite": "Cache write"
+      },
+      "orgFilter": {
+        "title": "Filter by organization",
+        "placeholder": "Type organization name...",
+        "search": "Search",
+        "apply": "Apply"
+      },
+      "breakdown": {
+        "loading": "Loading breakdown...",
+        "empty": "No usage data for this assistant.",
+        "provider": "Provider",
+        "model": "Model",
+        "requests": "Requests",
+        "nonCachedPrompt": "Non-cached",
+        "cacheRead": "Cache read",
+        "cacheWrite": "Cache write",
+        "identityNote": "Prompt = non-cached + cache read + cache write"
+      },
+      "pricing": {
+        "title": "Manage model pricing",
+        "loading": "Loading pricing...",
+        "helperText": "Model name must match the assistant LLM config. Pricing changes apply to new usage only.",
+        "cacheReadHelper": "Cache read $/1M is the rate for cache hits. Leave empty to bill at input rate.",
+        "cacheWriteHelper": "Cache write $/1M is the rate for cache creation. Leave empty to bill at input rate.",
+        "explicitCacheHelper": "Explicit cache: enable for Alibaba/Anthropic-style APIs that require cache_control markers.",
+        "cacheReadRate": "Cache read $/1M",
+        "cacheWriteRate": "Cache write $/1M",
+        "explicitCache": "Explicit cache",
+        "explicitCacheLabel": "Requires explicit cache treatment",
+        "addModel": "Add model",
+        "addButton": "Add pricing",
+        "manageButton": "Manage model pricing",
+        "deleteTitle": "Delete pricing row",
+        "deleteMessage": "Are you sure you want to delete this pricing row?"
       }
     }
   },

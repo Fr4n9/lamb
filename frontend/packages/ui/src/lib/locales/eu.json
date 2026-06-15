@@ -556,7 +556,8 @@
     "tabs": {
       "dashboard": "Dashboard",
       "users": "Users",
-      "organizations": "Organizations"
+      "organizations": "Organizations",
+      "costManagement": "Kostuen Kudeaketa"
     },
     "dashboard": {
       "title": "Admin Dashboard",
@@ -722,6 +723,82 @@
         "authTokenNotFound": "Authentication token not found. Please log in again.",
         "createFailed": "Failed to create organization.",
         "unknownError": "An unknown error occurred while creating the organization."
+      }
+    },
+    "costManagement": {
+      "title": "Kostuen Kudeaketa",
+      "subtitle": "Plataformako token-erabilera eta laguntzaile bakoitzaren kostu estimatua.",
+      "loading": "Erabilera-datuak kargatzen...",
+      "errorTitle": "Errorea:",
+      "retry": "Saiatu berriro",
+      "noData": "Ez da laguntzailerik aurkitu.",
+      "table": {
+        "assistant": "Laguntzailea",
+        "owner": "Jabea",
+        "organization": "Erakundea",
+        "model": "Eredua",
+        "promptTokens": "Sarrerako tokenak",
+        "completionTokens": "Irteerako tokenak",
+        "totalTokens": "Token guztira",
+        "cost": "Kostu estimatua",
+        "quota": "Kuota",
+        "status": "Egoera"
+      },
+      "quota": {
+        "noQuota": "Kuotarik gabe",
+        "disabled": "Desgaituta",
+        "active": "Aktibo",
+        "exceeded": "Gaindituta"
+      },
+      "totals": {
+        "label": "Plataformaren totalak:",
+        "cost": "Kostu total estimatua:",
+        "tokens": "Token guztira:"
+      },
+      "cachedPromptTokens": "Cachean gordetako prompt tokenak",
+      "filterByOrg": "Iragazi erakundearen arabera",
+      "clearFilter": "Kendu iragazkia",
+      "filteredOrg": "Iragazita: {name}",
+      "moreDetails": "Xehetasun gehiago",
+      "lessDetails": "Xehetasun gutxiago",
+      "managePricing": "Kudeatu ereduen prezioak",
+      "summary": {
+        "cacheRead": "Cache irakurketa",
+        "cacheWrite": "Cache idazketa"
+      },
+      "orgFilter": {
+        "title": "Iragazi erakundearen arabera",
+        "placeholder": "Idatzi erakundearen izena...",
+        "search": "Bilatu",
+        "apply": "Aplikatu"
+      },
+      "breakdown": {
+        "loading": "Xehetasunak kargatzen...",
+        "empty": "Ez dago erabilera daturik laguntzaile honentzat.",
+        "provider": "Hornitzailea",
+        "model": "Eredua",
+        "requests": "Eskaerak",
+        "nonCachedPrompt": "Cacheatu gabeak",
+        "cacheRead": "Cache irakurketa",
+        "cacheWrite": "Cache idazketa",
+        "identityNote": "Prompt = cacheatu gabeak + cache irakurketa + cache idazketa"
+      },
+      "pricing": {
+        "title": "Kudeatu ereduen prezioak",
+        "loading": "Prezioak kargatzen...",
+        "helperText": "Ereduaren izenak laguntzailearen LLM konfigurazioarekin bat etorri behar du. Prezio aldaketek erabilera berriari bakarrik eragiten diote.",
+        "cacheReadHelper": "Cache irakurketa $/1M cache asmatzeen tarifa da. Hutsik utzi sarrera tarifarekin fakturatzeko.",
+        "cacheWriteHelper": "Cache idazketa $/1M cache sorreraren tarifa da. Hutsik utzi sarrera tarifarekin fakturatzeko.",
+        "explicitCacheHelper": "Cache esplizitua: aktibatu Alibaba/Anthropic motako APIetarako cache_control markatzaileak behar dituztenak.",
+        "cacheReadRate": "Cache irakurketa $/1M",
+        "cacheWriteRate": "Cache idazketa $/1M",
+        "explicitCache": "Cache esplizitua",
+        "explicitCacheLabel": "Cache esplizituaren tratamendua behar du",
+        "addModel": "Gehitu eredua",
+        "addButton": "Gehitu prezioa",
+        "manageButton": "Kudeatu ereduen prezioak",
+        "deleteTitle": "Ezabatu prezioen errenkada",
+        "deleteMessage": "Ziur zaude prezioen errenkada hau ezabatu nahi duzula?"
       }
     }
   },

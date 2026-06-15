@@ -12,6 +12,7 @@
     import { user } from '@lamb/ui';
     import * as adminService from '$lib/services/adminService'; // Import admin service for bulk operations
     import { ConfirmationModal } from '@lamb/ui';
+    import NotificationModal from '$lib/components/modals/NotificationModal.svelte';
     
     // Import filtering/pagination components
     import Pagination from '$lib/components/common/Pagination.svelte';
@@ -25,6 +26,7 @@
     import ChangePasswordModal from '$lib/components/admin/shared/ChangePasswordModal.svelte';
     import UserActionModal from '$lib/components/admin/shared/UserActionModal.svelte';
     import OrgForm from '$lib/components/admin/OrgForm.svelte';
+    import CostManagementPanel from '$lib/components/admin/CostManagementPanel.svelte';
 
     // --- State Management ---
     /** @type {'dashboard' | 'users' | 'organizations' | 'lti-settings' | 'user-detail' | 'cost-management'} */
@@ -1717,640 +1719,1087 @@
             isMigrating = false;
         }
     }
-
 </script>
 
 <div class="container mx-auto px-4 py-8">
-    <!-- Admin Navigation Tabs -->
-    <div class="border-b border-gray-200 mb-6">
-        <ul class="flex flex-wrap -mb-px">
-            <li class="mr-2">
-                <button
-                    class={`inline-block py-2 px-4 text-sm font-medium ${currentView === 'dashboard' ? 'text-white bg-brand border-brand' : 'text-gray-500 hover:text-brand border-transparent'} rounded-t-lg border-b-2`}
-                    onclick={showDashboard}
-                    aria-label={localeLoaded ? $_('admin.tabs.dashboard', { default: 'Dashboard' }) : 'Dashboard'}
-                >
-                    {localeLoaded ? $_('admin.tabs.dashboard', { default: 'Dashboard' }) : 'Dashboard'}
-                </button>
-            </li>
-            <li class="mr-2">
-                <button
-                    class={`inline-block py-2 px-4 text-sm font-medium ${currentView === 'users' ? 'text-white bg-brand border-brand' : 'text-gray-500 hover:text-brand border-transparent'} rounded-t-lg border-b-2`}
-                    onclick={showUsers}
-                    aria-label={localeLoaded ? $_('admin.tabs.users', { default: 'Users' }) : 'Users'}
-                >
-                    {localeLoaded ? $_('admin.tabs.users', { default: 'Users' }) : 'Users'}
-                </button>
-            </li>
-            <li class="mr-2">
-                <button
-                    class={`inline-block py-2 px-4 text-sm font-medium ${currentView === 'organizations' ? 'text-white bg-brand border-brand' : 'text-gray-500 hover:text-brand border-transparent'} rounded-t-lg border-b-2`}
-                    onclick={showOrganizations}
-                    aria-label={localeLoaded ? $_('admin.tabs.organizations', { default: 'Organizations' }) : 'Organizations'}
-                >
-                    {localeLoaded ? $_('admin.tabs.organizations', { default: 'Organizations' }) : 'Organizations'}
-                </button>
-            </li>
-            <li class="mr-2">
-                <button
-                    class={`inline-block py-2 px-4 text-sm font-medium ${currentView === 'lti-settings' ? 'text-white bg-brand border-brand' : 'text-gray-500 hover:text-brand border-transparent'} rounded-t-lg border-b-2`}
-                    onclick={showLtiSettings}
-                    aria-label="LTI Settings"
-                >
-                    LTI Settings
-                </button>
-            </li>
-            <li class="mr-2">
-                <button
-                    class={`inline-block py-2 px-4 text-sm font-medium ${currentView === 'cost-management' ? 'text-white bg-brand border-brand' : 'text-gray-500 hover:text-brand border-transparent'} rounded-t-lg border-b-2`}
-                    onclick={showCostManagement}
-                    aria-label={localeLoaded ? $_('admin.tabs.costManagement', { default: 'Cost Management' }) : 'Cost Management'}
-                >
-                    {localeLoaded ? $_('admin.tabs.costManagement', { default: 'Cost Management' }) : 'Cost Management'}
-                </button>
-            </li>
-        </ul>
-    </div>
+	<!-- Admin Navigation Tabs -->
+	<div class="mb-6 border-b border-gray-200">
+		<ul class="-mb-px flex flex-wrap">
+			<li class="mr-2">
+				<button
+					class={`inline-block px-4 py-2 text-sm font-medium ${currentView === 'dashboard' ? 'bg-brand border-brand text-white' : 'hover:text-brand border-transparent text-gray-500'} rounded-t-lg border-b-2`}
+					onclick={showDashboard}
+					aria-label={localeLoaded
+						? $_('admin.tabs.dashboard', { default: 'Dashboard' })
+						: 'Dashboard'}
+				>
+					{localeLoaded ? $_('admin.tabs.dashboard', { default: 'Dashboard' }) : 'Dashboard'}
+				</button>
+			</li>
+			<li class="mr-2">
+				<button
+					class={`inline-block px-4 py-2 text-sm font-medium ${currentView === 'users' ? 'bg-brand border-brand text-white' : 'hover:text-brand border-transparent text-gray-500'} rounded-t-lg border-b-2`}
+					onclick={showUsers}
+					aria-label={localeLoaded ? $_('admin.tabs.users', { default: 'Users' }) : 'Users'}
+				>
+					{localeLoaded ? $_('admin.tabs.users', { default: 'Users' }) : 'Users'}
+				</button>
+			</li>
+			<li class="mr-2">
+				<button
+					class={`inline-block px-4 py-2 text-sm font-medium ${currentView === 'organizations' ? 'bg-brand border-brand text-white' : 'hover:text-brand border-transparent text-gray-500'} rounded-t-lg border-b-2`}
+					onclick={showOrganizations}
+					aria-label={localeLoaded
+						? $_('admin.tabs.organizations', { default: 'Organizations' })
+						: 'Organizations'}
+				>
+					{localeLoaded
+						? $_('admin.tabs.organizations', { default: 'Organizations' })
+						: 'Organizations'}
+				</button>
+			</li>
+			<li class="mr-2">
+				<button
+					class={`inline-block px-4 py-2 text-sm font-medium ${currentView === 'lti-settings' ? 'bg-brand border-brand text-white' : 'hover:text-brand border-transparent text-gray-500'} rounded-t-lg border-b-2`}
+					onclick={showLtiSettings}
+					aria-label="LTI Settings"
+				>
+					LTI Settings
+				</button>
+			</li>
+			<li class="mr-2">
+				<button
+					class={`inline-block px-4 py-2 text-sm font-medium ${currentView === 'cost-management' ? 'bg-brand border-brand text-white' : 'hover:text-brand border-transparent text-gray-500'} rounded-t-lg border-b-2`}
+					onclick={showCostManagement}
+					aria-label={localeLoaded
+						? $_('admin.tabs.costManagement', { default: 'Cost Management' })
+						: 'Cost Management'}
+				>
+					{localeLoaded
+						? $_('admin.tabs.costManagement', { default: 'Cost Management' })
+						: 'Cost Management'}
+				</button>
+			</li>
+		</ul>
+	</div>
 
-    <!-- View Content -->
-    {#if currentView === 'dashboard'}
-        <AdminDashboard
-            {systemStats}
-            isLoading={isLoadingStats}
-            error={statsError}
-            {localeLoaded}
-            onRefresh={fetchSystemStats}
-            onShowUsers={showUsers}
-            onShowOrganizations={showOrganizations}
-        />
-    {:else if currentView === 'users'}
-        <!-- Users Management View -->
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-semibold text-gray-800">{localeLoaded ? $_('admin.users.title', { default: 'User Management' }) : 'User Management'}</h1>
-            <button
-                onclick={openCreateUserModal}
-                class="bg-brand text-white py-2 px-4 rounded hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-opacity-50"
-                aria-label={localeLoaded ? $_('admin.users.actions.create', { default: 'Create User' }) : 'Create User'}
-            >
-                {localeLoaded ? $_('admin.users.actions.create', { default: 'Create User' }) : 'Create User'}
-            </button>
-        </div>
+	<!-- View Content -->
+	{#if currentView === 'dashboard'}
+		<AdminDashboard
+			{systemStats}
+			isLoading={isLoadingStats}
+			error={statsError}
+			{localeLoaded}
+			onRefresh={fetchSystemStats}
+			onShowUsers={showUsers}
+			onShowOrganizations={showOrganizations}
+		/>
+	{:else if currentView === 'users'}
+		<!-- Users Management View -->
+		<div class="mb-6 flex items-center justify-between">
+			<h1 class="text-2xl font-semibold text-gray-800">
+				{localeLoaded ? $_('admin.users.title', { default: 'User Management' }) : 'User Management'}
+			</h1>
+			<button
+				onclick={openCreateUserModal}
+				class="bg-brand hover:bg-brand-hover focus:ring-brand focus:ring-opacity-50 rounded px-4 py-2 text-white focus:ring-2 focus:outline-none"
+				aria-label={localeLoaded
+					? $_('admin.users.actions.create', { default: 'Create User' })
+					: 'Create User'}
+			>
+				{localeLoaded
+					? $_('admin.users.actions.create', { default: 'Create User' })
+					: 'Create User'}
+			</button>
+		</div>
 
-        {#if isLoadingUsers}
-            <p class="text-center text-gray-500 py-4">{localeLoaded ? $_('admin.users.loading', { default: 'Loading users...' }) : 'Loading users...'}</p>
-        {:else if usersError}
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-                <strong class="font-bold">{localeLoaded ? $_('admin.users.errorTitle', { default: 'Error:' }) : 'Error:'}</strong>
-                <span class="block sm:inline"> {usersError}</span>
-            </div>
-            <!-- Button to retry fetching -->
-            <div class="text-center">
-                <button
-                    onclick={fetchUsers}
-                    class="bg-brand text-white py-2 px-4 rounded hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-opacity-50"
-                >
-                    {localeLoaded ? $_('admin.users.retry', { default: 'Retry' }) : 'Retry'}
-                </button>
-            </div>
-        {:else}
-            <!-- Filter Bar -->
-            <FilterBar
-                searchPlaceholder={localeLoaded ? $_('admin.users.searchPlaceholder', { default: 'Search users by name, email, organization...' }) : 'Search users by name, email, organization...'}
-                searchValue={usersSearch}
-                filters={[
-                    {
-                        key: 'user_type',
-                        label: localeLoaded ? $_('admin.users.filters.type', { default: 'User Type' }) : 'User Type',
-                        options: [
-                            { value: 'admin', label: localeLoaded ? $_('admin.users.filtersOptions.admin', { default: 'Admin' }) : 'Admin' },
-                            { value: 'creator', label: localeLoaded ? $_('admin.users.filtersOptions.creator', { default: 'Creator' }) : 'Creator' },
-                            { value: 'lti_creator', label: localeLoaded ? $_('admin.users.filtersOptions.ltiCreator', { default: 'LTI Creator' }) : 'LTI Creator' },
-                            { value: 'end_user', label: localeLoaded ? $_('admin.users.filtersOptions.endUser', { default: 'End User' }) : 'End User' }
-                        ]
-                    },
-                    {
-                        key: 'enabled',
-                        label: localeLoaded ? $_('admin.users.filters.status', { default: 'Status' }) : 'Status',
-                        options: [
-                            { value: 'true', label: localeLoaded ? $_('admin.users.filtersOptions.active', { default: 'Active' }) : 'Active' },
-                            { value: 'false', label: localeLoaded ? $_('admin.users.filtersOptions.disabled', { default: 'Disabled' }) : 'Disabled' }
-                        ]
-                    },
-                    ...(organizationsForUsers.length > 0 ? [{
-                        key: 'organization',
-                        label: localeLoaded ? $_('admin.users.table.organization', { default: 'Organization' }) : 'Organization',
-                        options: organizationsForUsers.map(org => ({
-                            value: String(org.id),
-                            label: org.name
-                        }))
-                    }] : [])
-                ]}
-                filterValues={{ 
-                    user_type: usersFilterType, 
-                    enabled: usersFilterEnabled,
-                    organization: usersFilterOrg
-                }}
-                showSort={false}
-                on:searchChange={handleUsersSearchChange}
-                on:filterChange={handleUsersFilterChange}
-                on:clearFilters={handleUsersClearFilters}
-            />
-            
-            <!-- Results count -->
-            <div class="flex justify-between items-center mb-4 px-4">
-                <div class="text-sm text-gray-600">
-                    {#if usersSearch || usersFilterType || usersFilterEnabled || usersFilterOrg}
-                        {localeLoaded ? $_('admin.users.resultsCount.showing', { default: 'Showing {filtered} of {total} users', values: { filtered: usersTotalItems, total: allUsers.length } }) : `Showing ${usersTotalItems} of ${allUsers.length} users`}
-                    {:else}
-                        {localeLoaded ? $_('admin.users.resultsCount.total', { default: '{count} users', values: { count: usersTotalItems } }) : `${usersTotalItems} users`}
-                    {/if}
-                </div>
-            </div>
+		{#if isLoadingUsers}
+			<p class="py-4 text-center text-gray-500">
+				{localeLoaded
+					? $_('admin.users.loading', { default: 'Loading users...' })
+					: 'Loading users...'}
+			</p>
+		{:else if usersError}
+			<div
+				class="relative mb-6 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+				role="alert"
+			>
+				<strong class="font-bold"
+					>{localeLoaded ? $_('admin.users.errorTitle', { default: 'Error:' }) : 'Error:'}</strong
+				>
+				<span class="block sm:inline"> {usersError}</span>
+			</div>
+			<!-- Button to retry fetching -->
+			<div class="text-center">
+				<button
+					onclick={fetchUsers}
+					class="bg-brand hover:bg-brand-hover focus:ring-brand focus:ring-opacity-50 rounded px-4 py-2 text-white focus:ring-2 focus:outline-none"
+				>
+					{localeLoaded ? $_('admin.users.retry', { default: 'Retry' }) : 'Retry'}
+				</button>
+			</div>
+		{:else}
+			<!-- Filter Bar -->
+			<FilterBar
+				searchPlaceholder={localeLoaded
+					? $_('admin.users.searchPlaceholder', {
+							default: 'Search users by name, email, organization...'
+						})
+					: 'Search users by name, email, organization...'}
+				searchValue={usersSearch}
+				filters={[
+					{
+						key: 'user_type',
+						label: localeLoaded
+							? $_('admin.users.filters.type', { default: 'User Type' })
+							: 'User Type',
+						options: [
+							{
+								value: 'admin',
+								label: localeLoaded
+									? $_('admin.users.filtersOptions.admin', { default: 'Admin' })
+									: 'Admin'
+							},
+							{
+								value: 'creator',
+								label: localeLoaded
+									? $_('admin.users.filtersOptions.creator', { default: 'Creator' })
+									: 'Creator'
+							},
+							{
+								value: 'lti_creator',
+								label: localeLoaded
+									? $_('admin.users.filtersOptions.ltiCreator', { default: 'LTI Creator' })
+									: 'LTI Creator'
+							},
+							{
+								value: 'end_user',
+								label: localeLoaded
+									? $_('admin.users.filtersOptions.endUser', { default: 'End User' })
+									: 'End User'
+							}
+						]
+					},
+					{
+						key: 'enabled',
+						label: localeLoaded
+							? $_('admin.users.filters.status', { default: 'Status' })
+							: 'Status',
+						options: [
+							{
+								value: 'true',
+								label: localeLoaded
+									? $_('admin.users.filtersOptions.active', { default: 'Active' })
+									: 'Active'
+							},
+							{
+								value: 'false',
+								label: localeLoaded
+									? $_('admin.users.filtersOptions.disabled', { default: 'Disabled' })
+									: 'Disabled'
+							}
+						]
+					},
+					...(organizationsForUsers.length > 0
+						? [
+								{
+									key: 'organization',
+									label: localeLoaded
+										? $_('admin.users.table.organization', { default: 'Organization' })
+										: 'Organization',
+									options: organizationsForUsers.map((org) => ({
+										value: String(org.id),
+										label: org.name
+									}))
+								}
+							]
+						: [])
+				]}
+				filterValues={{
+					user_type: usersFilterType,
+					enabled: usersFilterEnabled,
+					organization: usersFilterOrg
+				}}
+				showSort={false}
+				on:searchChange={handleUsersSearchChange}
+				on:filterChange={handleUsersFilterChange}
+				on:clearFilters={handleUsersClearFilters}
+			/>
 
-            {#if displayUsers.length === 0}
-                {#if allUsers.length === 0}
-                    <!-- No users at all -->
-                    <div class="text-center py-12 bg-white border border-gray-200 rounded-lg">
-                        <p class="text-gray-500">{localeLoaded ? $_('admin.users.noUsers', { default: 'No users found.' }) : 'No users found.'}</p>
-                    </div>
-                {:else}
-                    <!-- No results match filters -->
-                    <div class="text-center py-12 bg-white border border-gray-200 rounded-lg">
-                        <p class="text-gray-500 mb-4">{localeLoaded ? $_('admin.users.resultsCount.noMatch', { default: 'No users match your filters' }) : 'No users match your filters'}</p>
-                        <button 
-                            onclick={handleUsersClearFilters}
-                            class="text-brand hover:text-brand-hover hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand rounded-md px-3 py-1"
-                        >
-                            {localeLoaded ? $_('admin.users.resultsCount.clearFilters', { default: 'Clear filters' }) : 'Clear filters'}
-                        </button>
-                    </div>
-                {/if}
-            {:else}
-            <!-- Bulk Actions Toolbar -->
-            {#if selectedUsers.length > 0}
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 shadow-sm">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium text-gray-700">
-                            {selectedUsers.length === 1 
-                                ? (localeLoaded ? $_('admin.users.bulkActions.selected', { default: '{count} user selected', values: { count: selectedUsers.length } }) : `${selectedUsers.length} user selected`)
-                                : (localeLoaded ? $_('admin.users.bulkActions.selectedPlural', { default: '{count} users selected', values: { count: selectedUsers.length } }) : `${selectedUsers.length} users selected`)
-                            }
-                        </span>
-                        <div class="flex gap-2">
-                            <button 
-                                class="bg-amber-600 hover:bg-amber-700 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
-                                onclick={handleBulkDisable}
-                            >
-                                {localeLoaded ? $_('admin.users.bulkActions.disableSelected', { default: 'Disable Selected' }) : 'Disable Selected'}
-                            </button>
-                            <button 
-                                class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
-                                onclick={handleBulkEnable}
-                            >
-                                {localeLoaded ? $_('admin.users.bulkActions.enableSelected', { default: 'Enable Selected' }) : 'Enable Selected'}
-                            </button>
-                            <button 
-                                class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
-                                onclick={clearSelection}
-                            >
-                                {localeLoaded ? $_('admin.users.bulkActions.clear', { default: 'Clear' }) : 'Clear'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            {/if}
+			<!-- Results count -->
+			<div class="mb-4 flex items-center justify-between px-4">
+				<div class="text-sm text-gray-600">
+					{#if usersSearch || usersFilterType || usersFilterEnabled || usersFilterOrg}
+						{localeLoaded
+							? $_('admin.users.resultsCount.showing', {
+									default: 'Showing {filtered} of {total} users',
+									values: { filtered: usersTotalItems, total: allUsers.length }
+								})
+							: `Showing ${usersTotalItems} of ${allUsers.length} users`}
+					{:else}
+						{localeLoaded
+							? $_('admin.users.resultsCount.total', {
+									default: '{count} users',
+									values: { count: usersTotalItems }
+								})
+							: `${usersTotalItems} users`}
+					{/if}
+				</div>
+			</div>
 
-            <!-- Responsive Table Wrapper -->
-            <div class="overflow-x-auto shadow-md sm:rounded-lg mb-6 border border-gray-200">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left">
-                                <input 
-                                    type="checkbox" 
-                                    checked={selectedUsers.length > 0 && selectedUsers.length === users.filter(u => !(currentUserData && currentUserData.email === u.email)).length}
-                                    onchange={handleSelectAll}
-                                    class="w-5 h-5 text-blue-600 bg-white border-2 border-gray-400 rounded cursor-pointer focus:ring-2 focus:ring-blue-500 checked:bg-blue-600 checked:border-blue-600"
-                                    style="accent-color: #2563eb;"
-                                    aria-label="Select all users"
-                                />
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider">
-                                <div class="flex flex-col gap-1">
-                                    <button 
-                                        onclick={() => handleColumnSort('name')}
-                                        class="flex items-center gap-1 hover:text-brand-hover focus:outline-none group"
-                                    >
-                                        {localeLoaded ? $_('admin.users.table.name', { default: 'Name' }) : 'Name'}
-                                        <span class="inline-flex flex-col {usersSortBy === 'name' ? 'text-brand' : 'text-gray-400 group-hover:text-gray-600'}">
-                                            {#if usersSortBy === 'name'}
-                                                {#if usersSortOrder === 'asc'}
-                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
-                                                {:else}
-                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
-                                                {/if}
-                                            {:else}
-                                                <svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
-                                            {/if}
-                                        </span>
-                                    </button>
-                                    <button 
-                                        onclick={() => handleColumnSort('email')}
-                                        class="flex items-center gap-1 hover:text-brand-hover focus:outline-none group text-gray-400"
-                                    >
-                                        {localeLoaded ? $_('admin.users.table.email', { default: 'Email' }) : 'Email'}
-                                        <span class="inline-flex flex-col {usersSortBy === 'email' ? 'text-brand' : 'text-gray-400 group-hover:text-gray-600'}">
-                                            {#if usersSortBy === 'email'}
-                                                {#if usersSortOrder === 'asc'}
-                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
-                                                {:else}
-                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
-                                                {/if}
-                                            {:else}
-                                                <svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
-                                            {/if}
-                                        </span>
-                                    </button>
-                                </div>
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider hidden md:table-cell">
-                                <div class="flex flex-col">
-                                    <span>{localeLoaded ? $_('admin.users.table.userType', { default: 'User Type' }) : 'User Type'}</span>
-                                    <span class="text-gray-400">{localeLoaded ? $_('admin.users.table.status', { default: 'Status' }) : 'Status'}</span>
-                                </div>
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider hidden md:table-cell">
-                                <button 
-                                    onclick={() => handleColumnSort('organization.name')}
-                                    class="flex items-center gap-1 hover:text-brand-hover focus:outline-none group"
-                                >
-                                    {localeLoaded ? $_('admin.users.table.organization', { default: 'Organization' }) : 'Organization'}
-                                    <span class="inline-flex flex-col {usersSortBy === 'organization.name' ? 'text-brand' : 'text-gray-400 group-hover:text-gray-600'}">
-                                        {#if usersSortBy === 'organization.name'}
-                                            {#if usersSortOrder === 'asc'}
-                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
-                                            {:else}
-                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
-                                            {/if}
-                                        {:else}
-                                            <svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
-                                        {/if}
-                                    </span>
-                                </button>
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider">
-                                {localeLoaded ? $_('admin.users.table.actions', { default: 'Actions' }) : 'Actions'}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {#each users as user (user.id)}
-                            <tr class="hover:bg-gray-50" class:opacity-60={!user.enabled}>
-                                <td class="px-6 py-4 whitespace-nowrap align-top">
-                                    <input 
-                                        type="checkbox" 
-                                        bind:checked={user.selected}
-                                        disabled={currentUserData && currentUserData.email === user.email}
-                                        class="w-5 h-5 text-blue-600 bg-white border-2 border-gray-400 rounded cursor-pointer focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed checked:bg-blue-600 checked:border-blue-600"
-                                        style="accent-color: #2563eb;"
-                                        aria-label={`Select ${user.name}`}
-                                    />
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap align-top">
-                                    <div class="text-sm font-medium">
-                                        <button
-                                            class="text-brand hover:text-brand/80 hover:underline font-medium text-left"
-                                            onclick={() => showUserDetail(user.id)}
-                                            title={localeLoaded ? $_('admin.users.viewProfile', { default: 'View user profile' }) : 'View user profile'}
-                                        >
-                                            {user.name || '-'}
-                                        </button>
-                                    </div>
-                                    <div class="text-xs text-gray-500">{user.email}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell" style="font-size: 0.8125rem;">
-                                    <div>
-                                        {#if user.role === 'admin'}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                {localeLoaded ? $_('admin.users.filtersOptions.admin', { default: 'Admin' }) : 'Admin'}
-                                            </span>
-                                        {:else if user.auth_provider === 'lti_creator'}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                {localeLoaded ? $_('admin.users.filtersOptions.ltiCreator', { default: 'LTI Creator' }) : 'LTI Creator'}
-                                            </span>
-                                        {:else if user.user_type === 'end_user'}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                                {localeLoaded ? $_('admin.users.filtersOptions.endUser', { default: 'End User' }) : 'End User'}
-                                            </span>
-                                        {:else if user.organization_role === 'admin' || user.organization_role === 'owner'}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
-                                                {localeLoaded ? $_('admin.users.tableValues.orgAdmin', { default: 'Org Admin' }) : 'Org Admin'}
-                                            </span>
-                                        {:else}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                {localeLoaded ? $_('admin.users.filtersOptions.creator', { default: 'Creator' }) : 'Creator'}
-                                            </span>
-                                        {/if}
-                                    </div>
-                                    <div class="mt-1">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {user.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                            {user.enabled 
-                                                ? (localeLoaded ? $_('admin.users.filtersOptions.active', { default: 'Active' }) : 'Active')
-                                                : (localeLoaded ? $_('admin.users.filtersOptions.disabled', { default: 'Disabled' }) : 'Disabled')
-                                            }
-                                        </span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 hidden md:table-cell">
-                                    {#if user.organization}
-                                        <div class="flex items-center flex-wrap gap-1">
-                                            <span class="text-sm font-medium text-gray-900">{user.organization.name || '-'}</span>
-                                            {#if user.organization.is_system}
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                    {localeLoaded ? $_('admin.users.tableValues.system', { default: 'System' }) : 'System'}
-                                                </span>
-                                            {/if}
-                                        </div>
-                                    {:else}
-                                        <span class="text-gray-400">{localeLoaded ? $_('admin.users.tableValues.noOrganization', { default: 'No Organization' }) : 'No Organization'}</span>
-                                    {/if}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-xs font-medium">
-                                    <div class="flex flex-col gap-1">
-                                        <!-- Change Password (only for non-LTI users) -->
-                                        {#if user.auth_provider !== 'lti_creator'}
-                                            <button 
-                                                class="inline-flex items-center gap-1 text-amber-600 hover:text-amber-800" 
-                                                title={localeLoaded ? $_('admin.users.actions.changePassword', { default: 'Change Password' }) : 'Change Password'}
-                                                aria-label={localeLoaded ? $_('admin.users.actions.changePassword', { default: 'Change Password' }) : 'Change Password'}
-                                                onclick={() => openChangePasswordModal(user.email, user.name)}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                                                </svg>
-                                                {localeLoaded ? $_('admin.users.actions.changePassword', { default: 'Password' }) : 'Password'}
-                                            </button>
-                                        {/if}
-                                        <!-- Enable/Disable Toggle -->
-                                        {#if !(currentUserData && currentUserData.email === user.email)}
-                                            {#if user.enabled}
-                                                <button
-                                                    class="inline-flex items-center gap-1 text-red-500 hover:text-red-700"
-                                                    title={localeLoaded ? $_('admin.users.actions.disable', { default: 'Disable User' }) : 'Disable User'}
-                                                    aria-label={localeLoaded ? $_('admin.users.actions.disable', { default: 'Disable User' }) : 'Disable User'}
-                                                    onclick={() => toggleUserStatusAdmin(user)}
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-                                                    </svg>
-                                                    {localeLoaded ? $_('admin.users.actions.disable', { default: 'Disable' }) : 'Disable'}
-                                                </button>
-                                            {:else}
-                                                <button
-                                                    class="inline-flex items-center gap-1 text-green-600 hover:text-green-800"
-                                                    title={localeLoaded ? $_('admin.users.actions.enable', { default: 'Enable User' }) : 'Enable User'}
-                                                    aria-label={localeLoaded ? $_('admin.users.actions.enable', { default: 'Enable User' }) : 'Enable User'}
-                                                    onclick={() => toggleUserStatusAdmin(user)}
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-                                                    </svg>
-                                                    {localeLoaded ? $_('admin.users.actions.enable', { default: 'Enable' }) : 'Enable'}
-                                                </button>
-                                            {/if}
-                                        {/if}
-                                        <!-- Delete button - only shown for disabled users -->
-                                        {#if !user.enabled && !(currentUserData && currentUserData.email === user.email)}
-                                            <button
-                                                class="inline-flex items-center gap-1 text-red-600 hover:text-red-900"
-                                                title="Delete User"
-                                                aria-label="Delete User"
-                                                onclick={() => showDeleteDialog(user)}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                                </svg>
-                                                Delete
-                                            </button>
-                                        {/if}
-                                    </div>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Pagination -->
-            <Pagination
-                currentPage={usersPage}
-                totalPages={usersTotalPages}
-                totalItems={usersTotalItems}
-                itemsPerPage={usersPerPage}
-                itemsPerPageOptions={[10, 25, 50, 100]}
-                on:pageChange={handleUsersPageChange}
-                on:itemsPerPageChange={handleUsersPerPageChange}
-            />
-            {/if}
-        {/if}
-    {:else if currentView === 'organizations'}
-        <!-- Organizations Management View -->
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-semibold text-gray-800">{localeLoaded ? $_('admin.organizations.title', { default: 'Organization Management' }) : 'Organization Management'}</h1>
-            <div class="flex space-x-2">
-                <button 
-                    onclick={syncSystemOrganization}
-                    class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-opacity-50"
-                    aria-label={localeLoaded ? $_('admin.organizations.actions.syncSystem', { default: 'Sync System Organization' }) : 'Sync System Organization'}
-                >
-                    {localeLoaded ? $_('admin.organizations.actions.syncSystem', { default: 'Sync System' }) : 'Sync System'}
-                </button>
-                <button
-                    onclick={openCreateOrgModal}
-                    class="bg-brand text-white py-2 px-4 rounded hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-opacity-50"
-                    aria-label={localeLoaded ? $_('admin.organizations.actions.create', { default: 'Create Organization' }) : 'Create Organization'}
-                >
-                    {localeLoaded ? $_('admin.organizations.actions.create', { default: 'Create Organization' }) : 'Create Organization'}
-                </button>
-            </div>
-        </div>
+			{#if displayUsers.length === 0}
+				{#if allUsers.length === 0}
+					<!-- No users at all -->
+					<div class="rounded-lg border border-gray-200 bg-white py-12 text-center">
+						<p class="text-gray-500">
+							{localeLoaded
+								? $_('admin.users.noUsers', { default: 'No users found.' })
+								: 'No users found.'}
+						</p>
+					</div>
+				{:else}
+					<!-- No results match filters -->
+					<div class="rounded-lg border border-gray-200 bg-white py-12 text-center">
+						<p class="mb-4 text-gray-500">
+							{localeLoaded
+								? $_('admin.users.resultsCount.noMatch', { default: 'No users match your filters' })
+								: 'No users match your filters'}
+						</p>
+						<button
+							onclick={handleUsersClearFilters}
+							class="text-brand hover:text-brand-hover focus:ring-brand rounded-md px-3 py-1 hover:underline focus:ring-2 focus:ring-offset-2 focus:outline-none"
+						>
+							{localeLoaded
+								? $_('admin.users.resultsCount.clearFilters', { default: 'Clear filters' })
+								: 'Clear filters'}
+						</button>
+					</div>
+				{/if}
+			{:else}
+				<!-- Bulk Actions Toolbar -->
+				{#if selectedUsers.length > 0}
+					<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-sm">
+						<div class="flex items-center justify-between">
+							<span class="text-sm font-medium text-gray-700">
+								{selectedUsers.length === 1
+									? localeLoaded
+										? $_('admin.users.bulkActions.selected', {
+												default: '{count} user selected',
+												values: { count: selectedUsers.length }
+											})
+										: `${selectedUsers.length} user selected`
+									: localeLoaded
+										? $_('admin.users.bulkActions.selectedPlural', {
+												default: '{count} users selected',
+												values: { count: selectedUsers.length }
+											})
+										: `${selectedUsers.length} users selected`}
+							</span>
+							<div class="flex gap-2">
+								<button
+									class="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+									onclick={handleBulkDisable}
+								>
+									{localeLoaded
+										? $_('admin.users.bulkActions.disableSelected', { default: 'Disable Selected' })
+										: 'Disable Selected'}
+								</button>
+								<button
+									class="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+									onclick={handleBulkEnable}
+								>
+									{localeLoaded
+										? $_('admin.users.bulkActions.enableSelected', { default: 'Enable Selected' })
+										: 'Enable Selected'}
+								</button>
+								<button
+									class="rounded bg-gray-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-600"
+									onclick={clearSelection}
+								>
+									{localeLoaded
+										? $_('admin.users.bulkActions.clear', { default: 'Clear' })
+										: 'Clear'}
+								</button>
+							</div>
+						</div>
+					</div>
+				{/if}
 
-        {#if isLoadingOrganizations}
-            <p class="text-center text-gray-500 py-4">{localeLoaded ? $_('admin.organizations.loading', { default: 'Loading organizations...' }) : 'Loading organizations...'}</p>
-        {:else if organizationsError}
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-                <strong class="font-bold">{localeLoaded ? $_('admin.organizations.errorTitle', { default: 'Error:' }) : 'Error:'}</strong>
-                <span class="block sm:inline"> {organizationsError}</span>
-            </div>
-            <!-- Button to retry fetching -->
-            <div class="text-center">
-                <button
-                    onclick={fetchOrganizations}
-                    class="bg-brand text-white py-2 px-4 rounded hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-opacity-50"
-                >
-                    {localeLoaded ? $_('admin.organizations.retry', { default: 'Retry' }) : 'Retry'}
-                </button>
-            </div>
-        {:else if organizations.length === 0}
-            <p class="text-center text-gray-500 py-4">{localeLoaded ? $_('admin.organizations.noOrganizations', { default: 'No organizations found.' }) : 'No organizations found.'}</p>
-        {:else}
-            <!-- Responsive Table Wrapper -->
-            <div class="overflow-x-auto shadow-md sm:rounded-lg mb-6 border border-gray-200">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider">
-                                {localeLoaded ? $_('admin.organizations.table.name', { default: 'Name' }) : 'Name'}
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider">
-                                {localeLoaded ? $_('admin.organizations.table.slug', { default: 'Slug' }) : 'Slug'}
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider hidden md:table-cell">
-                                {localeLoaded ? $_('admin.organizations.table.status', { default: 'Status' }) : 'Status'}
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider hidden lg:table-cell">
-                                {localeLoaded ? $_('admin.organizations.table.type', { default: 'Type' }) : 'Type'}
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brand uppercase tracking-wider">
-                                {localeLoaded ? $_('admin.organizations.table.actions', { default: 'Actions' }) : 'Actions'}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {#each organizations as org (org.id)}
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap align-top">
-                                    <button 
-                                        class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0"
-                                        onclick={() => administerOrganization(org)}
-                                        title="Go to organization settings"
-                                    >
-                                        {org.name || '-'}
-                                    </button>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap align-top">
-                                    <div class="text-sm text-gray-800 font-mono">{org.slug}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 hidden md:table-cell">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {org.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
-                                        {org.status}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 hidden lg:table-cell">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {org.is_system ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}">
-                                        {org.is_system ? 'System' : 'Regular'}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="flex space-x-2">
-                                        <button 
-                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm transition-colors" 
-                                            title="Manage Organization"
-                                            aria-label="Manage Organization"
-                                            onclick={() => administerOrganization(org)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            </svg>
-                                            Manage
-                                        </button>
-                                        {#if !org.is_system}
-                                            <button 
-                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors" 
-                                                title="Manage Members & Roles"
-                                                aria-label="Manage Members & Roles"
-                                                onclick={() => openMembersModal(org)}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                                                </svg>
-                                                Members
-                                            </button>
-                                        {/if}
-                                        <button 
-                                            class="text-blue-600 hover:text-blue-800" 
-                                            title={localeLoaded ? $_('admin.organizations.actions.viewConfig', { default: 'View Configuration' }) : 'View Configuration'}
-                                            aria-label={localeLoaded ? $_('admin.organizations.actions.viewConfig', { default: 'View Configuration' }) : 'View Configuration'}
-                                            onclick={() => openViewConfigModal(org)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            </svg>
-                                        </button>
-                                        {#if !org.is_system}
-                                            <button 
-                                                class="text-purple-600 hover:text-purple-800" 
-                                                title={localeLoaded ? $_('admin.organizations.actions.migrate', { default: 'Migrate Organization' }) : 'Migrate Organization'}
-                                                aria-label={localeLoaded ? $_('admin.organizations.actions.migrate', { default: 'Migrate Organization' }) : 'Migrate Organization'}
-                                                onclick={() => openMigrationModal(org)}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                                                </svg>
-                                            </button>
-                                            <button 
-                                                class="text-red-600 hover:text-red-800" 
-                                                title={localeLoaded ? $_('admin.organizations.actions.delete', { default: 'Delete Organization' }) : 'Delete Organization'}
-                                                aria-label={localeLoaded ? $_('admin.organizations.actions.delete', { default: 'Delete Organization' }) : 'Delete Organization'}
-                                                onclick={() => deleteOrganization(org.slug)}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                                </svg>
-                                            </button>
-                                        {/if}
-                                    </div>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                </table>
-            </div>
-        {/if}
-    {/if}
+				<!-- Responsive Table Wrapper -->
+				<div class="mb-6 overflow-x-auto border border-gray-200 shadow-md sm:rounded-lg">
+					<table class="min-w-full divide-y divide-gray-200">
+						<thead class="bg-gray-50">
+							<tr>
+								<th scope="col" class="px-6 py-3 text-left">
+									<input
+										type="checkbox"
+										checked={selectedUsers.length > 0 &&
+											selectedUsers.length ===
+												users.filter((u) => !(currentUserData && currentUserData.email === u.email))
+													.length}
+										onchange={handleSelectAll}
+										class="h-5 w-5 cursor-pointer rounded border-2 border-gray-400 bg-white text-blue-600 checked:border-blue-600 checked:bg-blue-600 focus:ring-2 focus:ring-blue-500"
+										style="accent-color: #2563eb;"
+										aria-label="Select all users"
+									/>
+								</th>
+								<th
+									scope="col"
+									class="text-brand px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+								>
+									<div class="flex flex-col gap-1">
+										<button
+											onclick={() => handleColumnSort('name')}
+											class="hover:text-brand-hover group flex items-center gap-1 focus:outline-none"
+										>
+											{localeLoaded ? $_('admin.users.table.name', { default: 'Name' }) : 'Name'}
+											<span
+												class="inline-flex flex-col {usersSortBy === 'name'
+													? 'text-brand'
+													: 'text-gray-400 group-hover:text-gray-600'}"
+											>
+												{#if usersSortBy === 'name'}
+													{#if usersSortOrder === 'asc'}
+														<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"
+															><path
+																d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"
+															/></svg
+														>
+													{:else}
+														<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"
+															><path
+																d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"
+															/></svg
+														>
+													{/if}
+												{:else}
+													<svg
+														class="h-4 w-4 opacity-0 group-hover:opacity-50"
+														fill="currentColor"
+														viewBox="0 0 20 20"
+														><path
+															d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"
+														/></svg
+													>
+												{/if}
+											</span>
+										</button>
+										<button
+											onclick={() => handleColumnSort('email')}
+											class="hover:text-brand-hover group flex items-center gap-1 text-gray-400 focus:outline-none"
+										>
+											{localeLoaded ? $_('admin.users.table.email', { default: 'Email' }) : 'Email'}
+											<span
+												class="inline-flex flex-col {usersSortBy === 'email'
+													? 'text-brand'
+													: 'text-gray-400 group-hover:text-gray-600'}"
+											>
+												{#if usersSortBy === 'email'}
+													{#if usersSortOrder === 'asc'}
+														<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"
+															><path
+																d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"
+															/></svg
+														>
+													{:else}
+														<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"
+															><path
+																d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"
+															/></svg
+														>
+													{/if}
+												{:else}
+													<svg
+														class="h-4 w-4 opacity-0 group-hover:opacity-50"
+														fill="currentColor"
+														viewBox="0 0 20 20"
+														><path
+															d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"
+														/></svg
+													>
+												{/if}
+											</span>
+										</button>
+									</div>
+								</th>
+								<th
+									scope="col"
+									class="text-brand hidden px-6 py-3 text-left text-xs font-medium tracking-wider uppercase md:table-cell"
+								>
+									<div class="flex flex-col">
+										<span
+											>{localeLoaded
+												? $_('admin.users.table.userType', { default: 'User Type' })
+												: 'User Type'}</span
+										>
+										<span class="text-gray-400"
+											>{localeLoaded
+												? $_('admin.users.table.status', { default: 'Status' })
+												: 'Status'}</span
+										>
+									</div>
+								</th>
+								<th
+									scope="col"
+									class="text-brand hidden px-6 py-3 text-left text-xs font-medium tracking-wider uppercase md:table-cell"
+								>
+									<button
+										onclick={() => handleColumnSort('organization.name')}
+										class="hover:text-brand-hover group flex items-center gap-1 focus:outline-none"
+									>
+										{localeLoaded
+											? $_('admin.users.table.organization', { default: 'Organization' })
+											: 'Organization'}
+										<span
+											class="inline-flex flex-col {usersSortBy === 'organization.name'
+												? 'text-brand'
+												: 'text-gray-400 group-hover:text-gray-600'}"
+										>
+											{#if usersSortBy === 'organization.name'}
+												{#if usersSortOrder === 'asc'}
+													<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"
+														><path
+															d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"
+														/></svg
+													>
+												{:else}
+													<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"
+														><path
+															d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"
+														/></svg
+													>
+												{/if}
+											{:else}
+												<svg
+													class="h-4 w-4 opacity-0 group-hover:opacity-50"
+													fill="currentColor"
+													viewBox="0 0 20 20"
+													><path
+														d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"
+													/></svg
+												>
+											{/if}
+										</span>
+									</button>
+								</th>
+								<th
+									scope="col"
+									class="text-brand px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+								>
+									{localeLoaded
+										? $_('admin.users.table.actions', { default: 'Actions' })
+										: 'Actions'}
+								</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-gray-200 bg-white">
+							{#each users as user (user.id)}
+								<tr class="hover:bg-gray-50" class:opacity-60={!user.enabled}>
+									<td class="px-6 py-4 align-top whitespace-nowrap">
+										<input
+											type="checkbox"
+											bind:checked={user.selected}
+											disabled={currentUserData && currentUserData.email === user.email}
+											class="h-5 w-5 cursor-pointer rounded border-2 border-gray-400 bg-white text-blue-600 checked:border-blue-600 checked:bg-blue-600 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+											style="accent-color: #2563eb;"
+											aria-label={`Select ${user.name}`}
+										/>
+									</td>
+									<td class="px-6 py-4 align-top whitespace-nowrap">
+										<div class="text-sm font-medium">
+											<button
+												class="text-brand hover:text-brand/80 text-left font-medium hover:underline"
+												onclick={() => showUserDetail(user.id)}
+												title={localeLoaded
+													? $_('admin.users.viewProfile', { default: 'View user profile' })
+													: 'View user profile'}
+											>
+												{user.name || '-'}
+											</button>
+										</div>
+										<div class="text-xs text-gray-500">{user.email}</div>
+									</td>
+									<td
+										class="hidden px-6 py-4 whitespace-nowrap md:table-cell"
+										style="font-size: 0.8125rem;"
+									>
+										<div>
+											{#if user.role === 'admin'}
+												<span
+													class="inline-flex rounded-full bg-red-100 px-2 text-xs leading-5 font-semibold text-red-800"
+												>
+													{localeLoaded
+														? $_('admin.users.filtersOptions.admin', { default: 'Admin' })
+														: 'Admin'}
+												</span>
+											{:else if user.auth_provider === 'lti_creator'}
+												<span
+													class="inline-flex rounded-full bg-blue-100 px-2 text-xs leading-5 font-semibold text-blue-800"
+												>
+													{localeLoaded
+														? $_('admin.users.filtersOptions.ltiCreator', {
+																default: 'LTI Creator'
+															})
+														: 'LTI Creator'}
+												</span>
+											{:else if user.user_type === 'end_user'}
+												<span
+													class="inline-flex rounded-full bg-purple-100 px-2 text-xs leading-5 font-semibold text-purple-800"
+												>
+													{localeLoaded
+														? $_('admin.users.filtersOptions.endUser', { default: 'End User' })
+														: 'End User'}
+												</span>
+											{:else if user.organization_role === 'admin' || user.organization_role === 'owner'}
+												<span
+													class="inline-flex rounded-full bg-orange-100 px-2 text-xs leading-5 font-semibold text-orange-800"
+												>
+													{localeLoaded
+														? $_('admin.users.tableValues.orgAdmin', { default: 'Org Admin' })
+														: 'Org Admin'}
+												</span>
+											{:else}
+												<span
+													class="inline-flex rounded-full bg-green-100 px-2 text-xs leading-5 font-semibold text-green-800"
+												>
+													{localeLoaded
+														? $_('admin.users.filtersOptions.creator', { default: 'Creator' })
+														: 'Creator'}
+												</span>
+											{/if}
+										</div>
+										<div class="mt-1">
+											<span
+												class="inline-flex rounded-full px-2 text-xs leading-5 font-semibold {user.enabled
+													? 'bg-green-100 text-green-800'
+													: 'bg-red-100 text-red-800'}"
+											>
+												{user.enabled
+													? localeLoaded
+														? $_('admin.users.filtersOptions.active', { default: 'Active' })
+														: 'Active'
+													: localeLoaded
+														? $_('admin.users.filtersOptions.disabled', { default: 'Disabled' })
+														: 'Disabled'}
+											</span>
+										</div>
+									</td>
+									<td
+										class="hidden px-6 py-4 text-sm whitespace-nowrap text-gray-800 md:table-cell"
+									>
+										{#if user.organization}
+											<div class="flex flex-wrap items-center gap-1">
+												<span class="text-sm font-medium text-gray-900"
+													>{user.organization.name || '-'}</span
+												>
+												{#if user.organization.is_system}
+													<span
+														class="inline-flex rounded-full bg-yellow-100 px-2 text-xs leading-5 font-semibold text-yellow-800"
+													>
+														{localeLoaded
+															? $_('admin.users.tableValues.system', { default: 'System' })
+															: 'System'}
+													</span>
+												{/if}
+											</div>
+										{:else}
+											<span class="text-gray-400"
+												>{localeLoaded
+													? $_('admin.users.tableValues.noOrganization', {
+															default: 'No Organization'
+														})
+													: 'No Organization'}</span
+											>
+										{/if}
+									</td>
+									<td class="px-6 py-4 text-xs font-medium whitespace-nowrap">
+										<div class="flex flex-col gap-1">
+											<!-- Change Password (only for non-LTI users) -->
+											{#if user.auth_provider !== 'lti_creator'}
+												<button
+													class="inline-flex items-center gap-1 text-amber-600 hover:text-amber-800"
+													title={localeLoaded
+														? $_('admin.users.actions.changePassword', {
+																default: 'Change Password'
+															})
+														: 'Change Password'}
+													aria-label={localeLoaded
+														? $_('admin.users.actions.changePassword', {
+																default: 'Change Password'
+															})
+														: 'Change Password'}
+													onclick={() => openChangePasswordModal(user.email, user.name)}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke-width="1.5"
+														stroke="currentColor"
+														class="h-4 w-4"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+														/>
+													</svg>
+													{localeLoaded
+														? $_('admin.users.actions.changePassword', { default: 'Password' })
+														: 'Password'}
+												</button>
+											{/if}
+											<!-- Enable/Disable Toggle -->
+											{#if !(currentUserData && currentUserData.email === user.email)}
+												{#if user.enabled}
+													<button
+														class="inline-flex items-center gap-1 text-red-500 hover:text-red-700"
+														title={localeLoaded
+															? $_('admin.users.actions.disable', { default: 'Disable User' })
+															: 'Disable User'}
+														aria-label={localeLoaded
+															? $_('admin.users.actions.disable', { default: 'Disable User' })
+															: 'Disable User'}
+														onclick={() => toggleUserStatusAdmin(user)}
+													>
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															fill="none"
+															viewBox="0 0 24 24"
+															stroke-width="1.5"
+															stroke="currentColor"
+															class="h-4 w-4"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
+															/>
+														</svg>
+														{localeLoaded
+															? $_('admin.users.actions.disable', { default: 'Disable' })
+															: 'Disable'}
+													</button>
+												{:else}
+													<button
+														class="inline-flex items-center gap-1 text-green-600 hover:text-green-800"
+														title={localeLoaded
+															? $_('admin.users.actions.enable', { default: 'Enable User' })
+															: 'Enable User'}
+														aria-label={localeLoaded
+															? $_('admin.users.actions.enable', { default: 'Enable User' })
+															: 'Enable User'}
+														onclick={() => toggleUserStatusAdmin(user)}
+													>
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															fill="none"
+															viewBox="0 0 24 24"
+															stroke-width="1.5"
+															stroke="currentColor"
+															class="h-4 w-4"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
+															/>
+														</svg>
+														{localeLoaded
+															? $_('admin.users.actions.enable', { default: 'Enable' })
+															: 'Enable'}
+													</button>
+												{/if}
+											{/if}
+											<!-- Delete button - only shown for disabled users -->
+											{#if !user.enabled && !(currentUserData && currentUserData.email === user.email)}
+												<button
+													class="inline-flex items-center gap-1 text-red-600 hover:text-red-900"
+													title="Delete User"
+													aria-label="Delete User"
+													onclick={() => showDeleteDialog(user)}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke-width="1.5"
+														stroke="currentColor"
+														class="h-4 w-4"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+														/>
+													</svg>
+													Delete
+												</button>
+											{/if}
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+
+				<!-- Pagination -->
+				<Pagination
+					currentPage={usersPage}
+					totalPages={usersTotalPages}
+					totalItems={usersTotalItems}
+					itemsPerPage={usersPerPage}
+					itemsPerPageOptions={[10, 25, 50, 100]}
+					on:pageChange={handleUsersPageChange}
+					on:itemsPerPageChange={handleUsersPerPageChange}
+				/>
+			{/if}
+		{/if}
+	{:else if currentView === 'organizations'}
+		<!-- Organizations Management View -->
+		<div class="mb-6 flex items-center justify-between">
+			<h1 class="text-2xl font-semibold text-gray-800">
+				{localeLoaded
+					? $_('admin.organizations.title', { default: 'Organization Management' })
+					: 'Organization Management'}
+			</h1>
+			<div class="flex space-x-2">
+				<button
+					onclick={syncSystemOrganization}
+					class="focus:ring-opacity-50 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 focus:ring-2 focus:ring-green-600 focus:outline-none"
+					aria-label={localeLoaded
+						? $_('admin.organizations.actions.syncSystem', { default: 'Sync System Organization' })
+						: 'Sync System Organization'}
+				>
+					{localeLoaded
+						? $_('admin.organizations.actions.syncSystem', { default: 'Sync System' })
+						: 'Sync System'}
+				</button>
+				<button
+					onclick={openCreateOrgModal}
+					class="bg-brand hover:bg-brand-hover focus:ring-brand focus:ring-opacity-50 rounded px-4 py-2 text-white focus:ring-2 focus:outline-none"
+					aria-label={localeLoaded
+						? $_('admin.organizations.actions.create', { default: 'Create Organization' })
+						: 'Create Organization'}
+				>
+					{localeLoaded
+						? $_('admin.organizations.actions.create', { default: 'Create Organization' })
+						: 'Create Organization'}
+				</button>
+			</div>
+		</div>
+
+		{#if isLoadingOrganizations}
+			<p class="py-4 text-center text-gray-500">
+				{localeLoaded
+					? $_('admin.organizations.loading', { default: 'Loading organizations...' })
+					: 'Loading organizations...'}
+			</p>
+		{:else if organizationsError}
+			<div
+				class="relative mb-6 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+				role="alert"
+			>
+				<strong class="font-bold"
+					>{localeLoaded
+						? $_('admin.organizations.errorTitle', { default: 'Error:' })
+						: 'Error:'}</strong
+				>
+				<span class="block sm:inline"> {organizationsError}</span>
+			</div>
+			<!-- Button to retry fetching -->
+			<div class="text-center">
+				<button
+					onclick={fetchOrganizations}
+					class="bg-brand hover:bg-brand-hover focus:ring-brand focus:ring-opacity-50 rounded px-4 py-2 text-white focus:ring-2 focus:outline-none"
+				>
+					{localeLoaded ? $_('admin.organizations.retry', { default: 'Retry' }) : 'Retry'}
+				</button>
+			</div>
+		{:else if organizations.length === 0}
+			<p class="py-4 text-center text-gray-500">
+				{localeLoaded
+					? $_('admin.organizations.noOrganizations', { default: 'No organizations found.' })
+					: 'No organizations found.'}
+			</p>
+		{:else}
+			<!-- Responsive Table Wrapper -->
+			<div class="mb-6 overflow-x-auto border border-gray-200 shadow-md sm:rounded-lg">
+				<table class="min-w-full divide-y divide-gray-200">
+					<thead class="bg-gray-50">
+						<tr>
+							<th
+								scope="col"
+								class="text-brand px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								{localeLoaded ? $_('admin.organizations.table.name', { default: 'Name' }) : 'Name'}
+							</th>
+							<th
+								scope="col"
+								class="text-brand px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								{localeLoaded ? $_('admin.organizations.table.slug', { default: 'Slug' }) : 'Slug'}
+							</th>
+							<th
+								scope="col"
+								class="text-brand hidden px-6 py-3 text-left text-xs font-medium tracking-wider uppercase md:table-cell"
+							>
+								{localeLoaded
+									? $_('admin.organizations.table.status', { default: 'Status' })
+									: 'Status'}
+							</th>
+							<th
+								scope="col"
+								class="text-brand hidden px-6 py-3 text-left text-xs font-medium tracking-wider uppercase lg:table-cell"
+							>
+								{localeLoaded ? $_('admin.organizations.table.type', { default: 'Type' }) : 'Type'}
+							</th>
+							<th
+								scope="col"
+								class="text-brand px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								{localeLoaded
+									? $_('admin.organizations.table.actions', { default: 'Actions' })
+									: 'Actions'}
+							</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-200 bg-white">
+						{#each organizations as org (org.id)}
+							<tr class="hover:bg-gray-50">
+								<td class="px-6 py-4 align-top whitespace-nowrap">
+									<button
+										class="cursor-pointer border-none bg-transparent p-0 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+										onclick={() => administerOrganization(org)}
+										title="Go to organization settings"
+									>
+										{org.name || '-'}
+									</button>
+								</td>
+								<td class="px-6 py-4 align-top whitespace-nowrap">
+									<div class="font-mono text-sm text-gray-800">{org.slug}</div>
+								</td>
+								<td class="hidden px-6 py-4 text-sm whitespace-nowrap text-gray-800 md:table-cell">
+									<span
+										class="inline-flex rounded-full px-2 text-xs leading-5 font-semibold {org.status ===
+										'active'
+											? 'bg-green-100 text-green-800'
+											: 'bg-yellow-100 text-yellow-800'}"
+									>
+										{org.status}
+									</span>
+								</td>
+								<td class="hidden px-6 py-4 text-sm whitespace-nowrap text-gray-800 lg:table-cell">
+									<span
+										class="inline-flex rounded-full px-2 text-xs leading-5 font-semibold {org.is_system
+											? 'bg-blue-100 text-blue-800'
+											: 'bg-gray-100 text-gray-800'}"
+									>
+										{org.is_system ? 'System' : 'Regular'}
+									</span>
+								</td>
+								<td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
+									<div class="flex space-x-2">
+										<button
+											class="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-green-700"
+											title="Manage Organization"
+											aria-label="Manage Organization"
+											onclick={() => administerOrganization(org)}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												stroke="currentColor"
+												class="h-4 w-4"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z"
+												/>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+												/>
+											</svg>
+											Manage
+										</button>
+										{#if !org.is_system}
+											<button
+												class="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+												title="Manage Members & Roles"
+												aria-label="Manage Members & Roles"
+												onclick={() => openMembersModal(org)}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="1.5"
+													stroke="currentColor"
+													class="h-4 w-4"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+													/>
+												</svg>
+												Members
+											</button>
+										{/if}
+										<button
+											class="text-blue-600 hover:text-blue-800"
+											title={localeLoaded
+												? $_('admin.organizations.actions.viewConfig', {
+														default: 'View Configuration'
+													})
+												: 'View Configuration'}
+											aria-label={localeLoaded
+												? $_('admin.organizations.actions.viewConfig', {
+														default: 'View Configuration'
+													})
+												: 'View Configuration'}
+											onclick={() => openViewConfigModal(org)}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												stroke="currentColor"
+												class="h-5 w-5"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+												/>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+												/>
+											</svg>
+										</button>
+										{#if !org.is_system}
+											<button
+												class="text-purple-600 hover:text-purple-800"
+												title={localeLoaded
+													? $_('admin.organizations.actions.migrate', {
+															default: 'Migrate Organization'
+														})
+													: 'Migrate Organization'}
+												aria-label={localeLoaded
+													? $_('admin.organizations.actions.migrate', {
+															default: 'Migrate Organization'
+														})
+													: 'Migrate Organization'}
+												onclick={() => openMigrationModal(org)}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="1.5"
+													stroke="currentColor"
+													class="h-5 w-5"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+													/>
+												</svg>
+											</button>
+											<button
+												class="text-red-600 hover:text-red-800"
+												title={localeLoaded
+													? $_('admin.organizations.actions.delete', {
+															default: 'Delete Organization'
+														})
+													: 'Delete Organization'}
+												aria-label={localeLoaded
+													? $_('admin.organizations.actions.delete', {
+															default: 'Delete Organization'
+														})
+													: 'Delete Organization'}
+												onclick={() => deleteOrganization(org.slug)}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="1.5"
+													stroke="currentColor"
+													class="h-5 w-5"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+													/>
+												</svg>
+											</button>
+										{/if}
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	{/if}
 </div>
 
 <!-- Change Password Modal (Shared Component) -->
 <ChangePasswordModal
-    isOpen={isChangePasswordModalOpen}
-    userName={selectedUserName}
-    userEmail={passwordChangeData.email}
-    newPassword={passwordChangeData.new_password}
-    isChanging={isChangingPassword}
-    error={changePasswordError}
-    success={changePasswordSuccess}
-    {localeLoaded}
-    onSubmit={handleChangePassword}
-    onClose={closeChangePasswordModal}
-    onPasswordChange={(pwd) => { passwordChangeData.new_password = pwd; }}
+	isOpen={isChangePasswordModalOpen}
+	userName={selectedUserName}
+	userEmail={passwordChangeData.email}
+	newPassword={passwordChangeData.new_password}
+	isChanging={isChangingPassword}
+	error={changePasswordError}
+	success={changePasswordSuccess}
+	{localeLoaded}
+	onSubmit={handleChangePassword}
+	onClose={closeChangePasswordModal}
+	onPasswordChange={(pwd) => {
+		passwordChangeData.new_password = pwd;
+	}}
 />
 
 <!-- Create User Modal (Shared Component) -->
 <UserForm
-    isOpen={isCreateUserModalOpen}
-    isSuperAdmin={true}
-    {newUser}
-    organizations={organizationsForUsers}
-    isLoadingOrganizations={isLoadingOrganizationsForUsers}
-    organizationsError={organizationsForUsersError}
-    isCreating={isCreatingUser}
-    error={createUserError}
-    success={createUserSuccess}
-    {localeLoaded}
-    onSubmit={handleCreateUser}
-    onClose={closeCreateUserModal}
-    onUserChange={(user) => { newUser = user; }}
+	isOpen={isCreateUserModalOpen}
+	isSuperAdmin={true}
+	{newUser}
+	organizations={organizationsForUsers}
+	isLoadingOrganizations={isLoadingOrganizationsForUsers}
+	organizationsError={organizationsForUsersError}
+	isCreating={isCreatingUser}
+	error={createUserError}
+	success={createUserSuccess}
+	{localeLoaded}
+	onSubmit={handleCreateUser}
+	onClose={closeCreateUserModal}
+	onUserChange={(user) => {
+		newUser = user;
+	}}
 />
 
 <!-- Create Organization Modal -->
 <OrgForm
-    bind:isOpen={isCreateOrgModalOpen}
-    {localeLoaded}
-    {getAuthToken}
-    onSuccess={() => fetchOrganizations()}
-    onClose={closeCreateOrgModal}
+	bind:isOpen={isCreateOrgModalOpen}
+	{localeLoaded}
+	{getAuthToken}
+	onSuccess={() => fetchOrganizations()}
+	onClose={closeCreateOrgModal}
 />
 
 <!-- View Configuration Modal -->
@@ -2373,109 +2822,125 @@
                     </button>
                 </div>
 
-                {#if isLoadingOrgConfig}
-                    <div class="text-center py-8">
-                        <p class="text-gray-500">Loading configuration...</p>
-                    </div>
-                {:else if configError}
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                        <strong class="font-bold">Error:</strong>
-                        <span class="block sm:inline"> {configError}</span>
-                    </div>
-                {:else if selectedOrgConfig}
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h4 class="text-sm font-medium text-gray-700 mb-2">Configuration JSON:</h4>
-                        <pre class="bg-white p-4 rounded border text-xs overflow-x-auto"><code>{JSON.stringify(selectedOrgConfig, null, 2)}</code></pre>
-                        
-                        {#if selectedOrgConfig.setups}
-                            <div class="mt-6">
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">Setups Summary:</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {#each Object.entries(selectedOrgConfig.setups) as [setupName, setup]}
-                                        <div class="bg-white p-3 rounded border">
-                                            <h5 class="font-medium text-sm text-gray-800">{setup.name || setupName}</h5>
-                                            <p class="text-xs text-gray-600 mb-1">
-                                                {setup.is_default ? '(Default)' : ''}
-                                            </p>
-                                            {#if setup.providers}
-                                                <div class="text-xs">
-                                                    <strong>Providers:</strong> {Object.keys(setup.providers).join(', ') || 'None'}
-                                                </div>
-                                            {/if}
-                                        </div>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
+				{#if isLoadingOrgConfig}
+					<div class="py-8 text-center">
+						<p class="text-gray-500">Loading configuration...</p>
+					</div>
+				{:else if configError}
+					<div
+						class="relative rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+						role="alert"
+					>
+						<strong class="font-bold">Error:</strong>
+						<span class="block sm:inline"> {configError}</span>
+					</div>
+				{:else if selectedOrgConfig}
+					<div class="rounded-lg bg-gray-50 p-4">
+						<h4 class="mb-2 text-sm font-medium text-gray-700">Configuration JSON:</h4>
+						<pre class="overflow-x-auto rounded border bg-white p-4 text-xs"><code
+								>{JSON.stringify(selectedOrgConfig, null, 2)}</code
+							></pre>
 
-                        {#if selectedOrgConfig.features}
-                            <div class="mt-4">
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">Features:</h4>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    {#each Object.entries(selectedOrgConfig.features) as [feature, enabled]}
-                                        <div class="flex items-center text-xs">
-                                            <span class="w-2 h-2 rounded-full mr-2 {enabled ? 'bg-green-500' : 'bg-gray-300'}"></span>
-                                            <span class="capitalize">{feature.replace('_', ' ')}</span>
-                                        </div>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
+						{#if selectedOrgConfig.setups}
+							<div class="mt-6">
+								<h4 class="mb-2 text-sm font-medium text-gray-700">Setups Summary:</h4>
+								<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+									{#each Object.entries(selectedOrgConfig.setups) as [setupName, setup]}
+										<div class="rounded border bg-white p-3">
+											<h5 class="text-sm font-medium text-gray-800">{setup.name || setupName}</h5>
+											<p class="mb-1 text-xs text-gray-600">
+												{setup.is_default ? '(Default)' : ''}
+											</p>
+											{#if setup.providers}
+												<div class="text-xs">
+													<strong>Providers:</strong>
+													{Object.keys(setup.providers).join(', ') || 'None'}
+												</div>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 
-                        {#if selectedOrgConfig.limits && selectedOrgConfig.limits.usage}
-                            <div class="mt-4">
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">Usage Limits:</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                                    <div>
-                                        <strong>Tokens/Month:</strong> {selectedOrgConfig.limits.usage.tokens_per_month?.toLocaleString() || 'Unlimited'}
-                                    </div>
-                                    <div>
-                                        <strong>Max Assistants:</strong> {selectedOrgConfig.limits.usage.max_assistants || 'Unlimited'}
-                                    </div>
-                                    <div>
-                                        <strong>Storage:</strong> {selectedOrgConfig.limits.usage.storage_gb || 'Unlimited'} GB
-                                    </div>
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-                {/if}
-                
-                <div class="mt-6 text-center">
-                    <button 
-                        onclick={closeViewConfigModal}
-                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                    >
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+						{#if selectedOrgConfig.features}
+							<div class="mt-4">
+								<h4 class="mb-2 text-sm font-medium text-gray-700">Features:</h4>
+								<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+									{#each Object.entries(selectedOrgConfig.features) as [feature, enabled]}
+										<div class="flex items-center text-xs">
+											<span
+												class="mr-2 h-2 w-2 rounded-full {enabled ? 'bg-green-500' : 'bg-gray-300'}"
+											></span>
+											<span class="capitalize">{feature.replace('_', ' ')}</span>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						{#if selectedOrgConfig.limits && selectedOrgConfig.limits.usage}
+							<div class="mt-4">
+								<h4 class="mb-2 text-sm font-medium text-gray-700">Usage Limits:</h4>
+								<div class="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
+									<div>
+										<strong>Tokens/Month:</strong>
+										{selectedOrgConfig.limits.usage.tokens_per_month?.toLocaleString() ||
+											'Unlimited'}
+									</div>
+									<div>
+										<strong>Max Assistants:</strong>
+										{selectedOrgConfig.limits.usage.max_assistants || 'Unlimited'}
+									</div>
+									<div>
+										<strong>Storage:</strong>
+										{selectedOrgConfig.limits.usage.storage_gb || 'Unlimited'} GB
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				<div class="mt-6 text-center">
+					<button
+						onclick={closeViewConfigModal}
+						class="focus:shadow-outline rounded bg-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-400 focus:outline-none"
+					>
+						Close
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <!-- Disable User Confirmation Modal (Shared Component) -->
 <UserActionModal
-    isOpen={showDisableConfirm}
-    action="disable"
-    isBulk={actionType === 'bulk'}
-    targetUser={actionType === 'single' ? targetUser : null}
-    selectedCount={selectedUsers.length}
-    {localeLoaded}
-    onConfirm={confirmDisable}
-    onClose={() => { showDisableConfirm = false; }}
+	isOpen={showDisableConfirm}
+	action="disable"
+	isBulk={actionType === 'bulk'}
+	targetUser={actionType === 'single' ? targetUser : null}
+	selectedCount={selectedUsers.length}
+	{localeLoaded}
+	onConfirm={confirmDisable}
+	onClose={() => {
+		showDisableConfirm = false;
+	}}
 />
 
 <!-- Enable User Confirmation Modal (Shared Component) -->
 <UserActionModal
-    isOpen={showEnableConfirm}
-    action="enable"
-    isBulk={actionType === 'bulk'}
-    targetUser={actionType === 'single' ? targetUser : null}
-    selectedCount={selectedUsers.length}
-    {localeLoaded}
-    onConfirm={confirmEnable}
-    onClose={() => { showEnableConfirm = false; }}
+	isOpen={showEnableConfirm}
+	action="enable"
+	isBulk={actionType === 'bulk'}
+	targetUser={actionType === 'single' ? targetUser : null}
+	selectedCount={selectedUsers.length}
+	{localeLoaded}
+	onConfirm={confirmEnable}
+	onClose={() => {
+		showEnableConfirm = false;
+	}}
 />
 
 <!-- Delete User Confirmation Modal -->
@@ -2595,604 +3060,658 @@
                         : 'Migrate all resources from'} <strong>{migrationSourceOrg.name}</strong> to another organization.
                 </p>
 
-                {#if migrationSuccess && migrationReport}
-                    <!-- Success State -->
-                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
-                        <strong class="font-bold">{localeLoaded ? $_('admin.organizations.migration.success', { default: 'Migration completed successfully!' }) : 'Migration completed successfully!'}</strong>
-                        <div class="mt-2 text-sm">
-                            <p><strong>Resources migrated:</strong></p>
-                            <ul class="list-disc list-inside mt-1">
-                                <li>{migrationReport.resources_migrated?.users || 0} users</li>
-                                <li>{migrationReport.resources_migrated?.assistants || 0} assistants</li>
-                                <li>{migrationReport.resources_migrated?.templates || 0} templates</li>
-                                <li>{migrationReport.resources_migrated?.kbs || 0} knowledge bases</li>
-                            </ul>
-                            {#if migrationReport.warnings && migrationReport.warnings.length > 0}
-                                <div class="mt-2">
-                                    <p class="font-semibold">Warnings:</p>
-                                    <ul class="list-disc list-inside">
-                                        {#each migrationReport.warnings as warning}
-                                            <li>{warning}</li>
-                                        {/each}
-                                    </ul>
-                                </div>
-                            {/if}
-                        </div>
-                    </div>
-                {:else}
-                    <!-- Migration Form -->
-                    <div class="space-y-4">
-                        <!-- Step 1: Target Organization Selection -->
-                        <div>
-                            <label for="target_org_slug" class="block text-sm font-medium text-gray-700 mb-2">
-                                {localeLoaded ? $_('admin.organizations.migration.targetOrg', { default: 'Target Organization' }) : 'Target Organization'} *
-                            </label>
-                            <select
-                                id="target_org_slug"
-                                bind:value={migrationTargetOrgSlug}
-                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                                disabled={isValidatingMigration || isMigrating}
-                            >
-                                <option value="">{localeLoaded ? $_('admin.organizations.migration.selectTarget', { default: 'Select target organization...' }) : 'Select target organization...'}</option>
-                                {#each organizations.filter(o => !o.is_system && o.slug !== migrationSourceOrg.slug) as org}
-                                    <option value={org.slug}>{org.name} ({org.slug})</option>
-                                {/each}
-                            </select>
-                            <button
-                                type="button"
-                                onclick={validateMigration}
-                                disabled={!migrationTargetOrgSlug || isValidatingMigration || isMigrating}
-                                class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isValidatingMigration 
-                                    ? (localeLoaded ? $_('admin.organizations.migration.validating', { default: 'Validating...' }) : 'Validating...') 
-                                    : (localeLoaded ? $_('admin.organizations.migration.validate', { default: 'Validate Migration' }) : 'Validate Migration')}
-                            </button>
-                        </div>
+				<p class="mb-4 text-sm text-gray-600">
+					{localeLoaded
+						? $_('admin.organizations.migration.description', {
+								default: 'Migrate all resources from'
+							})
+						: 'Migrate all resources from'} <strong>{migrationSourceOrg.name}</strong> to another organization.
+				</p>
 
-                        <!-- Validation Results -->
-                        {#if migrationValidationError}
-                            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                                <span class="block sm:inline">{migrationValidationError}</span>
-                            </div>
-                        {/if}
+				{#if migrationSuccess && migrationReport}
+					<!-- Success State -->
+					<div
+						class="relative mb-4 rounded border border-green-400 bg-green-100 px-4 py-3 text-green-700"
+						role="alert"
+					>
+						<strong class="font-bold"
+							>{localeLoaded
+								? $_('admin.organizations.migration.success', {
+										default: 'Migration completed successfully!'
+									})
+								: 'Migration completed successfully!'}</strong
+						>
+						<div class="mt-2 text-sm">
+							<p><strong>Resources migrated:</strong></p>
+							<ul class="mt-1 list-inside list-disc">
+								<li>{migrationReport.resources_migrated?.users || 0} users</li>
+								<li>{migrationReport.resources_migrated?.assistants || 0} assistants</li>
+								<li>{migrationReport.resources_migrated?.templates || 0} templates</li>
+								<li>{migrationReport.resources_migrated?.kbs || 0} knowledge bases</li>
+							</ul>
+							{#if migrationReport.warnings && migrationReport.warnings.length > 0}
+								<div class="mt-2">
+									<p class="font-semibold">Warnings:</p>
+									<ul class="list-inside list-disc">
+										{#each migrationReport.warnings as warning}
+											<li>{warning}</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{:else}
+					<!-- Migration Form -->
+					<div class="space-y-4">
+						<!-- Step 1: Target Organization Selection -->
+						<div>
+							<label for="target_org_slug" class="mb-2 block text-sm font-medium text-gray-700">
+								{localeLoaded
+									? $_('admin.organizations.migration.targetOrg', {
+											default: 'Target Organization'
+										})
+									: 'Target Organization'} *
+							</label>
+							<select
+								id="target_org_slug"
+								bind:value={migrationTargetOrgSlug}
+								class="focus:shadow-outline w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none"
+								disabled={isValidatingMigration || isMigrating}
+							>
+								<option value=""
+									>{localeLoaded
+										? $_('admin.organizations.migration.selectTarget', {
+												default: 'Select target organization...'
+											})
+										: 'Select target organization...'}</option
+								>
+								{#each organizations.filter((o) => !o.is_system && o.slug !== migrationSourceOrg.slug) as org}
+									<option value={org.slug}>{org.name} ({org.slug})</option>
+								{/each}
+							</select>
+							<button
+								type="button"
+								onclick={validateMigration}
+								disabled={!migrationTargetOrgSlug || isValidatingMigration || isMigrating}
+								class="focus:shadow-outline mt-2 rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{isValidatingMigration
+									? localeLoaded
+										? $_('admin.organizations.migration.validating', { default: 'Validating...' })
+										: 'Validating...'
+									: localeLoaded
+										? $_('admin.organizations.migration.validate', {
+												default: 'Validate Migration'
+											})
+										: 'Validate Migration'}
+							</button>
+						</div>
 
-                        {#if migrationValidationResult && migrationValidationResult.can_migrate}
-                            <!-- Step 2: Validation Results Display -->
-                            <div class="bg-blue-50 border border-blue-200 rounded p-4">
-                                <h4 class="font-semibold text-gray-800 mb-2">
-                                    {localeLoaded ? $_('admin.organizations.migration.resources', { default: 'Resources to Migrate' }) : 'Resources to Migrate'}
-                                </h4>
-                                <ul class="text-sm text-gray-700 space-y-1">
-                                    <li>• {migrationValidationResult.resources?.users || 0} users</li>
-                                    <li>• {migrationValidationResult.resources?.assistants || 0} assistants</li>
-                                    <li>• {migrationValidationResult.resources?.templates || 0} templates</li>
-                                    <li>• {migrationValidationResult.resources?.kbs || 0} knowledge bases</li>
-                                    <li>• {migrationValidationResult.resources?.usage_logs || 0} usage logs</li>
-                                </ul>
+						<!-- Validation Results -->
+						{#if migrationValidationError}
+							<div
+								class="relative rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+								role="alert"
+							>
+								<span class="block sm:inline">{migrationValidationError}</span>
+							</div>
+						{/if}
 
-                                {#if migrationValidationResult.conflicts.assistants.length > 0 || migrationValidationResult.conflicts.templates.length > 0}
-                                    <div class="mt-3 pt-3 border-t border-blue-300">
-                                        <h5 class="font-semibold text-orange-700 mb-2">
-                                            {localeLoaded ? $_('admin.organizations.migration.conflicts', { default: 'Conflicts Detected' }) : 'Conflicts Detected'}
-                                        </h5>
-                                        {#if migrationValidationResult.conflicts.assistants.length > 0}
-                                            <p class="text-sm text-gray-700 mb-1">
-                                                {migrationValidationResult.conflicts.assistants.length} assistant(s) will be renamed:
-                                            </p>
-                                            <ul class="text-xs text-gray-600 list-disc list-inside ml-2">
-                                                {#each migrationValidationResult.conflicts.assistants.slice(0, 3) as conflict}
-                                                    <li>{conflict.name} (by {conflict.owner})</li>
-                                                {/each}
-                                                {#if migrationValidationResult.conflicts.assistants.length > 3}
-                                                    <li>... and {migrationValidationResult.conflicts.assistants.length - 3} more</li>
-                                                {/if}
-                                            </ul>
-                                        {/if}
-                                        {#if migrationValidationResult.conflicts.templates.length > 0}
-                                            <p class="text-sm text-gray-700 mb-1 mt-2">
-                                                {migrationValidationResult.conflicts.templates.length} template(s) will be renamed:
-                                            </p>
-                                            <ul class="text-xs text-gray-600 list-disc list-inside ml-2">
-                                                {#each migrationValidationResult.conflicts.templates.slice(0, 3) as conflict}
-                                                    <li>{conflict.name} (by {conflict.owner_email})</li>
-                                                {/each}
-                                                {#if migrationValidationResult.conflicts.templates.length > 3}
-                                                    <li>... and {migrationValidationResult.conflicts.templates.length - 3} more</li>
-                                                {/if}
-                                            </ul>
-                                        {/if}
-                                    </div>
-                                {/if}
-                            </div>
+						{#if migrationValidationResult && migrationValidationResult.can_migrate}
+							<!-- Step 2: Validation Results Display -->
+							<div class="rounded border border-blue-200 bg-blue-50 p-4">
+								<h4 class="mb-2 font-semibold text-gray-800">
+									{localeLoaded
+										? $_('admin.organizations.migration.resources', {
+												default: 'Resources to Migrate'
+											})
+										: 'Resources to Migrate'}
+								</h4>
+								<ul class="space-y-1 text-sm text-gray-700">
+									<li>• {migrationValidationResult.resources?.users || 0} users</li>
+									<li>• {migrationValidationResult.resources?.assistants || 0} assistants</li>
+									<li>• {migrationValidationResult.resources?.templates || 0} templates</li>
+									<li>• {migrationValidationResult.resources?.kbs || 0} knowledge bases</li>
+									<li>• {migrationValidationResult.resources?.usage_logs || 0} usage logs</li>
+								</ul>
 
-                            <!-- Step 3: Migration Options -->
-                            <div class="space-y-4 border-t pt-4">
-                                <h4 class="font-semibold text-gray-800">
-                                    {localeLoaded ? $_('admin.organizations.migration.options', { default: 'Migration Options' }) : 'Migration Options'}
-                                </h4>
+								{#if migrationValidationResult.conflicts.assistants.length > 0 || migrationValidationResult.conflicts.templates.length > 0}
+									<div class="mt-3 border-t border-blue-300 pt-3">
+										<h5 class="mb-2 font-semibold text-orange-700">
+											{localeLoaded
+												? $_('admin.organizations.migration.conflicts', {
+														default: 'Conflicts Detected'
+													})
+												: 'Conflicts Detected'}
+										</h5>
+										{#if migrationValidationResult.conflicts.assistants.length > 0}
+											<p class="mb-1 text-sm text-gray-700">
+												{migrationValidationResult.conflicts.assistants.length} assistant(s) will be
+												renamed:
+											</p>
+											<ul class="ml-2 list-inside list-disc text-xs text-gray-600">
+												{#each migrationValidationResult.conflicts.assistants.slice(0, 3) as conflict}
+													<li>{conflict.name} (by {conflict.owner})</li>
+												{/each}
+												{#if migrationValidationResult.conflicts.assistants.length > 3}
+													<li>
+														... and {migrationValidationResult.conflicts.assistants.length - 3} more
+													</li>
+												{/if}
+											</ul>
+										{/if}
+										{#if migrationValidationResult.conflicts.templates.length > 0}
+											<p class="mt-2 mb-1 text-sm text-gray-700">
+												{migrationValidationResult.conflicts.templates.length} template(s) will be renamed:
+											</p>
+											<ul class="ml-2 list-inside list-disc text-xs text-gray-600">
+												{#each migrationValidationResult.conflicts.templates.slice(0, 3) as conflict}
+													<li>{conflict.name} (by {conflict.owner_email})</li>
+												{/each}
+												{#if migrationValidationResult.conflicts.templates.length > 3}
+													<li>
+														... and {migrationValidationResult.conflicts.templates.length - 3} more
+													</li>
+												{/if}
+											</ul>
+										{/if}
+									</div>
+								{/if}
+							</div>
 
-                                <!-- Conflict Strategy -->
-                                <div>
-                                    <label for="migration-conflict-strategy" class="block text-sm font-medium text-gray-700 mb-2">
-                                        {localeLoaded ? $_('admin.organizations.migration.conflictStrategy', { default: 'Conflict Resolution Strategy' }) : 'Conflict Resolution Strategy'}
-                                    </label>
-                                    <select
-                                        id="migration-conflict-strategy"
-                                        bind:value={migrationConflictStrategy}
-                                        disabled={isMigrating}
-                                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                                    >
-                                        <option value="rename">{localeLoaded ? $_('admin.organizations.migration.rename', { default: 'Rename conflicting resources' }) : 'Rename conflicting resources'}</option>
-                                        <option value="skip">{localeLoaded ? $_('admin.organizations.migration.skip', { default: 'Skip conflicting resources' }) : 'Skip conflicting resources'}</option>
-                                        <option value="fail">{localeLoaded ? $_('admin.organizations.migration.fail', { default: 'Fail on conflicts' }) : 'Fail on conflicts'}</option>
-                                    </select>
-                                </div>
+							<!-- Step 3: Migration Options -->
+							<div class="space-y-4 border-t pt-4">
+								<h4 class="font-semibold text-gray-800">
+									{localeLoaded
+										? $_('admin.organizations.migration.options', { default: 'Migration Options' })
+										: 'Migration Options'}
+								</h4>
 
-                                <!-- Preserve Admin Roles - CRITICAL -->
-                                <div class="flex items-start">
-                                    <input
-                                        type="checkbox"
-                                        id="preserve_admin_roles"
-                                        bind:checked={migrationPreserveAdminRoles}
-                                        disabled={isMigrating}
-                                        class="mt-1 mr-3 h-4 w-4 text-brand focus:ring-brand border-gray-300 rounded"
-                                    />
-                                    <div class="flex-1">
-                                        <label for="preserve_admin_roles" class="block text-sm font-medium text-gray-700 cursor-pointer">
-                                            {localeLoaded ? $_('admin.organizations.migration.preserveAdminRoles', { default: 'Preserve admin roles from source organization' }) : 'Preserve admin roles from source organization'}
-                                        </label>
-                                        <p class="text-xs text-gray-500 mt-1">
-                                            {localeLoaded 
-                                                ? $_('admin.organizations.migration.preserveAdminRolesHint', { default: 'If unchecked, admins from the source organization will be migrated as regular members. If checked, they will keep their admin privileges in the target organization.' }) 
-                                                : 'If unchecked, admins from the source organization will be migrated as regular members. If checked, they will keep their admin privileges in the target organization.'}
-                                        </p>
-                                    </div>
-                                </div>
+								<!-- Conflict Strategy -->
+								<div>
+									<label
+										for="migration-conflict-strategy"
+										class="mb-2 block text-sm font-medium text-gray-700"
+									>
+										{localeLoaded
+											? $_('admin.organizations.migration.conflictStrategy', {
+													default: 'Conflict Resolution Strategy'
+												})
+											: 'Conflict Resolution Strategy'}
+									</label>
+									<select
+										id="migration-conflict-strategy"
+										bind:value={migrationConflictStrategy}
+										disabled={isMigrating}
+										class="focus:shadow-outline w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none"
+									>
+										<option value="rename"
+											>{localeLoaded
+												? $_('admin.organizations.migration.rename', {
+														default: 'Rename conflicting resources'
+													})
+												: 'Rename conflicting resources'}</option
+										>
+										<option value="skip"
+											>{localeLoaded
+												? $_('admin.organizations.migration.skip', {
+														default: 'Skip conflicting resources'
+													})
+												: 'Skip conflicting resources'}</option
+										>
+										<option value="fail"
+											>{localeLoaded
+												? $_('admin.organizations.migration.fail', { default: 'Fail on conflicts' })
+												: 'Fail on conflicts'}</option
+										>
+									</select>
+								</div>
 
-                                <!-- Delete Source Organization -->
-                                <div class="flex items-start">
-                                    <input
-                                        type="checkbox"
-                                        id="delete_source"
-                                        bind:checked={migrationDeleteSource}
-                                        disabled={isMigrating}
-                                        class="mt-1 mr-3 h-4 w-4 text-brand focus:ring-brand border-gray-300 rounded"
-                                    />
-                                    <div class="flex-1">
-                                        <label for="delete_source" class="block text-sm font-medium text-gray-700 cursor-pointer">
-                                            {localeLoaded ? $_('admin.organizations.migration.deleteSource', { default: 'Delete source organization after migration' }) : 'Delete source organization after migration'}
-                                        </label>
-                                        <p class="text-xs text-gray-500 mt-1">
-                                            {localeLoaded 
-                                                ? $_('admin.organizations.migration.deleteSourceHint', { default: 'If checked, the source organization will be permanently deleted after successful migration. This action cannot be undone.' }) 
-                                                : 'If checked, the source organization will be permanently deleted after successful migration. This action cannot be undone.'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+								<!-- Preserve Admin Roles - CRITICAL -->
+								<div class="flex items-start">
+									<input
+										type="checkbox"
+										id="preserve_admin_roles"
+										bind:checked={migrationPreserveAdminRoles}
+										disabled={isMigrating}
+										class="text-brand focus:ring-brand mt-1 mr-3 h-4 w-4 rounded border-gray-300"
+									/>
+									<div class="flex-1">
+										<label
+											for="preserve_admin_roles"
+											class="block cursor-pointer text-sm font-medium text-gray-700"
+										>
+											{localeLoaded
+												? $_('admin.organizations.migration.preserveAdminRoles', {
+														default: 'Preserve admin roles from source organization'
+													})
+												: 'Preserve admin roles from source organization'}
+										</label>
+										<p class="mt-1 text-xs text-gray-500">
+											{localeLoaded
+												? $_('admin.organizations.migration.preserveAdminRolesHint', {
+														default:
+															'If unchecked, admins from the source organization will be migrated as regular members. If checked, they will keep their admin privileges in the target organization.'
+													})
+												: 'If unchecked, admins from the source organization will be migrated as regular members. If checked, they will keep their admin privileges in the target organization.'}
+										</p>
+									</div>
+								</div>
 
-                            <!-- Migration Error -->
-                            {#if migrationError}
-                                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                                    <span class="block sm:inline">{migrationError}</span>
-                                </div>
-                            {/if}
+								<!-- Delete Source Organization -->
+								<div class="flex items-start">
+									<input
+										type="checkbox"
+										id="delete_source"
+										bind:checked={migrationDeleteSource}
+										disabled={isMigrating}
+										class="text-brand focus:ring-brand mt-1 mr-3 h-4 w-4 rounded border-gray-300"
+									/>
+									<div class="flex-1">
+										<label
+											for="delete_source"
+											class="block cursor-pointer text-sm font-medium text-gray-700"
+										>
+											{localeLoaded
+												? $_('admin.organizations.migration.deleteSource', {
+														default: 'Delete source organization after migration'
+													})
+												: 'Delete source organization after migration'}
+										</label>
+										<p class="mt-1 text-xs text-gray-500">
+											{localeLoaded
+												? $_('admin.organizations.migration.deleteSourceHint', {
+														default:
+															'If checked, the source organization will be permanently deleted after successful migration. This action cannot be undone.'
+													})
+												: 'If checked, the source organization will be permanently deleted after successful migration. This action cannot be undone.'}
+										</p>
+									</div>
+								</div>
+							</div>
 
-                            <!-- Action Buttons -->
-                            <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t">
-                                <button 
-                                    type="button"
-                                    onclick={closeMigrationModal}
-                                    disabled={isMigrating}
-                                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
-                                >
-                                    {localeLoaded ? $_('admin.organizations.migration.cancel', { default: 'Cancel' }) : 'Cancel'}
-                                </button>
-                                <button 
-                                    type="button"
-                                    onclick={executeMigration}
-                                    disabled={isMigrating || !migrationValidationResult?.can_migrate}
-                                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isMigrating 
-                                        ? (localeLoaded ? $_('admin.organizations.migration.migrating', { default: 'Migrating...' }) : 'Migrating...') 
-                                        : (localeLoaded ? $_('admin.organizations.migration.execute', { default: 'Execute Migration' }) : 'Execute Migration')}
-                                </button>
-                            </div>
-                        {/if}
-                    </div>
-                {/if}
-            </div>
-        </div>
-    </div>
+							<!-- Migration Error -->
+							{#if migrationError}
+								<div
+									class="relative rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+									role="alert"
+								>
+									<span class="block sm:inline">{migrationError}</span>
+								</div>
+							{/if}
 
-    {:else if currentView === 'lti-settings'}
-        <!-- Global LTI Settings View -->
-        <div class="mb-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-2">LTI Tool Configuration</h2>
-            <p class="text-sm text-gray-600">
-                Use these values when creating an External Tool (LTI 1.1) in your LMS (Moodle, Canvas, etc.).
-            </p>
-        </div>
+							<!-- Action Buttons -->
+							<div class="mt-6 flex items-center justify-end gap-3 border-t pt-4">
+								<button
+									type="button"
+									onclick={closeMigrationModal}
+									disabled={isMigrating}
+									class="focus:shadow-outline rounded bg-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-400 focus:outline-none disabled:opacity-50"
+								>
+									{localeLoaded
+										? $_('admin.organizations.migration.cancel', { default: 'Cancel' })
+										: 'Cancel'}
+								</button>
+								<button
+									type="button"
+									onclick={executeMigration}
+									disabled={isMigrating || !migrationValidationResult?.can_migrate}
+									class="focus:shadow-outline rounded bg-purple-600 px-4 py-2 font-bold text-white hover:bg-purple-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+								>
+									{isMigrating
+										? localeLoaded
+											? $_('admin.organizations.migration.migrating', { default: 'Migrating...' })
+											: 'Migrating...'
+										: localeLoaded
+											? $_('admin.organizations.migration.execute', {
+													default: 'Execute Migration'
+												})
+											: 'Execute Migration'}
+								</button>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+{:else if currentView === 'lti-settings'}
+	<!-- Global LTI Settings View -->
+	<div class="mb-6">
+		<h2 class="mb-2 text-xl font-semibold text-gray-800">LTI Tool Configuration</h2>
+		<p class="text-sm text-gray-600">
+			Use these values when creating an External Tool (LTI 1.1) in your LMS (Moodle, Canvas, etc.).
+		</p>
+	</div>
 
-        {#if isLoadingLtiGlobal}
-            <div class="bg-white overflow-hidden shadow rounded-lg p-8">
-                <div class="flex items-center justify-center">
-                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-brand mr-3"></div>
-                    <span class="text-gray-500">Loading LTI configuration...</span>
-                </div>
-            </div>
-        {:else}
-            <!-- Error Message -->
-            {#if ltiGlobalError}
-                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">Error: </strong>
-                    <span class="block sm:inline">{ltiGlobalError}</span>
-                </div>
-            {/if}
+	{#if isLoadingLtiGlobal}
+		<div class="overflow-hidden rounded-lg bg-white p-8 shadow">
+			<div class="flex items-center justify-center">
+				<div
+					class="border-brand mr-3 inline-block h-6 w-6 animate-spin rounded-full border-b-2"
+				></div>
+				<span class="text-gray-500">Loading LTI configuration...</span>
+			</div>
+		</div>
+	{:else}
+		<!-- Error Message -->
+		{#if ltiGlobalError}
+			<div
+				class="relative mb-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+				role="alert"
+			>
+				<strong class="font-bold">Error: </strong>
+				<span class="block sm:inline">{ltiGlobalError}</span>
+			</div>
+		{/if}
 
-            <!-- Success Message -->
-            {#if ltiGlobalSuccess}
-                <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">Success! </strong>
-                    <span class="block sm:inline">{ltiGlobalSuccess}</span>
-                </div>
-            {/if}
+		<!-- Success Message -->
+		{#if ltiGlobalSuccess}
+			<div
+				class="relative mb-4 rounded border border-green-400 bg-green-100 px-4 py-3 text-green-700"
+				role="alert"
+			>
+				<strong class="font-bold">Success! </strong>
+				<span class="block sm:inline">{ltiGlobalSuccess}</span>
+			</div>
+		{/if}
 
-            <!-- ===== LMS Setup Information ===== -->
-            <div class="bg-white overflow-hidden shadow rounded-lg mb-6">
-                <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-1">LMS Setup Information</h3>
-                    <p class="text-sm text-gray-500 mb-5">Copy these three values into your LMS External Tool configuration.</p>
+		<!-- ===== LMS Setup Information ===== -->
+		<div class="mb-6 overflow-hidden rounded-lg bg-white shadow">
+			<div class="px-4 py-5 sm:p-6">
+				<h3 class="mb-1 text-lg leading-6 font-medium text-gray-900">LMS Setup Information</h3>
+				<p class="mb-5 text-sm text-gray-500">
+					Copy these three values into your LMS External Tool configuration.
+				</p>
 
-                    <!-- Launch URL -->
-                    <div class="mb-5">
-                        <label for="lti-launch-url" class="block text-sm font-medium text-gray-700 mb-1">Launch URL</label>
-                        <div class="flex items-center gap-2">
-                            <input
-                                id="lti-launch-url"
-                                type="text"
-                                readonly
-                                value={ltiLaunchUrl()}
-                                class="flex-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm font-mono text-gray-900 cursor-text select-all"
-                            >
-                            <button
-                                type="button"
-                                onclick={() => copyToClipboard(ltiLaunchUrl(), 'url')}
-                                class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium {ltiCopied === 'url' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-white text-gray-700 hover:bg-gray-50'} transition-colors"
-                            >
-                                {#if ltiCopied === 'url'}
-                                    <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                                    Copied
-                                {:else}
-                                    <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                    Copy
-                                {/if}
-                            </button>
-                        </div>
-                        <p class="mt-1 text-xs text-gray-500">This is the URL the LMS sends the LTI launch POST to.</p>
-                    </div>
+				<!-- Launch URL -->
+				<div class="mb-5">
+					<label for="lti-launch-url" class="mb-1 block text-sm font-medium text-gray-700"
+						>Launch URL</label
+					>
+					<div class="flex items-center gap-2">
+						<input
+							id="lti-launch-url"
+							type="text"
+							readonly
+							value={ltiLaunchUrl()}
+							class="flex-1 cursor-text rounded-md border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-900 shadow-sm select-all"
+						/>
+						<button
+							type="button"
+							onclick={() => copyToClipboard(ltiLaunchUrl(), 'url')}
+							class="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium {ltiCopied ===
+							'url'
+								? 'border-green-300 bg-green-50 text-green-700'
+								: 'bg-white text-gray-700 hover:bg-gray-50'} transition-colors"
+						>
+							{#if ltiCopied === 'url'}
+								<svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M5 13l4 4L19 7"
+									/></svg
+								>
+								Copied
+							{:else}
+								<svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+									/></svg
+								>
+								Copy
+							{/if}
+						</button>
+					</div>
+					<p class="mt-1 text-xs text-gray-500">
+						This is the URL the LMS sends the LTI launch POST to.
+					</p>
+				</div>
 
-                    <!-- Consumer Key (read-only display) -->
-                    <div class="mb-5">
-                        <label for="lti-display-key" class="block text-sm font-medium text-gray-700 mb-1">Consumer Key</label>
-                        <div class="flex items-center gap-2">
-                            <input
-                                id="lti-display-key"
-                                type="text"
-                                readonly
-                                value={ltiGlobalConfig.oauth_consumer_key || '(not set)'}
-                                class="flex-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm font-mono text-gray-900 cursor-text select-all"
-                            >
-                            <button
-                                type="button"
-                                onclick={() => copyToClipboard(ltiGlobalConfig.oauth_consumer_key || '', 'key')}
-                                class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium {ltiCopied === 'key' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-white text-gray-700 hover:bg-gray-50'} transition-colors"
-                                disabled={!ltiGlobalConfig.oauth_consumer_key}
-                            >
-                                {#if ltiCopied === 'key'}
-                                    <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                                    Copied
-                                {:else}
-                                    <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                    Copy
-                                {/if}
-                            </button>
-                        </div>
-                    </div>
+				<!-- Consumer Key (read-only display) -->
+				<div class="mb-5">
+					<label for="lti-display-key" class="mb-1 block text-sm font-medium text-gray-700"
+						>Consumer Key</label
+					>
+					<div class="flex items-center gap-2">
+						<input
+							id="lti-display-key"
+							type="text"
+							readonly
+							value={ltiGlobalConfig.oauth_consumer_key || '(not set)'}
+							class="flex-1 cursor-text rounded-md border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-900 shadow-sm select-all"
+						/>
+						<button
+							type="button"
+							onclick={() => copyToClipboard(ltiGlobalConfig.oauth_consumer_key || '', 'key')}
+							class="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium {ltiCopied ===
+							'key'
+								? 'border-green-300 bg-green-50 text-green-700'
+								: 'bg-white text-gray-700 hover:bg-gray-50'} transition-colors"
+							disabled={!ltiGlobalConfig.oauth_consumer_key}
+						>
+							{#if ltiCopied === 'key'}
+								<svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M5 13l4 4L19 7"
+									/></svg
+								>
+								Copied
+							{:else}
+								<svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+									/></svg
+								>
+								Copy
+							{/if}
+						</button>
+					</div>
+				</div>
 
-                    <!-- Secret Status (read-only display) -->
-                    <div>
-                        <p class="block text-sm font-medium text-gray-700 mb-1">Shared Secret</p>
-                        <div class="flex items-center gap-3">
-                            {#if ltiHasSecret}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    <svg class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                                    Configured ({ltiGlobalConfig.oauth_consumer_secret_masked})
-                                </span>
-                            {:else}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                    <svg class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-                                    Not set — configure below
-                                </span>
-                            {/if}
-                            <span class="text-xs text-gray-500">
-                                Source: {ltiGlobalConfig.source === 'database' ? 'Database' : '.env file'}
-                                {#if ltiGlobalConfig.updated_at}
-                                    &middot; Updated {new Date(ltiGlobalConfig.updated_at * 1000).toLocaleDateString()}
-                                {/if}
-                            </span>
-                        </div>
-                        <p class="mt-1.5 text-xs text-gray-500">
-                            The secret is never displayed in full. Enter it in your LMS exactly as configured below.
-                        </p>
-                    </div>
-                </div>
-            </div>
+				<!-- Secret Status (read-only display) -->
+				<div>
+					<p class="mb-1 block text-sm font-medium text-gray-700">Shared Secret</p>
+					<div class="flex items-center gap-3">
+						{#if ltiHasSecret}
+							<span
+								class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800"
+							>
+								<svg class="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+									/></svg
+								>
+								Configured ({ltiGlobalConfig.oauth_consumer_secret_masked})
+							</span>
+						{:else}
+							<span
+								class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800"
+							>
+								<svg class="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+									/></svg
+								>
+								Not set — configure below
+							</span>
+						{/if}
+						<span class="text-xs text-gray-500">
+							Source: {ltiGlobalConfig.source === 'database' ? 'Database' : '.env file'}
+							{#if ltiGlobalConfig.updated_at}
+								&middot; Updated {new Date(ltiGlobalConfig.updated_at * 1000).toLocaleDateString()}
+							{/if}
+						</span>
+					</div>
+					<p class="mt-1.5 text-xs text-gray-500">
+						The secret is never displayed in full. Enter it in your LMS exactly as configured below.
+					</p>
+				</div>
+			</div>
+		</div>
 
-            <!-- ===== Edit Credentials ===== -->
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-1">Edit LTI Credentials</h3>
-                    <p class="text-sm text-gray-500 mb-5">
-                        Change the consumer key or secret. Saving stores them in the database and overrides any <code class="text-xs bg-gray-100 px-1 rounded">.env</code> values.
-                    </p>
+		<!-- ===== Edit Credentials ===== -->
+		<div class="overflow-hidden rounded-lg bg-white shadow">
+			<div class="px-4 py-5 sm:p-6">
+				<h3 class="mb-1 text-lg leading-6 font-medium text-gray-900">Edit LTI Credentials</h3>
+				<p class="mb-5 text-sm text-gray-500">
+					Change the consumer key or secret. Saving stores them in the database and overrides any <code
+						class="rounded bg-gray-100 px-1 text-xs">.env</code
+					> values.
+				</p>
 
-                    <div class="space-y-4">
-                        <!-- Consumer Key -->
-                        <div>
-                            <label for="lti-global-key" class="block text-sm font-medium text-gray-700">OAuth Consumer Key</label>
-                            <input
-                                id="lti-global-key"
-                                type="text"
-                                bind:value={ltiGlobalForm.consumer_key}
-                                placeholder="e.g., lamb"
-                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
-                            >
-                            <p class="mt-1 text-xs text-gray-500">The LMS sends this as <code>oauth_consumer_key</code>. Must match on both sides.</p>
-                        </div>
+				<div class="space-y-4">
+					<!-- Consumer Key -->
+					<div>
+						<label for="lti-global-key" class="block text-sm font-medium text-gray-700"
+							>OAuth Consumer Key</label
+						>
+						<input
+							id="lti-global-key"
+							type="text"
+							bind:value={ltiGlobalForm.consumer_key}
+							placeholder="e.g., lamb"
+							class="focus:ring-brand focus:border-brand mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:outline-none sm:text-sm"
+						/>
+						<p class="mt-1 text-xs text-gray-500">
+							The LMS sends this as <code>oauth_consumer_key</code>. Must match on both sides.
+						</p>
+					</div>
 
-                        <!-- Consumer Secret -->
-                        <div>
-                            <label for="lti-global-secret" class="block text-sm font-medium text-gray-700">
-                                OAuth Shared Secret
-                            </label>
-                            <div class="relative mt-1">
-                                <input
-                                    id="lti-global-secret"
-                                    type={showLtiSecret && ltiGlobalForm.consumer_secret ? 'text' : 'password'}
-                                    bind:value={ltiGlobalForm.consumer_secret}
-                                    placeholder={ltiHasSecret ? '••••••••  (leave blank to keep current)' : 'Enter a strong secret key'}
-                                    class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 {ltiGlobalForm.consumer_secret ? 'pr-10' : ''} focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
-                                >
-                                {#if ltiGlobalForm.consumer_secret}
-                                    <button
-                                        type="button"
-                                        onclick={() => showLtiSecret = !showLtiSecret}
-                                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                                        title={showLtiSecret ? 'Hide secret' : 'Show secret'}
-                                    >
-                                        {#if showLtiSecret}
-                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-                                        {:else}
-                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                        {/if}
-                                    </button>
-                                {/if}
-                            </div>
-                            <p class="mt-1 text-xs text-gray-500">Used to sign and verify LTI launch requests (HMAC-SHA1). Must match in the LMS.</p>
-                        </div>
+					<!-- Consumer Secret -->
+					<div>
+						<label for="lti-global-secret" class="block text-sm font-medium text-gray-700">
+							OAuth Shared Secret
+						</label>
+						<div class="relative mt-1">
+							<input
+								id="lti-global-secret"
+								type={showLtiSecret && ltiGlobalForm.consumer_secret ? 'text' : 'password'}
+								bind:value={ltiGlobalForm.consumer_secret}
+								placeholder={ltiHasSecret
+									? '••••••••  (leave blank to keep current)'
+									: 'Enter a strong secret key'}
+								class="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm {ltiGlobalForm.consumer_secret
+									? 'pr-10'
+									: ''} focus:ring-brand focus:border-brand focus:outline-none sm:text-sm"
+							/>
+							{#if ltiGlobalForm.consumer_secret}
+								<button
+									type="button"
+									onclick={() => (showLtiSecret = !showLtiSecret)}
+									class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+									title={showLtiSecret ? 'Hide secret' : 'Show secret'}
+								>
+									{#if showLtiSecret}
+										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+											><path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+											/></svg
+										>
+									{:else}
+										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+											><path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+											/><path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+											/></svg
+										>
+									{/if}
+								</button>
+							{/if}
+						</div>
+						<p class="mt-1 text-xs text-gray-500">
+							Used to sign and verify LTI launch requests (HMAC-SHA1). Must match in the LMS.
+						</p>
+					</div>
 
-                        <!-- Action Buttons -->
-                        <div class="flex items-center pt-4 border-t border-gray-200">
-                            <button
-                                class="text-white font-semibold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors {ltiGlobalDirty ? 'bg-brand hover:bg-brand-hover' : 'bg-gray-300 cursor-not-allowed'}"
-                                onclick={saveLtiGlobalConfig}
-                                disabled={!ltiGlobalDirty}
-                            >
-                                Save LTI Configuration
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+					<!-- Action Buttons -->
+					<div class="flex items-center border-t border-gray-200 pt-4">
+						<button
+							class="focus:shadow-outline rounded px-4 py-2 font-semibold text-white transition-colors focus:outline-none {ltiGlobalDirty
+								? 'bg-brand hover:bg-brand-hover'
+								: 'cursor-not-allowed bg-gray-300'}"
+							onclick={saveLtiGlobalConfig}
+							disabled={!ltiGlobalDirty}
+						>
+							Save LTI Configuration
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
 
-            <!-- ===== How it works ===== -->
-            <div class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded">
-                <h4 class="text-sm font-semibold text-blue-800 mb-2">How the Unified LTI Endpoint Works</h4>
-                <ol class="text-xs text-blue-700 space-y-1.5 list-decimal list-inside">
-                    <li>In your LMS, create a new <strong>External Tool (LTI 1.1)</strong>.</li>
-                    <li>Paste the <strong>Launch URL</strong>, <strong>Consumer Key</strong>, and <strong>Secret</strong> from above.</li>
-                    <li>When an <strong>instructor</strong> launches the tool for the first time, they choose which assistants to assign.</li>
-                    <li>Subsequent <strong>student</strong> launches go directly to Open WebUI with those assistants available.</li>
-                </ol>
-            </div>
-        {/if}
-
-    {:else if currentView === 'cost-management'}
-        <!-- Cost Management View -->
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h1 class="text-2xl font-semibold text-gray-800">{localeLoaded ? $_('admin.costManagement.title', { default: 'Cost Management' }) : 'Cost Management'}</h1>
-                <p class="text-sm text-gray-500 mt-1">{localeLoaded ? $_('admin.costManagement.subtitle', { default: 'Token usage and estimated cost per assistant across the platform.' }) : 'Token usage and estimated cost per assistant across the platform.'}</p>
-            </div>
-            <button
-                onclick={fetchCostData}
-                class="inline-flex items-center gap-2 bg-brand text-white py-2 px-4 rounded hover:bg-brand/90 transition-colors text-sm"
-                disabled={isLoadingCostData}
-            >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {localeLoaded ? $_('admin.costManagement.retry', { default: 'Retry' }) : 'Refresh'}
-            </button>
-        </div>
-
-        {#if isLoadingCostData}
-            <div class="bg-white overflow-hidden shadow rounded-lg p-8">
-                <div class="flex items-center justify-center">
-                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-brand mr-3"></div>
-                    <span class="text-gray-500">{localeLoaded ? $_('admin.costManagement.loading', { default: 'Loading usage data...' }) : 'Loading usage data...'}</span>
-                </div>
-            </div>
-        {:else if costDataError}
-            <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                <strong class="font-bold">{localeLoaded ? $_('admin.costManagement.errorTitle', { default: 'Error:' }) : 'Error:'} </strong>
-                <span>{costDataError}</span>
-                <button onclick={fetchCostData} class="ml-4 underline text-sm">{localeLoaded ? $_('admin.costManagement.retry', { default: 'Retry' }) : 'Retry'}</button>
-            </div>
-        {:else}
-            <!-- Summary cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <div class="bg-white rounded-lg shadow p-4">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Estimated Cost</p>
-                    <p class="text-2xl font-bold text-gray-800">${costTotals.total_cost.toFixed(4)}</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-4">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Tokens</p>
-                    <p class="text-2xl font-bold text-gray-800">{costTotals.total_tokens.toLocaleString()}</p>
-                    <p class="text-xs text-gray-400 mt-0.5">Prompt: {costTotals.prompt_tokens.toLocaleString()} · Completion: {costTotals.completion_tokens.toLocaleString()}</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-4">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Assistants</p>
-                    <p class="text-2xl font-bold text-gray-800">{costData.length}</p>
-                    <p class="text-xs text-gray-400 mt-0.5">{costData.filter(a => a.quota_exceeded).length} quota exceeded</p>
-                </div>
-            </div>
-
-            <!-- Search filter -->
-            <div class="mb-4">
-                <input
-                    type="text"
-                    bind:value={costSearch}
-                    placeholder="Search by assistant name, owner, organization or model..."
-                    class="w-full sm:w-80 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                />
-            </div>
-
-            {#if filteredCostData.length === 0}
-                <div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-                    {costData.length === 0
-                        ? (localeLoaded ? $_('admin.costManagement.noData', { default: 'No assistants found.' }) : 'No assistants found.')
-                        : 'No assistants match your search.'}
-                </div>
-            {:else}
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.assistant', { default: 'Assistant' }) : 'Assistant'}
-                                    </th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.organization', { default: 'Organization' }) : 'Organization'}
-                                    </th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.model', { default: 'Model' }) : 'Model'}
-                                    </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.promptTokens', { default: 'Prompt Tokens' }) : 'Prompt Tokens'}
-                                    </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.completionTokens', { default: 'Completion Tokens' }) : 'Completion Tokens'}
-                                    </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.cost', { default: 'Estimated Cost' }) : 'Estimated Cost'}
-                                    </th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.quota', { default: 'Quota' }) : 'Quota'}
-                                    </th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {localeLoaded ? $_('admin.costManagement.table.status', { default: 'Status' }) : 'Status'}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                {#each filteredCostData as assistant (assistant.id)}
-                                    <tr
-                                        class="cursor-pointer hover:bg-blue-50 {assistant.quota_exceeded ? 'bg-red-50 hover:bg-red-100' : ''}"
-                                        onclick={() => openQuotaEditModal(assistant)}
-                                        title="Click to edit quota"
-                                    >
-                                        <td class="px-4 py-3">
-                                            <div class="font-medium text-gray-900">{assistant.name}</div>
-                                            <div class="text-xs text-gray-400">{assistant.owner}</div>
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-600">{assistant.organization_name || '—'}</td>
-                                        <td class="px-4 py-3">
-                                            {#if assistant.model_name}
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{assistant.model_name}</span>
-                                            {:else}
-                                                <span class="text-gray-400">—</span>
-                                            {/if}
-                                        </td>
-                                        <td class="px-4 py-3 text-right tabular-nums text-gray-600">{assistant.prompt_tokens.toLocaleString()}</td>
-                                        <td class="px-4 py-3 text-right tabular-nums text-gray-600">{assistant.completion_tokens.toLocaleString()}</td>
-                                        <td class="px-4 py-3 text-right tabular-nums font-medium {assistant.cost_usd > 0 ? 'text-gray-800' : 'text-gray-400'}">
-                                            ${assistant.cost_usd.toFixed(4)}
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            {#if !assistant.quota_enabled}
-                                                <span class="text-xs text-gray-400">{localeLoaded ? $_('admin.costManagement.quota.noQuota', { default: 'No quota' }) : 'No quota'}</span>
-                                            {:else if assistant.cost_limit_usd != null}
-                                                {@const tablePct = (assistant.cost_usd / assistant.cost_limit_usd) * 100}
-                                                {@const hasAlert = assistant.alert_thresholds && assistant.alert_thresholds.some(t => t <= tablePct)}
-                                                <span class="text-xs text-gray-600">${assistant.cost_limit_usd.toFixed(2)}</span>
-                                                <div class="mt-1 w-full bg-gray-200 rounded-full h-1.5">
-                                                    <div
-                                                        class="h-1.5 rounded-full {assistant.quota_exceeded ? 'bg-red-500' : hasAlert ? 'bg-yellow-400' : 'bg-green-500'}"
-                                                        style="width: {Math.min(100, tablePct).toFixed(1)}%"
-                                                    ></div>
-                                                </div>
-                                                <div class="text-xs text-gray-400 mt-0.5">{((assistant.cost_usd / assistant.cost_limit_usd) * 100).toFixed(1)}% used</div>
-                                            {/if}
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            {#if assistant.quota_exceeded}
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                                                    {localeLoaded ? $_('admin.costManagement.quota.exceeded', { default: 'Exceeded' }) : 'Exceeded'}
-                                                </span>
-                                            {:else if assistant.quota_enabled}
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                                    {localeLoaded ? $_('admin.costManagement.quota.active', { default: 'Active' }) : 'Active'}
-                                                </span>
-                                            {:else}
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                                                    {localeLoaded ? $_('admin.costManagement.quota.disabled', { default: 'Disabled' }) : 'No quota'}
-                                                </span>
-                                            {/if}
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            {/if}
-        {/if}
-
-    {:else if currentView === 'user-detail'}
-        <!-- User Detail / Profile View -->
-        <div class="mb-4">
-            <button
-                onclick={showUsers}
-                class="inline-flex items-center text-sm text-brand hover:text-brand/80 font-medium gap-1"
-            >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                {localeLoaded ? $_('admin.users.backToList', { default: 'Back to Users' }) : 'Back to Users'}
-            </button>
-        </div>
-        <UserDashboard
-            profile={userDetailProfile}
-            isLoading={isLoadingUserDetail}
-            error={userDetailError}
-            onRetry={() => { if (userDetailId) fetchUserDetail(userDetailId); }}
-        />
-    {/if}
+		<!-- ===== How it works ===== -->
+		<div class="mt-6 rounded border-l-4 border-blue-400 bg-blue-50 p-4">
+			<h4 class="mb-2 text-sm font-semibold text-blue-800">How the Unified LTI Endpoint Works</h4>
+			<ol class="list-inside list-decimal space-y-1.5 text-xs text-blue-700">
+				<li>In your LMS, create a new <strong>External Tool (LTI 1.1)</strong>.</li>
+				<li>
+					Paste the <strong>Launch URL</strong>, <strong>Consumer Key</strong>, and
+					<strong>Secret</strong> from above.
+				</li>
+				<li>
+					When an <strong>instructor</strong> launches the tool for the first time, they choose which
+					assistants to assign.
+				</li>
+				<li>
+					Subsequent <strong>student</strong> launches go directly to Open WebUI with those assistants
+					available.
+				</li>
+			</ol>
+		</div>
+	{/if}
+{:else if currentView === 'cost-management'}
+	<CostManagementPanel {localeLoaded} />
+{:else if currentView === 'user-detail'}
+	<!-- User Detail / Profile View -->
+	<div class="mb-4">
+		<button
+			onclick={showUsers}
+			class="text-brand hover:text-brand/80 inline-flex items-center gap-1 text-sm font-medium"
+		>
+			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+			</svg>
+			{localeLoaded ? $_('admin.users.backToList', { default: 'Back to Users' }) : 'Back to Users'}
+		</button>
+	</div>
+	<UserDashboard
+		profile={userDetailProfile}
+		isLoading={isLoadingUserDetail}
+		error={userDetailError}
+		onRetry={() => {
+			if (userDetailId) fetchUserDetail(userDetailId);
+		}}
+	/>
+{/if}
 
 <!-- Organization Members & Roles Modal -->
 {#if isMembersModalOpen && membersModalOrg}
@@ -3214,124 +3733,175 @@
                 </button>
             </div>
 
-            {#if roleUpdateSuccess}
-                <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded text-sm">
-                    {roleUpdateSuccess}
-                </div>
-            {/if}
+			{#if roleUpdateSuccess}
+				<div
+					class="mb-4 rounded border border-green-400 bg-green-100 px-4 py-2 text-sm text-green-700"
+				>
+					{roleUpdateSuccess}
+				</div>
+			{/if}
 
-            {#if membersError}
-                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded text-sm">
-                    {membersError}
-                </div>
-            {/if}
+			{#if membersError}
+				<div class="mb-4 rounded border border-red-400 bg-red-100 px-4 py-2 text-sm text-red-700">
+					{membersError}
+				</div>
+			{/if}
 
-            {#if isLoadingMembers}
-                <div class="text-center py-8 text-gray-500">Loading members...</div>
-            {:else if orgMembers.length === 0}
-                <div class="text-center py-8">
-                    <p class="text-gray-500">No members in this organization.</p>
-                    <p class="text-gray-400 text-sm mt-2">Users can join via signup or be assigned by a system admin.</p>
-                </div>
-            {:else}
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {#each orgMembers as member (member.id)}
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-4 py-3">
-                                        <div class="text-sm font-medium text-gray-900">{member.name || '-'}</div>
-                                        <div class="text-xs text-gray-500">{member.email}</div>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        {#if member.auth_provider === 'lti_creator'}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">LTI Creator</span>
-                                        {:else}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Creator</span>
-                                        {/if}
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        {#if member.role === 'admin'}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Admin</span>
-                                        {:else}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Member</span>
-                                        {/if}
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        {#if member.enabled}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
-                                        {:else}
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Disabled</span>
-                                        {/if}
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        {#if member.role === 'admin'}
-                                            <button
-                                                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors disabled:opacity-50"
-                                                title="Demote to Member"
-                                                disabled={isUpdatingRole}
-                                                onclick={() => updateMemberRole(member.id, 'member')}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-                                                </svg>
-                                                Demote
-                                            </button>
-                                        {:else}
-                                            <button
-                                                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded transition-colors disabled:opacity-50"
-                                                title="Promote to Admin"
-                                                disabled={isUpdatingRole}
-                                                onclick={() => updateMemberRole(member.id, 'admin')}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
-                                                </svg>
-                                                Promote
-                                            </button>
-                                        {/if}
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </div>
-                <p class="mt-3 text-xs text-gray-500 italic">
-                    Any user, including LTI Creator users, can be promoted to organization admin.
-                </p>
-            {/if}
+			{#if isLoadingMembers}
+				<div class="py-8 text-center text-gray-500">Loading members...</div>
+			{:else if orgMembers.length === 0}
+				<div class="py-8 text-center">
+					<p class="text-gray-500">No members in this organization.</p>
+					<p class="mt-2 text-sm text-gray-400">
+						Users can join via signup or be assigned by a system admin.
+					</p>
+				</div>
+			{:else}
+				<div class="overflow-x-auto">
+					<table class="min-w-full divide-y divide-gray-200">
+						<thead class="bg-gray-50">
+							<tr>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th
+								>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th
+								>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th
+								>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+									>Status</th
+								>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+									>Actions</th
+								>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-gray-200 bg-white">
+							{#each orgMembers as member (member.id)}
+								<tr class="hover:bg-gray-50">
+									<td class="px-4 py-3">
+										<div class="text-sm font-medium text-gray-900">{member.name || '-'}</div>
+										<div class="text-xs text-gray-500">{member.email}</div>
+									</td>
+									<td class="px-4 py-3">
+										{#if member.auth_provider === 'lti_creator'}
+											<span
+												class="inline-flex rounded-full bg-blue-100 px-2 text-xs leading-5 font-semibold text-blue-800"
+												>LTI Creator</span
+											>
+										{:else}
+											<span
+												class="inline-flex rounded-full bg-green-100 px-2 text-xs leading-5 font-semibold text-green-800"
+												>Creator</span
+											>
+										{/if}
+									</td>
+									<td class="px-4 py-3">
+										{#if member.role === 'admin'}
+											<span
+												class="inline-flex rounded-full bg-purple-100 px-2 text-xs leading-5 font-semibold text-purple-800"
+												>Admin</span
+											>
+										{:else}
+											<span
+												class="inline-flex rounded-full bg-gray-100 px-2 text-xs leading-5 font-semibold text-gray-800"
+												>Member</span
+											>
+										{/if}
+									</td>
+									<td class="px-4 py-3">
+										{#if member.enabled}
+											<span
+												class="inline-flex rounded-full bg-green-100 px-2 text-xs leading-5 font-semibold text-green-800"
+												>Active</span
+											>
+										{:else}
+											<span
+												class="inline-flex rounded-full bg-red-100 px-2 text-xs leading-5 font-semibold text-red-800"
+												>Disabled</span
+											>
+										{/if}
+									</td>
+									<td class="px-4 py-3">
+										{#if member.role === 'admin'}
+											<button
+												class="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+												title="Demote to Member"
+												disabled={isUpdatingRole}
+												onclick={() => updateMemberRole(member.id, 'member')}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="1.5"
+													stroke="currentColor"
+													class="h-3.5 w-3.5"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"
+													/>
+												</svg>
+												Demote
+											</button>
+										{:else}
+											<button
+												class="inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+												title="Promote to Admin"
+												disabled={isUpdatingRole}
+												onclick={() => updateMemberRole(member.id, 'admin')}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="1.5"
+													stroke="currentColor"
+													class="h-3.5 w-3.5"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"
+													/>
+												</svg>
+												Promote
+											</button>
+										{/if}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+				<p class="mt-3 text-xs text-gray-500 italic">
+					Any user, including LTI Creator users, can be promoted to organization admin.
+				</p>
+			{/if}
 
-            <div class="mt-4 flex justify-end">
-                <button 
-                    onclick={closeMembersModal}
-                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded transition-colors"
-                >
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
+			<div class="mt-4 flex justify-end">
+				<button
+					onclick={closeMembersModal}
+					class="rounded bg-gray-300 px-4 py-2 text-gray-800 transition-colors hover:bg-gray-400"
+				>
+					Close
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <!-- Delete Organization Confirmation Modal -->
 <ConfirmationModal
-    bind:isOpen={showDeleteOrgModal}
-    bind:isLoading={isDeletingOrg}
-    title="Delete Organization"
-    message={`Are you sure you want to delete organization '${orgToDelete}'? This action cannot be undone and will remove all associated data.`}
-    confirmText="Delete"
-    variant="danger"
-    onconfirm={confirmDeleteOrganization}
-    oncancel={cancelDeleteOrganization}
+	bind:isOpen={showDeleteOrgModal}
+	bind:isLoading={isDeletingOrg}
+	title="Delete Organization"
+	message={`Are you sure you want to delete organization '${orgToDelete}'? This action cannot be undone and will remove all associated data.`}
+	confirmText="Delete"
+	variant="danger"
+	onconfirm={confirmDeleteOrganization}
+	oncancel={cancelDeleteOrganization}
 />
 
 <!-- Quota Edit Modal -->
@@ -3515,6 +4085,15 @@
     </div>
 {/if}
 
+<!-- Notification Modal (replaces browser alert() dialogs) -->
+<NotificationModal
+	bind:isOpen={notification.isOpen}
+	title={notification.title}
+	message={notification.message}
+	variant={notification.variant}
+	onclose={() => { notification.isOpen = false; }}
+/>
+
 <style>
-    /* Add specific styles if needed, though Tailwind should cover most */
-</style> 
+	/* Add specific styles if needed, though Tailwind should cover most */
+</style>
