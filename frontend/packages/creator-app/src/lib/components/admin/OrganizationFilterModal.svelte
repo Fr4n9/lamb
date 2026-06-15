@@ -18,8 +18,7 @@
 		isSearching = true;
 		searchError = null;
 		try {
-			const token = $user?.token;
-			const data = await searchOrganizations(token, searchQuery);
+			const data = await searchOrganizations(searchQuery);
 			searchResults = data.organizations || [];
 		} catch (e) {
 			searchError = e?.message || 'Unknown error';

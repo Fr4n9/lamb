@@ -73,8 +73,7 @@
 		orgFilterActive = true;
 		showOrgFilterModal = false;
 		try {
-			const token = getAuthToken();
-			const resp = await fetchCostSummaryByOrg(token, org.id);
+			const resp = await fetchCostSummaryByOrg(org.id);
 			orgSummary = resp.summary;
 		} catch (e) {
 			console.error('Failed to fetch org summary:', e);

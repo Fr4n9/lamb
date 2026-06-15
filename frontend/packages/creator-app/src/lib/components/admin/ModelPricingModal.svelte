@@ -44,8 +44,7 @@
 		isLoading = true;
 		error = null;
 		try {
-			const token = $user?.token;
-			const data = await fetchModelPricing(token);
+			const data = await fetchModelPricing();
 			pricingList = data.pricing || [];
 		} catch (e) {
 			error = e?.message || 'Unknown error';
@@ -58,8 +57,7 @@
 		if (!newModel.trim() || !newInput || !newOutput) return;
 		isSaving = true;
 		try {
-			const token = $user?.token;
-			await createModelPricing(token, {
+			await createModelPricing({
 				provider: newProvider,
 				model_name: newModel.trim(),
 				input_per_1m: parseFloat(newInput),
@@ -99,8 +97,7 @@
 	async function saveEdit() {
 		if (!editingId || !editInput || !editOutput) return;
 		try {
-			const token = $user?.token;
-			await updateModelPricing(token, editingId, {
+			await updateModelPricing(editingId, {
 				input_per_1m: parseFloat(editInput),
 				cache_read_per_1m: editCachedInput ? parseFloat(editCachedInput) : null,
 				cache_write_per_1m: editCacheWrite ? parseFloat(editCacheWrite) : null,
@@ -118,8 +115,7 @@
 	async function confirmDelete() {
 		if (!deleteTarget) return;
 		try {
-			const token = $user?.token;
-			await deleteModelPricing(token, deleteTarget);
+			await deleteModelPricing(deleteTarget);
 			toast.success('Pricing deleted');
 			deleteTarget = null;
 			await loadPricing();

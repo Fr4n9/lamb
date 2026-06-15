@@ -69,7 +69,7 @@ describe('ModelPricingModal', () => {
 		await fireEvent.click(saveButtons[0]);
 
 		await waitFor(() => {
-			expect(updateModelPricing).toHaveBeenCalledWith('tok', 1, expect.objectContaining({
+			expect(updateModelPricing).toHaveBeenCalledWith(1, expect.objectContaining({
 				input_per_1m: expect.any(Number),
 				output_per_1m: expect.any(Number)
 			}));

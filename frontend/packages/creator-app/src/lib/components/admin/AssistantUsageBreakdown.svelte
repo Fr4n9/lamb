@@ -16,8 +16,7 @@
 		isLoading = true;
 		error = null;
 		try {
-			const token = $user?.token;
-			const data = await fetchAssistantUsageByModel(token, assistantId);
+			const data = await fetchAssistantUsageByModel(assistantId);
 			breakdown = data.breakdown || [];
 		} catch (e) {
 			error = e?.message || 'Unknown error';
