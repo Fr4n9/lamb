@@ -182,6 +182,14 @@
     let ltiHasSecret = $derived(ltiGlobalConfig.oauth_consumer_secret_masked && ltiGlobalConfig.oauth_consumer_secret_masked !== '(not set)');
     let ltiCopied = $state('');
     
+    // --- Notification Modal State ---
+    let notification = $state({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+    
     // Dirty tracking for global LTI settings
     let ltiGlobalDirty = $derived.by(() => {
         if (!ltiHasSecret) {
