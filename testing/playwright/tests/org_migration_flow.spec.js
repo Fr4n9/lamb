@@ -429,13 +429,16 @@ test.describe.serial("Organization Migration Flow", () => {
     const orgDetailBtn = targetRow.getByRole("button", { name: new RegExp(targetOrgName, "i") });
     if (await orgDetailBtn.count()) { await orgDetailBtn.click(); } else { await targetRow.click(); }
 
+    await adminPage.waitForURL(/org-admin/, { timeout: 10_000 });
     await adminPage.waitForLoadState("networkidle");
-    await adminPage.waitForTimeout(1_000);
 
     await expect(adminPage.getByText(/3\s*active/i).first()).toBeVisible({ timeout: 10_000 });
     console.log(`  ✔ Target org shows 3 active users`);
 
-    await expect(adminPage.getByText(/2\s*(published|assistants)/i).first()).toBeVisible({ timeout: 10_000 });
+    const assistantsDt = adminPage.locator('dt').filter({ hasText: /^Assistants$/ });
+    await expect(assistantsDt.first()).toBeVisible({ timeout: 10_000 });
+    const assistantsCount = assistantsDt.locator('xpath=following-sibling::dd').first();
+    await expect(assistantsCount).toHaveText('2', { timeout: 10_000 });
     console.log(`  ✔ Target org shows 2 assistants`);
   });
 
@@ -470,12 +473,13 @@ test.describe.serial("Organization Migration Flow", () => {
 
   test("13. User3: Verify session still valid after migration", async () => {
     // user3Page already has the logged-in session from test 7
-    await user3Page.goto(baseURL);
+    // End_users only have OWI sessions, not LAMB sessions, so we check OWI
+    await user3Page.goto("http://127.0.0.1:8080");
     await user3Page.waitForLoadState("networkidle");
 
     const onLoginPage = await user3Page.locator("#email").isVisible({ timeout: 3_000 }).catch(() => false);
-    expect(onLoginPage, "user3 should still be authenticated after migration").toBe(false);
-    console.log(`  ✔ User3 session still valid. URL: ${user3Page.url()}`);
+    expect(onLoginPage, "user3 should still be authenticated in OWI after migration").toBe(false);
+    console.log(`  ✔ User3 OWI session still valid. URL: ${user3Page.url()}`);
   });
 
   // ═══════════════════════════════════════════════════════════════════

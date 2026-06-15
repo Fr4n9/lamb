@@ -988,12 +988,7 @@
         bulkActionError = null;
         
         try {
-            const token = getAuthToken();
-            if (!token) {
-                throw new Error('Authentication token not found');
-            }
-            
-            const result = await adminService.enableUsersBulk(token, selectedUsers);
+            const result = await adminService.enableUsersBulk(selectedUsers);
             
             if (result.success) {
                 console.log(`Bulk enable: ${result.enabled} users enabled`);

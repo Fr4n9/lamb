@@ -56,7 +56,7 @@
 		try {
 			isLoadingProfile = true;
 			profileError = null;
-			const data = await getMyProfile($user.token);
+			const data = await getMyProfile();
 			if (!isMounted) return;
 			profileData = data;
 		} catch (error) {

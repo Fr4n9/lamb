@@ -3,16 +3,16 @@ import { apiFetch } from '$lib/services/apiClient';
 // All admin endpoints route through apiFetch so an expired token triggers a
 // global session reset + redirect, instead of a generic "Failed to fetch"
 // banner that would otherwise force the admin to manually reload. (#352, M16)
+// Token is resolved internally by apiFetch via getStoredToken() — callers
+// never pass it explicitly.
 
 /**
  * @param {string} path
- * @param {string} token
  * @param {RequestInit} [init]
  * @returns {Promise<any>}
  */
-async function jsonRequest(path, token, init = {}) {
+async function jsonRequest(path, init = {}) {
 	const response = await apiFetch(path, {
-		token,
 		headers: { 'Content-Type': 'application/json' },
 		...init
 	});
@@ -33,51 +33,46 @@ async function jsonRequest(path, token, init = {}) {
 
 /**
  * Fetch the current user's profile (resource overview)
- * @param {string} token
  * @returns {Promise<any>}
  */
-export async function getMyProfile(token) {
-	return jsonRequest('/user/profile', token, { method: 'GET' });
+export async function getMyProfile() {
+	return jsonRequest('/user/profile', { method: 'GET' });
 }
 
 /**
  * Fetch a specific user's profile (admin/org-admin)
- * @param {string} token
  * @param {number} userId
  * @returns {Promise<any>}
  */
-export async function getUserProfile(token, userId) {
-	return jsonRequest(`/admin/users/${userId}/profile`, token, { method: 'GET' });
+export async function getUserProfile(userId) {
+	return jsonRequest(`/admin/users/${userId}/profile`, { method: 'GET' });
 }
 
 /**
  * Disable a user account
- * @param {string} token
  * @param {number} userId
  * @returns {Promise<any>}
  */
-export async function disableUser(token, userId) {
-	return jsonRequest(`/admin/users/${userId}/disable`, token, { method: 'PUT' });
+export async function disableUser(userId) {
+	return jsonRequest(`/admin/users/${userId}/disable`, { method: 'PUT' });
 }
 
 /**
  * Enable a user account
- * @param {string} token
  * @param {number} userId
  * @returns {Promise<any>}
  */
-export async function enableUser(token, userId) {
-	return jsonRequest(`/admin/users/${userId}/enable`, token, { method: 'PUT' });
+export async function enableUser(userId) {
+	return jsonRequest(`/admin/users/${userId}/enable`, { method: 'PUT' });
 }
 
 /**
  * Disable multiple user accounts
- * @param {string} token
  * @param {number[]} userIds
  * @returns {Promise<any>}
  */
-export async function disableUsersBulk(token, userIds) {
-	return jsonRequest('/admin/users/disable-bulk', token, {
+export async function disableUsersBulk(userIds) {
+	return jsonRequest('/admin/users/disable-bulk', {
 		method: 'POST',
 		body: JSON.stringify({ user_ids: userIds })
 	});
@@ -85,12 +80,11 @@ export async function disableUsersBulk(token, userIds) {
 
 /**
  * Enable multiple user accounts
- * @param {string} token
  * @param {number[]} userIds
  * @returns {Promise<any>}
  */
-export async function enableUsersBulk(token, userIds) {
-	return jsonRequest('/admin/users/enable-bulk', token, {
+export async function enableUsersBulk(userIds) {
+	return jsonRequest('/admin/users/enable-bulk', {
 		method: 'POST',
 		body: JSON.stringify({ user_ids: userIds })
 	});
@@ -98,20 +92,18 @@ export async function enableUsersBulk(token, userIds) {
 
 /**
  * Check user dependencies (assistants and knowledge bases)
- * @param {string} token
  * @param {number} userId
  * @returns {Promise<any>}
  */
-export async function checkUserDependencies(token, userId) {
-	return jsonRequest(`/admin/users/${userId}/dependencies`, token, { method: 'GET' });
+export async function checkUserDependencies(userId) {
+	return jsonRequest(`/admin/users/${userId}/dependencies`, { method: 'GET' });
 }
 
 /**
  * Delete a disabled user (must have no dependencies)
- * @param {string} token
  * @param {number} userId
  * @returns {Promise<any>}
  */
-export async function deleteUser(token, userId) {
-	return jsonRequest(`/admin/users/${userId}`, token, { method: 'DELETE' });
+export async function deleteUser(userId) {
+	return jsonRequest(`/admin/users/${userId}`, { method: 'DELETE' });
 }

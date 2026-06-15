@@ -2355,7 +2355,7 @@
 
 <!-- View Configuration Modal -->
 {#if isViewConfigModalOpen && selectedOrg}
-    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
         <div class="relative mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
@@ -2480,7 +2480,7 @@
 
 <!-- Delete User Confirmation Modal -->
 {#if showDeleteConfirm}
-    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
         <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex items-center mb-4">
@@ -2571,7 +2571,7 @@
 
 <!-- Organization Migration Modal -->
 {#if isMigrationModalOpen && migrationSourceOrg}
-    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
         <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
@@ -3196,7 +3196,7 @@
 
 <!-- Organization Members & Roles Modal -->
 {#if isMembersModalOpen && membersModalOrg}
-    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
         <div class="relative mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg leading-6 font-medium text-gray-900">
