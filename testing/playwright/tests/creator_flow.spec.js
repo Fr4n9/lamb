@@ -245,7 +245,7 @@ test.describe.serial("Creator flow (assistants + chat)", () => {
 
     // Find the assistant created by the smoke test.
     const listRes = await page.evaluate(async ({ token }) => {
-      const r = await fetch("/creator/assistant/get_assistants", {
+      const r = await fetch("/creator/assistant/get_assistants?limit=100", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const text = await r.text();
@@ -271,16 +271,18 @@ test.describe.serial("Creator flow (assistants + chat)", () => {
       llm: "simple-bypass",
       rag_processor: "no_rag",
     });
-    await page.evaluate(
+    const putResult = await page.evaluate(
       async ({ resolvedId, token, bypassMeta }) => {
-        await fetch(`/creator/assistant/update_assistant/${resolvedId}`, {
+        const r = await fetch(`/creator/assistant/update_assistant/${resolvedId}`, {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({ metadata: bypassMeta }),
         });
+        return { status: r.status };
       },
       { resolvedId, token, bypassMeta },
     );
+    expect(putResult.status, `PUT update_assistant must return 200, got ${putResult.status}`).toBe(200);
 
     const chatRes = await page.evaluate(
       async ({ resolvedId, token }) => {
@@ -293,6 +295,7 @@ test.describe.serial("Creator flow (assistants + chat)", () => {
           body: JSON.stringify({
             messages: [{ role: "user", content: "ping" }],
             stream: false,
+            debug_bypass: true,
           }),
         });
         const text = await r.text();

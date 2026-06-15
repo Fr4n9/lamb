@@ -1,19 +1,18 @@
 const { test, expect, chromium } = require("@playwright/test");
-const fs = require("fs");
 
 /**
  * Account Disable Security Tests (Dual Browser Strategy)
  *
  * Tests the AuthContext disabled account detection across multiple security layers:
  *   - Backend: AuthContext._build_auth_context() checks enabled field
- *   - Frontend: beforeNavigate + authenticatedFetch + polling
+ *   - Frontend: apiClient 401/403 interceptor + layout $effect redirect + polling
  *
  * Flow:
  *   1. Admin1 creates Admin2
  *   2. Admin2 logs in (separate browser context - simulates different device)
  *   3. Admin1 disables Admin2 (while Admin2 is still logged in)
  *   4. Admin2 tries API call (disable Admin1) → 401/403 + forced logout
- *   5. Admin2 tries navigation → Blocked by beforeNavigate
+ *   5. Admin2 tries navigation → API 401 triggers logout
  *   6. Admin2 idle (AFK) → Polling detects within 60s
  *   7. Direct URL access blocked
  *   8. Cleanup
@@ -40,17 +39,9 @@ test.describe.serial("Account Disable Security (Dual Browser)", () => {
     // Launch browser
     browser = await chromium.launch();
     
-    // Context 1: Admin1 - try to use auth state, but login if needed
-    const authFile = ".auth/state.json";
-    if (fs.existsSync(authFile)) {
-      admin1Context = await browser.newContext({
-        storageState: authFile
-      });
-      console.log(`[security] Admin1 context created with auth state`);
-    } else {
-      admin1Context = await browser.newContext();
-      console.log(`[security] ⚠️  No auth file found, Admin1 will login fresh`);
-    }
+    // Context 1: Admin1 - always fresh login for security tests (avoid stale tokens)
+    admin1Context = await browser.newContext();
+    console.log(`[security] Admin1 context created (fresh login, no cached state)`);
     
     admin1Page = await admin1Context.newPage();
     admin1Page.on('console', msg => {
@@ -59,33 +50,11 @@ test.describe.serial("Account Disable Security (Dual Browser)", () => {
       }
     });
     
-    // Verify admin1 is authenticated, login if not
+    // Fresh login for Admin1
     await admin1Page.goto(baseURL);
     await admin1Page.waitForLoadState("domcontentloaded");
     await admin1Page.waitForTimeout(2000);
     
-    // Check if there's an "Invalid or expired authentication token" message
-    const hasTokenError = await admin1Page.getByText(/invalid or expired authentication token/i).isVisible().catch(() => false);
-    
-    if (hasTokenError) {
-      console.log(`[security] Token expired - logging out and re-authenticating...`);
-      
-      // Click logout button
-      const logoutBtn = admin1Page.getByRole('button', { name: /logout/i });
-      if (await logoutBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await logoutBtn.click();
-        await admin1Page.waitForTimeout(1000);
-      } else {
-        // Alternative: clear token from localStorage and reload
-        await admin1Page.evaluate(() => {
-          localStorage.removeItem('userToken');
-          localStorage.removeItem('user');
-        });
-        await admin1Page.reload();
-      }
-    }
-    
-    // Check if we're on login page
     const emailInput = await admin1Page.locator('#email').isVisible({ timeout: 3000 }).catch(() => false);
     
     if (emailInput) {
@@ -217,6 +186,7 @@ test.describe.serial("Account Disable Security (Dual Browser)", () => {
     await disableButton.click();
 
     const confirmButton = admin1Page.getByRole("button", { name: "Disable", exact: true });
+    admin1Page.on("dialog", (d) => d.accept());
     await confirmButton.click();
     await admin1Page.waitForTimeout(2000);
 
@@ -290,7 +260,7 @@ test.describe.serial("Account Disable Security (Dual Browser)", () => {
     }
   });
 
-  test("6. Admin2 tries navigation → Blocked by beforeNavigate", async () => {
+  test("6. Admin2 tries navigation → API 401 triggers logout", async () => {
     console.log(`[security-test-6] Starting: Admin2 tries to navigate (should be blocked)`);
     
     // If already logged out from test 5, skip
@@ -309,37 +279,21 @@ test.describe.serial("Account Disable Security (Dual Browser)", () => {
       }
     });
 
-    // Navigate internally by clicking on Organizations button (triggers beforeNavigate)
-    // First make sure we're on the admin page
-    if (!admin2Page.url().includes('/admin')) {
-      await admin2Page.goto("/admin");
-      await admin2Page.waitForLoadState("domcontentloaded");
-    }
+    // Navigate to a protected page (SvelteKit client-side navigation)
+    // The page will make API calls that return 401, triggering apiClient logout
+    await admin2Page.goto("/assistants");
+    await admin2Page.waitForLoadState("domcontentloaded");
 
-    // Try to click the Organizations button/link (internal navigation via SvelteKit)
-    const orgButton = admin2Page.getByRole("button", { name: /organizations/i });
-    
-    if (await orgButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await orgButton.click();
-    } else {
-      // Alternative: try clicking a navigation link
-      const orgLink = admin2Page.getByRole("link", { name: /organizations/i });
-      if (await orgLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await orgLink.click();
-      } else {
-        console.log(`[security-test-6] ⚠️  Organizations button not found, test may be invalid`);
-      }
-    }
-    
-    // Should be redirected to login after beforeNavigate intercepts
+    // Wait for the API call to return 401 and trigger redirect to login
     await admin2Page.waitForURL(/\/$/, { timeout: 10_000 });
     await expect(admin2Page.getByRole("textbox", { name: "Email" })).toBeVisible({ timeout: 5_000 });
 
     // Token should be cleared
     const token = await admin2Page.evaluate(() => localStorage.getItem("userToken"));
     expect(token).toBeNull();
+    expect(got401, "Expected at least one 401 response from API").toBe(true);
 
-    console.log(`[security-test-6] ✅ Navigation blocked by beforeNavigate, forced logout`);
+    console.log(`[security-test-6] ✅ API 401 triggered logout, redirected to login page`);
   });
 
   test("7. Verify disabled account cannot re-login", async () => {
