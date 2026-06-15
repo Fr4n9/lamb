@@ -6,6 +6,8 @@ from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
+PPS_WITH_DOCUMENT_CONTEXT = frozenset({"kvcache_augment"})
+
 
 def parse_plugin_config(assistant_details) -> Dict[str, str]:
     """
@@ -46,6 +48,14 @@ def process_completion_request(request: Dict[str, Any], assistant_details: Any, 
     Process the prompt using the specified prompt processor and return prepared messages.
     """
     logger.info("Processing completion request")
-    messages = pps[plugin_config["prompt_processor"]](request=request, assistant=assistant_details, rag_context=rag_context, document_context=document_context)
+    pps_name = plugin_config["prompt_processor"]
+    kwargs = {
+        "request": request,
+        "assistant": assistant_details,
+        "rag_context": rag_context,
+    }
+    if pps_name in PPS_WITH_DOCUMENT_CONTEXT:
+        kwargs["document_context"] = document_context
+    messages = pps[pps_name](**kwargs)
     logger.debug(f"Processed messages: {messages}")
     return messages
