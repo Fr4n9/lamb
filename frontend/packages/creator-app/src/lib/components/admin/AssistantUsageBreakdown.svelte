@@ -1,10 +1,10 @@
 <script>
 	import { onMount } from 'svelte';
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { Button } from '$lib/components/ui';
 	import { RefreshCw } from '$lib/components/ui/icons';
 	import { fetchAssistantUsageByModel } from '$lib/services/adminService';
-	import { user } from '$lib/stores/userStore';
+	import { user } from '@lamb/ui';
 
 	let { assistantId } = $props();
 

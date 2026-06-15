@@ -2,7 +2,7 @@
     import { untrack } from 'svelte';
     import { _ } from '@lamb/ui';
     import { getApiUrl } from '$lib/config';
-    import axios from 'axios';
+    import { apiAxios as axios } from '$lib/services/apiClient';
 
     /**
      * @typedef {Object} OrgConfig

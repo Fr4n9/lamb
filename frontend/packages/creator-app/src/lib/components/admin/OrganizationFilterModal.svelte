@@ -1,9 +1,9 @@
 <script>
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { Modal, Button } from '$lib/components/ui';
 	import { Search } from '$lib/components/ui/icons';
 	import { searchOrganizations } from '$lib/services/adminService';
-	import { user } from '$lib/stores/userStore';
+	import { user } from '@lamb/ui';
 
 	let { onApply, onClose } = $props();
 

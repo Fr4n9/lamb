@@ -1,11 +1,11 @@
 <script>
 	import { onMount } from 'svelte';
-	import { _ } from '$lib/i18n';
+	import { _ } from '@lamb/ui';
 	import { Modal, Button, IconButton } from '$lib/components/ui';
 	import { Plus, Trash2, Pencil, Save, X } from '$lib/components/ui/icons';
 	import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
 	import { toast } from '$lib/stores/toast';
-	import { user } from '$lib/stores/userStore';
+	import { user } from '@lamb/ui';
 	import {
 		fetchModelPricing,
 		createModelPricing,

@@ -1,9 +1,9 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
-	import { _ } from '$lib/i18n';
-	import axios from 'axios';
+	import { _ } from '@lamb/ui';
+	import { apiAxios as axios } from '$lib/services/apiClient';
 	import { getApiUrl } from '$lib/config';
-	import { user } from '$lib/stores/userStore';
+	import { user } from '@lamb/ui';
 	import {
 		filterCostData,
 		computeCostTotals,

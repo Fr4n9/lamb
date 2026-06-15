@@ -37,7 +37,7 @@ vi.mock('$lib/i18n', async () => {
 	};
 });
 
-import axios from 'axios';
+import { apiAxios as axios } from '$lib/services/apiClient';
 
 describe('CostManagementPanel', () => {
 	beforeEach(() => {
