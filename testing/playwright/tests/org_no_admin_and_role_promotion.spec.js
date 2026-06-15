@@ -520,6 +520,7 @@ test.describe.serial("Organization Without Admin & Role Promotion (issue #249)",
     await expect(modal).toBeVisible({ timeout: 5_000 });
     const confirmButton = modal.getByRole("button", { name: /^disable$/i });
     await expect(confirmButton).toBeVisible({ timeout: 5_000 });
+    page.on("dialog", (d) => d.accept());
     await confirmButton.click();
 
     // Wait for modal to close and status change

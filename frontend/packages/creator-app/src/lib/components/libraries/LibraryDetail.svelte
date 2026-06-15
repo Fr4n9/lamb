@@ -8,9 +8,16 @@
     import {
         getLibrary, getItems, uploadFile, deleteItem,
         getItemStatus, exportLibrary, toggleSharing,
+        getItemKbLinks,
     } from '$lib/services/libraryService';
+    import {
+        getKnowledgeStores,
+        removeContent as removeKsContent,
+    } from '$lib/services/knowledgeStoreService';
     import { _, user } from '@lamb/ui';
     import { ConfirmationModal } from '@lamb/ui';
+    import { OverflowMenu } from '$lib/components/ui';
+    import { Trash2 } from '$lib/components/ui/icons.js';
     import ImportModal from '$lib/components/modals/ImportModal.svelte';
 
     let { libraryId = '' } = $props();
@@ -34,10 +41,14 @@
     let pollInterval = $state(null);
     let pollFailures = 0;
 
-    // Delete item modal
+    // Delete item modal (FR-10)
     let showDeleteItemModal = $state(false);
     let isDeletingItem = $state(false);
     let deleteItemTarget = $state({ id: '', title: '' });
+    let itemDeleteError = $state('');
+    /** @type {Array<{id: string, name: string, contentCount: number|null, removing: boolean}>} */
+    let itemDeleteBlockers = $state([]);
+    let itemDeleteRequestId = $state(0);
 
     // Import modal ref
     let importModal;
@@ -222,24 +233,106 @@
         await loadData();
     }
 
-    // Delete item
-    function requestDeleteItem(item) {
+    // Delete item (FR-10 preflight)
+    async function requestDeleteItem(/** @type {{id: string, title: string}} */ item) {
+        itemDeleteRequestId += 1;
+        const myRequestId = itemDeleteRequestId;
         deleteItemTarget = { id: item.id, title: item.title };
+        itemDeleteError = '';
+        itemDeleteBlockers = [];
         showDeleteItemModal = true;
+        try {
+            const links = await getItemKbLinks(libraryId, item.id);
+            if (myRequestId !== itemDeleteRequestId) return;
+            const referenced = Array.isArray(links?.knowledge_stores) ? links.knowledge_stores : [];
+            if (referenced.length > 0) {
+                itemDeleteError = $_('libraries.deleteItemModal.blockedMessage', {
+                    default: 'This item is referenced by one or more Knowledge Stores. Remove it from each before deleting.'
+                });
+                itemDeleteBlockers = referenced.map((k) => ({
+                    id: String(k?.id || ''),
+                    name: k?.name || k?.id || 'Knowledge Store',
+                    contentCount: null,
+                    removing: false
+                }));
+                try {
+                    const allKs = await getKnowledgeStores();
+                    if (myRequestId !== itemDeleteRequestId) return;
+                    const byId = new Map(allKs.map((k) => [k.id, k]));
+                    itemDeleteBlockers = itemDeleteBlockers.map((b) => {
+                        const full = byId.get(b.id);
+                        return {
+                            ...b,
+                            contentCount: typeof full?.content_count === 'number' ? full.content_count : null
+                        };
+                    });
+                } catch {
+                    /* best-effort enrichment */
+                }
+            }
+        } catch (err) {
+            console.warn('kb-links pre-check failed', err);
+        }
     }
 
     async function handleDeleteItemConfirm() {
         isDeletingItem = true;
+        itemDeleteError = '';
         try {
             await deleteItem(libraryId, deleteItemTarget.id);
             showDeleteItemModal = false;
+            deleteItemTarget = { id: '', title: '' };
+            itemDeleteBlockers = [];
             showSuccess($_('libraries.itemDeleteSuccess', { default: 'Item deleted.' }));
             await loadData();
         } catch (/** @type {unknown} */ err) {
-            error = err instanceof Error ? err.message : 'Delete failed';
+            const isAxios = !!(err && typeof err === 'object' && err.isAxiosError);
+            const status = isAxios ? err.response?.status : null;
+            const detail = isAxios ? err.response?.data?.detail : null;
+            if (status === 409 && detail && typeof detail === 'object') {
+                itemDeleteError = typeof detail.message === 'string' ? detail.message : 'Delete failed';
+                const referenced = Array.isArray(detail.knowledge_stores) ? detail.knowledge_stores : [];
+                itemDeleteBlockers = referenced.map((k) => ({
+                    id: String(k?.id || ''),
+                    name: k?.name || k?.id || 'Knowledge Store',
+                    contentCount: null,
+                    removing: false
+                }));
+            } else {
+                itemDeleteError = err instanceof Error ? err.message : 'Delete failed';
+            }
         } finally {
             isDeletingItem = false;
         }
+    }
+
+    async function removeBlocker(/** @type {string} */ ksId) {
+        if (!deleteItemTarget.id) return;
+        itemDeleteBlockers = itemDeleteBlockers.map((b) =>
+            b.id === ksId ? { ...b, removing: true } : b
+        );
+        try {
+            await removeKsContent(ksId, deleteItemTarget.id);
+            itemDeleteBlockers = itemDeleteBlockers.filter((b) => b.id !== ksId);
+            if (itemDeleteBlockers.length === 0) itemDeleteError = '';
+        } catch (err) {
+            console.error('removeKsContent failed', err);
+            itemDeleteBlockers = itemDeleteBlockers.map((b) =>
+                b.id === ksId ? { ...b, removing: false } : b
+            );
+            itemDeleteError = err instanceof Error ? err.message : 'Could not remove this link.';
+        }
+    }
+
+    function buildItemMenuItems(/** @type {{id: string, title: string}} */ item) {
+        return [
+            {
+                label: $_('libraries.delete', { default: 'Delete' }),
+                icon: Trash2,
+                danger: true,
+                onClick: () => requestDeleteItem(item)
+            }
+        ];
     }
 
     // Export
@@ -455,13 +548,12 @@
                                     <td class="px-4 py-3 text-sm text-gray-500">{formatDate(item.created_at)}</td>
                                     {#if isOwner}
                                         <td class="px-4 py-3 text-right">
-                                            <button
-                                                type="button"
-                                                onclick={() => requestDeleteItem(item)}
-                                                class="text-sm text-red-600 hover:text-red-900"
-                                            >
-                                                {$_('libraries.delete', { default: 'Delete' })}
-                                            </button>
+                                            <OverflowMenu
+                                                items={buildItemMenuItems(item)}
+                                                ariaLabel={$_('list.moreActions', { default: 'More actions' })}
+                                                tooltip={$_('list.moreActions', { default: 'More actions' })}
+                                                size="sm"
+                                            />
                                         </td>
                                     {/if}
                                 </tr>
@@ -479,10 +571,26 @@
 <ConfirmationModal
     bind:isOpen={showDeleteItemModal}
     bind:isLoading={isDeletingItem}
-    title={$_('libraries.deleteItemModal.title', { default: 'Delete Item' })}
-    message={$_('libraries.deleteItemModal.message', { default: `Are you sure you want to delete "${deleteItemTarget.title}"?` })}
+    bind:error={itemDeleteError}
+    bind:blockers={itemDeleteBlockers}
+    title={itemDeleteBlockers.length > 0
+        ? $_('libraries.deleteItemModal.blockedTitle', { default: 'Cannot delete — in use' })
+        : $_('libraries.deleteItemModal.title', { default: 'Delete Item' })}
+    message={itemDeleteBlockers.length > 0
+        ? ''
+        : $_('libraries.deleteItemModal.message', { default: `Are you sure you want to delete "${deleteItemTarget.title}"?` })}
     confirmText={$_('libraries.deleteItemModal.confirm', { default: 'Delete' })}
     variant="danger"
+    hideConfirm={itemDeleteBlockers.length > 0}
+    blockersTitle={$_('libraries.deleteItemModal.blockersTitle', { default: 'Referenced by Knowledge Stores' })}
+    blockerRemoveLabel={$_('libraries.deleteItemModal.blockerRemove', { default: 'Remove from KS' })}
+    onRemoveBlocker={removeBlocker}
     onconfirm={handleDeleteItemConfirm}
-    oncancel={() => { showDeleteItemModal = false; }}
+    oncancel={() => {
+        itemDeleteRequestId += 1;
+        showDeleteItemModal = false;
+        deleteItemTarget = { id: '', title: '' };
+        itemDeleteError = '';
+        itemDeleteBlockers = [];
+    }}
 />

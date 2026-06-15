@@ -5,11 +5,17 @@
     let {
         isOpen = $bindable(false),
         isLoading = $bindable(false),
+        error = $bindable(''),
+        blockers = $bindable([]),
         title = '',
         message = '',
         confirmText = '',
         cancelText = '',
-        variant = 'danger', // 'danger' | 'warning' | 'info'
+        variant = 'danger',
+        hideConfirm = false,
+        blockersTitle = '',
+        blockerRemoveLabel = 'Remove',
+        onRemoveBlocker = () => {},
         onconfirm = () => {},
         oncancel = () => {}
     } = $props();
@@ -120,9 +126,49 @@
 
             <!-- Modal Body -->
             <div class="px-4 py-5 sm:p-6">
-                <p class="text-sm text-gray-700 whitespace-pre-line break-words">
-                    {message}
-                </p>
+                {#if error}
+                    <div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700" role="alert">
+                        {error}
+                    </div>
+                {/if}
+                {#if message}
+                    <p class="text-sm text-gray-700 whitespace-pre-line break-words">
+                        {message}
+                    </p>
+                {/if}
+                {#if blockers.length > 0}
+                    <div class="mt-3">
+                        {#if blockersTitle}
+                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{blockersTitle}</p>
+                        {/if}
+                        <ul class="space-y-2">
+                            {#each blockers as blocker}
+                                <li class="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-medium text-gray-900 truncate">{blocker.name}</p>
+                                        {#if blocker.contentCount != null}
+                                            <p class="text-xs text-gray-500">{blocker.contentCount} items</p>
+                                        {/if}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="text-xs text-red-600 hover:text-red-800 font-medium whitespace-nowrap disabled:opacity-50"
+                                        disabled={blocker.removing}
+                                        onclick={() => onRemoveBlocker(blocker.id)}
+                                    >
+                                        {#if blocker.removing}
+                                            <svg class="animate-spin h-3 w-3 inline mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        {/if}
+                                        {blockerRemoveLabel}
+                                    </button>
+                                </li>
+                            {/each}
+                        </ul>
+                    </div>
+                {/if}
                 {#if isLoading}
                     <p class="text-sm text-gray-500 mt-2 flex items-center">
                         <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -136,6 +182,7 @@
 
             <!-- Modal Footer -->
             <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse gap-2 sm:flex-row-reverse border-t border-gray-200">
+                {#if !hideConfirm}
                 <button 
                     type="button" 
                     class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 {styles.confirmBg} {styles.confirmRing}"
@@ -151,6 +198,7 @@
                     {/if}
                     {displayConfirmText}
                 </button>
+                {/if}
                 <button 
                     type="button" 
                     class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"

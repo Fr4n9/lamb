@@ -304,7 +304,7 @@ test.describe.serial("Organization Migration Flow", () => {
     await loginAs(user2Page, user2Email, testPassword);
     await createAssistant(user2Page, asst2Name);
 
-    await user2Page.goto("knowledge-bases");
+    await user2Page.goto("knowledgebases");
     await user2Page.waitForLoadState("networkidle");
 
     const createKbBtn = user2Page.getByRole("button", { name: /create knowledge base/i }).first();
@@ -462,7 +462,7 @@ test.describe.serial("Organization Migration Flow", () => {
     await expect(user2Page.getByText(new RegExp("asst_creator", "i")).first()).toBeVisible({ timeout: 30_000 });
     console.log(`  ✔ User2's assistant visible after migration`);
 
-    await user2Page.goto("knowledge-bases");
+    await user2Page.goto("knowledgebases");
     await user2Page.waitForLoadState("networkidle");
     await expect(user2Page.getByText(kbName)).toBeVisible({ timeout: 15_000 });
     console.log(`  ✔ User2's KB "${kbName}" visible after migration`);

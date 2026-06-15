@@ -274,6 +274,17 @@ export async function deleteItem(libraryId, itemId) {
 }
 
 // ---------------------------------------------------------------------------
+// KB Links (FR-10 preflight)
+// ---------------------------------------------------------------------------
+
+export async function getItemKbLinks(libraryId, itemId) {
+    if (!browser) throw new Error('Browser only.');
+    const url = getApiUrl(`/libraries/${libraryId}/items/${itemId}/kb-links`);
+    const response = await axios.get(url);
+    return response.data;
+}
+
+// ---------------------------------------------------------------------------
 // Plugins
 // ---------------------------------------------------------------------------
 
