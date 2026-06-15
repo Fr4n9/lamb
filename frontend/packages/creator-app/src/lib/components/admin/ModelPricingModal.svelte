@@ -3,7 +3,7 @@
 	import { _ } from '@lamb/ui';
 	import { Modal, Button, IconButton } from '$lib/components/ui';
 	import { Plus, Trash2, Pencil, Save, X } from '$lib/components/ui/icons';
-	import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
+	import { ConfirmationModal } from '@lamb/ui';
 	import { toast } from '$lib/stores/toast';
 	import { user } from '@lamb/ui';
 	import {
