@@ -337,9 +337,12 @@
                             <p class="text-sm mt-0.5">Chat reading is not enabled for this activity to protect student privacy.</p>
                         </div>
                         {#if activityInfo.is_owner}
-                            <a href={`/m/chat/setup?token=${token}&reconfigure=true`} class="inline-flex items-center gap-1 bg-white border border-gray-300 shadow-sm text-gray-700 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors ml-auto">
+                            <button disabled class="inline-flex items-center gap-1 bg-gray-100 border border-gray-200 shadow-sm text-gray-400 text-sm font-medium px-3 py-1.5 rounded-lg cursor-not-allowed ml-auto">
                                 Enable in settings
-                            </a>
+                            </button>
+                            <span class="text-xs text-gray-400 italic">
+                                Cannot be changed after creation
+                            </span>
                         {/if}
                     </div>
                 </div>
