@@ -7,7 +7,8 @@
 		sharedKnowledgeBases = [],
 		selectedKnowledgeBases = $bindable([]),
 		loading = false,
-		error = ''
+		error = '',
+		disabled = false
 	} = $props();
 
 	let allKnowledgeBases = $derived([...ownedKnowledgeBases, ...sharedKnowledgeBases]);
@@ -48,12 +49,13 @@
 							>{$_('assistants.form.knowledgeBases.myKB', { default: 'My Knowledge Bases' })}</span
 						>
 						{#each ownedKnowledgeBases as kb (kb.id)}
-							<label class="flex cursor-pointer items-center space-x-2">
+							<label class="flex items-center space-x-2 {disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}">
 								<input
 									type="checkbox"
 									bind:group={selectedKnowledgeBases}
 									value={kb.id}
-									class="text-brand focus:border-brand focus:ring-brand focus:ring-opacity-50 rounded border-gray-300 shadow-sm focus:ring focus:ring-offset-0"
+									{disabled}
+									class="text-brand focus:border-brand focus:ring-brand focus:ring-opacity-50 rounded border-gray-300 shadow-sm focus:ring focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
 								/>
 								<span class="text-sm text-gray-700">{kb.name}</span>
 							</label>
@@ -77,12 +79,13 @@
 							})}</span
 						>
 						{#each sharedKnowledgeBases as kb (kb.id)}
-							<label class="flex cursor-pointer items-center space-x-2">
+							<label class="flex items-center space-x-2 {disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}">
 								<input
 									type="checkbox"
 									bind:group={selectedKnowledgeBases}
 									value={kb.id}
-									class="text-brand focus:border-brand focus:ring-brand focus:ring-opacity-50 rounded border-gray-300 shadow-sm focus:ring focus:ring-offset-0"
+									{disabled}
+									class="text-brand focus:border-brand focus:ring-brand focus:ring-opacity-50 rounded border-gray-300 shadow-sm focus:ring focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
 								/>
 								<span class="text-sm text-gray-700">
 									{kb.name}
