@@ -30,7 +30,8 @@ vi.mock('$lib/utils/ragProcessorHelpers.js', () => ({
 	isKbBasedRag: (p) => ['simple_rag', 'context_aware_rag', 'hierarchical_rag'].includes(p),
 	isSingleFileRag: (p) => p === 'single_file_rag',
 	isRubricRag: (p) => p === 'rubric_rag',
-	normalizeRagProcessor: (p) => p || 'no_rag'
+	normalizeRagProcessor: (p) => p || 'no_rag',
+	ppsSupportsDocumentRag: (pps) => pps === 'kvcache_augment'
 }));
 
 vi.mock('$lib/utils/assistantData', () => ({
@@ -52,7 +53,8 @@ import {
 	resetFormFieldsToDefaults,
 	populateFormFields,
 	revertToInitial,
-	clearRagDependentState
+	clearRagDependentState,
+	clearDocumentRagIfUnsupported
 } from './logic/assistantFormState.svelte.js';
 
 const getAvailableModels = () => ['gpt-4', 'gpt-3.5-turbo'];
@@ -143,7 +145,7 @@ describe('handleFieldChange', () => {
 describe('resetFormFieldsToDefaults', () => {
 	test('resets form fields to config defaults', () => {
 		const form = createAssistantFormState();
-		form.promptProcessors = ['default_processor', 'other'];
+		form.promptProcessors = ['simple_augment', 'kvcache_augment', 'other'];
 		form.connectorsList = ['openai', 'ollama'];
 		form.ragProcessors = ['no_rag', 'simple_rag'];
 		form.name = 'existing'; // should NOT be reset
@@ -154,7 +156,7 @@ describe('resetFormFieldsToDefaults', () => {
 		expect(form.system_prompt).toBe('Default system prompt');
 		expect(form.prompt_template).toBe('Default template');
 		expect(form.RAG_Top_k).toBe(3);
-		expect(form.selectedPromptProcessor).toBe('default_processor');
+		expect(form.selectedPromptProcessor).toBe('kvcache_augment');
 		expect(form.selectedConnector).toBe('openai');
 		expect(form.selectedRagProcessor).toBe('no_rag');
 		expect(form.selectedLlm).toBe('gpt-4');
@@ -388,5 +390,35 @@ describe('clearRagDependentState', () => {
 		expect(form.rubricFormat).toBe('markdown');
 		// accessibleRubrics are NOT cleared (to avoid refetching)
 		expect(form.accessibleRubrics.length).toBe(1);
+	});
+});
+
+describe('clearDocumentRagIfUnsupported', () => {
+	test('clears document RAG state when PPS does not support it', () => {
+		const form = createAssistantFormState();
+		form.selectedPromptProcessor = 'simple_augment';
+		form.documentRagEnabled = true;
+		form.selectedLibraryId = 'lib-1';
+		form.selectedItemId = 'item-1';
+
+		clearDocumentRagIfUnsupported(form);
+
+		expect(form.documentRagEnabled).toBe(false);
+		expect(form.selectedLibraryId).toBe('');
+		expect(form.selectedItemId).toBe('');
+	});
+
+	test('preserves document RAG state for kvcache_augment', () => {
+		const form = createAssistantFormState();
+		form.selectedPromptProcessor = 'kvcache_augment';
+		form.documentRagEnabled = true;
+		form.selectedLibraryId = 'lib-1';
+		form.selectedItemId = 'item-1';
+
+		clearDocumentRagIfUnsupported(form);
+
+		expect(form.documentRagEnabled).toBe(true);
+		expect(form.selectedLibraryId).toBe('lib-1');
+		expect(form.selectedItemId).toBe('item-1');
 	});
 });

@@ -7,7 +7,8 @@
 		sharedKnowledgeStores = [],
 		selectedKnowledgeStores = $bindable([]),
 		loading = false,
-		error = ''
+		error = '',
+		disabled = false
 	} = $props();
 </script>
 
@@ -36,9 +37,10 @@
 					</h5>
 					<div class="space-y-2 max-h-48 overflow-y-auto border rounded p-2" role="group">
 						{#each ownedKnowledgeStores as ks (ks.id)}
-							<label class="flex items-center space-x-2 cursor-pointer">
+							<label class="flex items-center space-x-2 {disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}">
 								<input type="checkbox" bind:group={selectedKnowledgeStores} value={ks.id}
-									class="rounded border-gray-300 text-brand shadow-sm focus:border-brand focus:ring focus:ring-offset-0 focus:ring-brand focus:ring-opacity-50">
+									{disabled}
+									class="rounded border-gray-300 text-brand shadow-sm focus:border-brand focus:ring focus:ring-offset-0 focus:ring-brand focus:ring-opacity-50 disabled:cursor-not-allowed disabled:opacity-50">
 								<span class="text-sm text-gray-700">
 									{ks.name}
 									<span class="ml-1 text-xs text-gray-400">({ks.embedding_vendor}/{ks.embedding_model})</span>
@@ -55,9 +57,10 @@
 					</h5>
 					<div class="space-y-2 max-h-48 overflow-y-auto border rounded p-2" role="group">
 						{#each sharedKnowledgeStores as ks (ks.id)}
-							<label class="flex items-center space-x-2 cursor-pointer">
+							<label class="flex items-center space-x-2 {disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}">
 								<input type="checkbox" bind:group={selectedKnowledgeStores} value={ks.id}
-									class="rounded border-gray-300 text-brand shadow-sm focus:border-brand focus:ring focus:ring-offset-0 focus:ring-brand focus:ring-opacity-50">
+									{disabled}
+									class="rounded border-gray-300 text-brand shadow-sm focus:border-brand focus:ring focus:ring-offset-0 focus:ring-brand focus:ring-opacity-50 disabled:cursor-not-allowed disabled:opacity-50">
 								<span class="text-sm text-gray-700">
 									{ks.name}
 									<span class="ml-1 text-xs text-gray-400">({ks.embedding_vendor}/{ks.embedding_model})</span>

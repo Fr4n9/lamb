@@ -28,7 +28,8 @@
 		loadingItems = false,
 		itemsError = '',
 		selectedFilePath = '',
-		formState
+		formState,
+		isLegacyEdit = false
 	} = $props();
 
 	let showKbSelector = $derived(isKbBasedRag(selectedRagProcessor));
@@ -42,6 +43,16 @@
 	<h4 class="text-md font-medium text-gray-700">
 		{$_('assistants.form.ragOptions.title', { default: 'RAG Options' })}
 	</h4>
+	{#if isLegacyEdit}
+		<div class="p-3 bg-amber-50 border border-amber-200 rounded-md">
+			<p class="text-sm text-amber-800">
+				{$_('assistants.form.ragOptions.legacyPpsNotice', {
+					default:
+						'This assistant uses a legacy configuration (simple_augment). It works correctly but cannot be edited. To change the RAG, knowledge base, or document settings, create a new assistant.'
+				})}
+			</p>
+		</div>
+	{/if}
 	{#if isRubricRag(selectedRagProcessor)}
 		<div class="rounded-md border border-blue-200 bg-blue-50 p-3">
 			<p class="text-sm text-blue-800">
@@ -63,6 +74,7 @@
 				bind:value={RAG_Top_k}
 				min="1"
 				max="10"
+				disabled={isLegacyEdit}
 				class="focus:ring-brand focus:border-brand mt-1 block w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 sm:text-sm"
 			/>
 			<p class="mt-1 text-xs text-gray-500">
@@ -79,6 +91,7 @@
 			bind:selectedKnowledgeBases
 			loading={loadingKnowledgeBases}
 			error={knowledgeBaseError}
+			disabled={isLegacyEdit}
 		/>
 	{/if}
 	{#if showKsSelector}
@@ -88,6 +101,7 @@
 			bind:selectedKnowledgeStores
 			loading={loadingKnowledgeStores}
 			error={knowledgeStoreError}
+			disabled={isLegacyEdit}
 		/>
 	{/if}
 	{#if showFileSelector && isLegacyWithFilePath}

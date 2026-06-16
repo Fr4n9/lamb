@@ -9,7 +9,7 @@
     - item:    optional LibraryItem (unused; kept for parity)
 -->
 <script>
-	import { renderMarkdownStrict } from '$lib/utils/sanitize';
+	import { renderMarkdownStrict } from '@lamb/ui';
 	import { _ } from '@lamb/ui';
 	import { IconButton, EmptyState } from '$lib/components/ui';
 	import { ChevronLeft, ChevronRight, FileText } from 'lucide-svelte';

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Depends, status, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
 
@@ -250,6 +251,15 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan
 )
+
+from lamb.assistant_default_pps import load_defaults_json_document
+
+
+@app.get("/static/json/defaults.json", include_in_schema=False)
+async def serve_defaults_json():
+    """Serve defaults.json from disk."""
+    return JSONResponse(load_defaults_json_document())
+
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

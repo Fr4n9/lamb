@@ -1,6 +1,7 @@
+import importlib
 import json
 import logging
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, List
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +11,42 @@ REQUIRED_PLUGIN_METADATA_KEYS = (
     "llm",
     "rag_processor",
 )
+
+
+def _get_compatible_rag(pps_name: str) -> Optional[List[str]]:
+    """Load COMPATIBLE_RAG from the prompt processor module, if declared."""
+    try:
+        pps_module = importlib.import_module(f"lamb.completions.pps.{pps_name}")
+    except ModuleNotFoundError:
+        return None
+    return getattr(pps_module, "COMPATIBLE_RAG", None)
+
+
+def _validate_compatible_rag(metadata_dict: Dict[str, Any]) -> Optional[str]:
+    """Ensure rag_processor and document_rag are compatible with prompt_processor."""
+    pps_name = metadata_dict.get("prompt_processor", "")
+    if not pps_name:
+        return None
+
+    compatible_rag = _get_compatible_rag(pps_name)
+    if compatible_rag is None:
+        return None
+
+    rag_processor = metadata_dict.get("rag_processor", "")
+    if rag_processor and rag_processor not in compatible_rag:
+        return (
+            f"rag_processor '{rag_processor}' not compatible with "
+            f"prompt_processor '{pps_name}'. Compatible: {compatible_rag}"
+        )
+
+    document_rag = metadata_dict.get("document_rag", "")
+    if document_rag and document_rag not in compatible_rag:
+        return (
+            f"document_rag '{document_rag}' not compatible with "
+            f"prompt_processor '{pps_name}'. Compatible: {compatible_rag}"
+        )
+
+    return None
 
 
 def validate_update_plugin_metadata(
@@ -86,6 +123,10 @@ def validate_update_plugin_metadata(
             return None, "document_rag: library_id requires item_id"
         if metadata_dict.get("item_id") and not metadata_dict.get("library_id"):
             return None, "document_rag: item_id requires library_id"
+
+    compatible_error = _validate_compatible_rag(metadata_dict)
+    if compatible_error:
+        return None, compatible_error
 
     normalized_metadata = json.dumps(metadata_dict)
     return normalized_metadata, None

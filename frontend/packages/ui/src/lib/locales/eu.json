@@ -264,7 +264,9 @@
         "fileReadError": "Error reading the selected file."
       },
       "ragOptions": {
-        "title": "RAG Options"
+        "title": "RAG Aukerak",
+        "legacyPpsNotice": "Laguntzaile honek konfigurazio zaharra erabiltzen du (simple_augment). Zuzen funtzionatzen du baina ezin da editatu. RAG, ezagutza-basea edo erreferentzia-dokumentua aldatzeko, laguntzaile berri bat sortu.",
+        "document": "Dokumentua"
       },
       "ragTopK": {
         "label": "RAG Top K",

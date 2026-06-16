@@ -104,6 +104,35 @@ def test_simple_rag_not_affected():
     assert result is not None
 
 
+def test_incompatible_document_rag_with_simple_augment_returns_error():
+    body = _make_body({
+        "prompt_processor": "simple_augment",
+        "connector": "openai",
+        "llm": "gpt-4o-mini",
+        "rag_processor": "no_rag",
+        "document_rag": "library_file_rag",
+        "library_id": "lib-1",
+        "item_id": "item-1",
+    })
+    result, error = validate_update_plugin_metadata(body)
+    assert result is None
+    assert error is not None
+    assert "document_rag" in error
+    assert "simple_augment" in error
+
+
+def test_kvcache_augment_with_query_rewriting_ks_rag_is_valid():
+    body = _make_body({
+        "prompt_processor": "kvcache_augment",
+        "connector": "openai",
+        "llm": "gpt-4o-mini",
+        "rag_processor": "query_rewriting_ks_rag",
+    })
+    result, error = validate_update_plugin_metadata(body)
+    assert error is None
+    assert result is not None
+
+
 class TestDocumentRagValidation:
     def _make_body(self, **overrides):
         base = {

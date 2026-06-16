@@ -264,7 +264,9 @@
         "fileReadError": "Error reading the selected file."
       },
       "ragOptions": {
-        "title": "RAG Options"
+        "title": "Opciones RAG",
+        "legacyPpsNotice": "Este asistente usa una configuracion heredada (simple_augment). Funciona correctamente pero no se puede editar. Para cambiar el RAG, la base de conocimiento o el documento de referencia, crea un nuevo asistente.",
+        "document": "Documento"
       },
       "ragTopK": {
         "label": "RAG Top K",

@@ -1886,8 +1886,13 @@ class LambDatabaseManager:
         if os.getenv("OLLAMA_BASE_URL"):
             providers["ollama"] = {
                 "base_url": os.getenv("OLLAMA_BASE_URL"),
-                "models": [os.getenv("OLLAMA_MODEL", "llama3.1")]
             }
+            # Ollama models are discovered dynamically via the Ollama API
+            # (get_available_llms in connectors/ollama.py). Do NOT hardcode
+            # a models list here — it would override the live model list
+            # on every restart.
+            if os.getenv("OLLAMA_MODEL"):
+                providers["ollama"]["models"] = os.getenv("OLLAMA_MODEL").split(",")
 
         return providers
 
@@ -1923,6 +1928,8 @@ class LambDatabaseManager:
         import os
         from pathlib import Path
 
+        from lamb.assistant_default_pps import default_prompt_processor
+
         try:
             # Try multiple possible paths
             possible_paths = [
@@ -1946,7 +1953,7 @@ class LambDatabaseManager:
             return {
                 "connector": "openai",
                 "llm": "gpt-4o-mini",
-                "prompt_processor": "simple_augment",
+                "prompt_processor": default_prompt_processor(),
                 "rag_processor": "No RAG"
             }
         except Exception as e:
@@ -1954,7 +1961,7 @@ class LambDatabaseManager:
             return {
                 "connector": "openai",
                 "llm": "gpt-4o-mini",
-                "prompt_processor": "simple_augment",
+                "prompt_processor": default_prompt_processor(),
                 "rag_processor": "No RAG"
             }
 

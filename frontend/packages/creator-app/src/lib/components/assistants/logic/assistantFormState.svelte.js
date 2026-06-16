@@ -21,7 +21,9 @@ import {
 	isKsBasedRag,
 	isSingleFileRag,
 	isRubricRag,
-	normalizeRagProcessor
+	normalizeRagProcessor,
+	ppsSupportsDocumentRag,
+	resolveCreatePromptProcessor
 } from '$lib/utils/ragProcessorHelpers.js';
 import { loadRagPlaceholders, selectModel } from './assistantFormUtils.svelte.js';
 import { getAssistantMetadataObject } from '$lib/utils/assistantData';
@@ -143,10 +145,23 @@ export function createAssistantFormState() {
 }
 
 /**
+ * Clear Reference Document state when the current PPS does not support it.
+ * @param {ReturnType<typeof createAssistantFormState>} form
+ */
+export function clearDocumentRagIfUnsupported(form) {
+	if (!ppsSupportsDocumentRag(form.selectedPromptProcessor)) {
+		form.documentRagEnabled = false;
+		form.selectedLibraryId = '';
+		form.selectedItemId = '';
+	}
+}
+
+/**
  * Mark form as dirty when user makes changes.
  * @param {ReturnType<typeof createAssistantFormState>} form
  */
 export function handleFieldChange(form) {
+	clearDocumentRagIfUnsupported(form);
 	form.formDirty = true;
 }
 
@@ -160,8 +175,7 @@ export function resetFormFieldsToDefaults(form, getAvailableModels) {
 	form.system_prompt = defaults.system_prompt || '';
 	form.prompt_template = defaults.prompt_template || '';
 	form.RAG_Top_k = parseInt(defaults.RAG_Top_k || '3', 10) || 3;
-	form.selectedPromptProcessor =
-		defaults.prompt_processor || (form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
+	form.selectedPromptProcessor = resolveCreatePromptProcessor(form.promptProcessors);
 	form.selectedConnector =
 		defaults.connector || (form.connectorsList.length > 0 ? form.connectorsList[0] : '');
 	let defaultRag = normalizeRagProcessor(defaults.rag_processor);

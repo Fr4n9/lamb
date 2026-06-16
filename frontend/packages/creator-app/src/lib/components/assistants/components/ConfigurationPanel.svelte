@@ -8,7 +8,8 @@
 		getRagProcessorDisplayName,
 		getCompatibleRagForPps,
 		ppsSupportsDocumentRag,
-		isDocumentRag
+		isDocumentRag,
+		isLegacyPps
 	} from '$lib/utils/ragProcessorHelpers.js';
 	import { extractModelsMetadata } from '../logic/assistantFormUtils.svelte.js';
 	import RagOptionsPanel from './RagOptionsPanel.svelte';
@@ -74,8 +75,12 @@
 	);
 	let showRagOptions = $derived(hasRagOptions(selectedRagProcessor));
 	let isLegacySingleFileRag = $derived(selectedRagProcessor === 'single_file_rag');
+	let isLegacyEdit = $derived(formState === 'edit' && isLegacyPps(selectedPromptProcessor));
 	let showDocumentSection = $derived.by(() => {
 		if (!ppsSupportsDocumentRag(selectedPromptProcessor)) {
+			return false;
+		}
+		if (isLegacyEdit) {
 			return false;
 		}
 		return !isLegacySingleFileRag;
@@ -83,7 +88,6 @@
 	let filteredRAGProcessors = $derived(
 		getCompatibleRagForPps(selectedPromptProcessor, ragProcessors).filter((p) => !isDocumentRag(p))
 	);
-
 	async function handleConnectorChange() {
 		await tick();
 		if (!availableModels.includes(selectedLlm)) {
@@ -310,7 +314,7 @@
 	{#if showDocumentSection}
 		<div class="pt-4 border-t border-gray-200">
 			<label class="inline-flex items-center cursor-pointer mb-2">
-				<input type="checkbox" bind:checked={documentRagEnabled} onchange={onchange} disabled={formState === 'edit'} class="sr-only peer" />
+				<input type="checkbox" bind:checked={documentRagEnabled} onchange={onchange} disabled={formState === 'edit' || isLegacyEdit} class="sr-only peer" />
 				<div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
 				<span class="ms-3 text-sm font-medium text-gray-900">{$_('assistants.form.documentRag.label', { default: 'Reference Document' })}</span>
 			</label>
@@ -358,6 +362,7 @@
 			{loadingFiles}
 			{fileError}
 			{formState}
+			{isLegacyEdit}
 		/>
 	{/if}
 </fieldset>

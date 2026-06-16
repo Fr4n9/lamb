@@ -408,6 +408,17 @@ async def lti_configure_activity(request: Request):
         if not creator_user:
             return JSONResponse({"detail": "You don't have access to this organization"}, status_code=403)
 
+        allowed = db_manager.get_published_assistants_for_org_user(
+            organization_id, creator_user["id"], creator_user["user_email"]
+        )
+        allowed_ids = {a["id"] for a in allowed}
+        invalid = [aid for aid in assistant_ids if aid not in allowed_ids]
+        if invalid:
+            return JSONResponse(
+                {"detail": f"Assistants not available in this organization: {invalid}"},
+                status_code=400,
+            )
+
         resource_link_id = data.get("lti_resource_link_id")
         context_id = data.get("lti_context_id", "")
         context_title = data.get("lti_context_title", "")
@@ -420,13 +431,14 @@ async def lti_configure_activity(request: Request):
         # Check if activity already exists (reconfiguration case)
         existing_activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
         
+        reserved = {"token", "organization_id", "assistant_ids", "activity_type", "chat_visibility_enabled"}
+        extras = {k: v for k, v in payload.items() if k not in reserved}
+
         if existing_activity:
             # Reconfigure existing activity
             logger.info(f"Activity {resource_link_id} already exists, reconfiguring")
             added_ids, removed_ids = manager.reconfigure_activity(existing_activity, assistant_ids)
             activity = existing_activity
-            
-            # Module hook for reconfiguration
             module = _get_activity_module(activity)
             module.on_activity_reconfigured(activity, added_ids, removed_ids)
         else:
@@ -448,19 +460,17 @@ async def lti_configure_activity(request: Request):
                 logger.error(f"Failed to configure activity {resource_link_id}")
                 return JSONResponse({"detail": "Failed to configure activity"}, status_code=500)
 
-            # Phase 2: module hook (creates OWI group, adds model permissions, updates DB)
             module = _get_activity_module(activity)
-            reserved = {"token", "organization_id", "assistant_ids", "activity_type", "chat_visibility_enabled"}
-            extras = {k: v for k, v in payload.items() if k not in reserved}
-            setup_data = {
-                "resource_link_id": resource_link_id,
-                "assistant_ids": assistant_ids,
-                "configured_by_email": creator_user["user_email"],
-                "activity_name": resolved_activity_name,
-                "chat_visibility_enabled": chat_visibility_enabled,
-                **extras,
-            }
-            module.on_activity_configured(activity['id'], setup_data)
+
+        setup_data = {
+            "resource_link_id": resource_link_id,
+            "assistant_ids": assistant_ids,
+            "configured_by_email": creator_user["user_email"],
+            "activity_name": resolved_activity_name,
+            "chat_visibility_enabled": chat_visibility_enabled,
+            **extras,
+        }
+        module.on_activity_configured(activity['id'], setup_data)
 
         # Re-fetch activity: module may have filled in OWI fields
         activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
@@ -737,6 +747,9 @@ async def lti_dashboard_stats(resource_link_id: str = "", token: str = ""):
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
 
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
+
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -753,6 +766,9 @@ async def lti_dashboard_students(resource_link_id: str = "", token: str = "",
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
 
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
+
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -768,6 +784,9 @@ async def lti_dashboard_chats(resource_link_id: str = "", token: str = "",
     data = _validate_lti_jwt(token, "dashboard")
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
+
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
 
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
@@ -787,6 +806,9 @@ async def lti_dashboard_chat_detail(chat_id: str, resource_link_id: str = "",
     data = _validate_lti_jwt(token, "dashboard")
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
+
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
 
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
@@ -816,6 +838,9 @@ async def lti_enter_chat(request: Request, resource_link_id: str = "", token: st
     data = _validate_lti_jwt(token, "dashboard")
     if not data:
         return HTMLResponse(SESSION_EXPIRED_HTML, status_code=403)
+
+    if data.get("lti_resource_link_id") != resource_link_id:
+        return HTMLResponse("<h2>Invalid request.</h2>", status_code=403)
 
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:

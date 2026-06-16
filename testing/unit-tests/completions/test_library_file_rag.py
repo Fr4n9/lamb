@@ -58,7 +58,7 @@ def test_library_item_success(mock_get):
 
 @patch.dict(os.environ, MOCK_ENV)
 @patch("backend.lamb.completions.rag.library_file_rag.httpx.get")
-def test_library_item_connection_error_returns_empty_context(mock_get):
+def test_library_item_connection_error_returns_error_context(mock_get):
     import httpx
     mock_get.side_effect = httpx.ConnectError("Connection refused")
 
@@ -70,13 +70,14 @@ def test_library_item_connection_error_returns_empty_context(mock_get):
 
     result = rag_processor(messages=_make_messages(), assistant=assistant)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []
 
 
 @patch.dict(os.environ, MOCK_ENV)
 @patch("backend.lamb.completions.rag.library_file_rag.httpx.get")
-def test_library_item_not_found_returns_empty_context(mock_get):
+def test_library_item_not_found_returns_error_context(mock_get):
     mock_response = MagicMock()
     mock_response.status_code = 404
     mock_response.text = "Not found"
@@ -90,13 +91,15 @@ def test_library_item_not_found_returns_empty_context(mock_get):
 
     result = rag_processor(messages=_make_messages(), assistant=assistant)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert "404" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []
 
 
 @patch.dict(os.environ, MOCK_ENV)
 @patch("backend.lamb.completions.rag.library_file_rag.httpx.get")
-def test_library_item_server_error_returns_empty_context(mock_get):
+def test_library_item_server_error_returns_error_context(mock_get):
     mock_response = MagicMock()
     mock_response.status_code = 500
     mock_response.text = "Internal Server Error"
@@ -110,12 +113,13 @@ def test_library_item_server_error_returns_empty_context(mock_get):
 
     result = rag_processor(messages=_make_messages(), assistant=assistant)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []
 
 
 @patch.dict(os.environ, {}, clear=True)
-def test_library_item_missing_env_vars_returns_empty_context():
+def test_library_item_missing_env_vars_returns_error_context():
     assistant = MockAssistant({
         "rag_processor": "library_file_rag",
         "library_id": "lib-123",
@@ -124,22 +128,24 @@ def test_library_item_missing_env_vars_returns_empty_context():
 
     result = rag_processor(messages=_make_messages(), assistant=assistant)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []
 
 
-def test_no_library_id_returns_empty_context():
+def test_no_library_id_returns_error_context():
     assistant = MockAssistant({
         "rag_processor": "library_file_rag",
     })
 
     result = rag_processor(messages=_make_messages(), assistant=assistant)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []
 
 
-def test_library_id_without_item_id_returns_empty_context():
+def test_library_id_without_item_id_returns_error_context():
     assistant = MockAssistant({
         "rag_processor": "library_file_rag",
         "library_id": "lib-123",
@@ -147,18 +153,20 @@ def test_library_id_without_item_id_returns_empty_context():
 
     result = rag_processor(messages=_make_messages(), assistant=assistant)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []
 
 
-def test_no_assistant_returns_empty_context():
+def test_no_assistant_returns_error_context():
     result = rag_processor(messages=_make_messages(), assistant=None)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []
 
 
-def test_invalid_metadata_json_returns_empty_context():
+def test_invalid_metadata_json_returns_error_context():
     assistant = MockAssistant.__new__(MockAssistant)
     assistant.id = "mock-assistant-id"
     assistant.api_callback = "not valid json"
@@ -167,5 +175,6 @@ def test_invalid_metadata_json_returns_empty_context():
 
     result = rag_processor(messages=_make_messages(), assistant=assistant)
 
-    assert result["context"] == ""
+    assert "Reference document unavailable" in result["context"]
+    assert result.get("error")
     assert result["sources"] == []

@@ -342,21 +342,25 @@ def _ensure_metadata_defaults(metadata_raw) -> str:
     The completion pipeline requires a valid prompt_processor. If not set,
     the pipeline fails with 'Prompt processor default not found'.
     """
+    from lamb.assistant_default_pps import default_prompt_processor
+
+    fallback_pps = default_prompt_processor()
+
     if not metadata_raw:
-        return json.dumps({"prompt_processor": "simple_augment"})
+        return json.dumps({"prompt_processor": fallback_pps})
 
     if isinstance(metadata_raw, str):
         try:
             meta = json.loads(metadata_raw)
         except (json.JSONDecodeError, TypeError):
-            return json.dumps({"prompt_processor": "simple_augment"})
+            return json.dumps({"prompt_processor": fallback_pps})
     elif isinstance(metadata_raw, dict):
         meta = metadata_raw
     else:
-        return json.dumps({"prompt_processor": "simple_augment"})
+        return json.dumps({"prompt_processor": fallback_pps})
 
     if not meta.get("prompt_processor"):
-        meta["prompt_processor"] = "simple_augment"
+        meta["prompt_processor"] = fallback_pps
     if not meta.get("connector"):
         meta["connector"] = "openai"
 
@@ -553,6 +557,15 @@ async def create_assistant_directly(request: Request, auth: AuthContext = Depend
         )
         if error:
             raise HTTPException(status_code=400, detail=error)
+
+        normalized_metadata, metadata_error = validate_update_plugin_metadata(new_body)
+        if metadata_error:
+            logger.error(
+                f"Rejected create for assistant '{original_name}' due to invalid metadata: {metadata_error}"
+            )
+            raise HTTPException(status_code=400, detail=metadata_error)
+        new_body["metadata"] = normalized_metadata
+        new_body["api_callback"] = normalized_metadata
 
         # 6. Create Assistant in DB
         assistant_id = None

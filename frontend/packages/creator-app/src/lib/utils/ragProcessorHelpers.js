@@ -27,6 +27,26 @@ export const RAG_TYPES = Object.freeze({
 });
 
 /**
+ * Default PPS for new assistants: always kvcache_augment when available.
+ * @param {string[]} promptProcessors
+ * @returns {string}
+ */
+export function resolveCreatePromptProcessor(promptProcessors) {
+	if (promptProcessors?.includes('kvcache_augment')) return 'kvcache_augment';
+	return promptProcessors?.[0] ?? '';
+}
+
+/**
+ * Returns true if the PPS is a legacy prompt processor.
+ * Legacy PPS assistants show a locked read-only UI in edit mode.
+ * @param {string} pps
+ * @returns {boolean}
+ */
+export function isLegacyPps(pps) {
+	return pps === 'simple_augment';
+}
+
+/**
  * Returns true if the processor uses knowledge base collections (legacy).
  * @param {string} processor
  * @returns {boolean}

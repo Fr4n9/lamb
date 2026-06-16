@@ -10,7 +10,9 @@ import {
 	PPS_COMPATIBLE_RAG,
 	getCompatibleRagForPps,
 	ppsSupportsDocumentRag,
-	isDocumentRag
+	isDocumentRag,
+	isLegacyPps,
+	resolveCreatePromptProcessor
 } from './ragProcessorHelpers.js';
 
 describe('isKbBasedRag', () => {
@@ -228,5 +230,45 @@ describe('isDocumentRag', () => {
 
 	test('returns false for empty string', () => {
 		expect(isDocumentRag('')).toBe(false);
+	});
+});
+
+describe('isLegacyPps', () => {
+	test('returns true for simple_augment', () => {
+		expect(isLegacyPps('simple_augment')).toBe(true);
+	});
+
+	test('returns false for kvcache_augment', () => {
+		expect(isLegacyPps('kvcache_augment')).toBe(false);
+	});
+
+	test('returns false for empty string', () => {
+		expect(isLegacyPps('')).toBe(false);
+	});
+
+	test('returns false for null/undefined', () => {
+		expect(isLegacyPps(null)).toBe(false);
+		expect(isLegacyPps(undefined)).toBe(false);
+	});
+
+	test('returns false for unknown PPS name', () => {
+		expect(isLegacyPps('unknown_pps')).toBe(false);
+	});
+});
+
+describe('resolveCreatePromptProcessor', () => {
+	test('prefers kvcache_augment when available', () => {
+		expect(resolveCreatePromptProcessor(['simple_augment', 'kvcache_augment'])).toBe(
+			'kvcache_augment'
+		);
+	});
+
+	test('falls back to first processor when kvcache is unavailable', () => {
+		expect(resolveCreatePromptProcessor(['simple_augment', 'other'])).toBe('simple_augment');
+	});
+
+	test('returns empty string for empty list', () => {
+		expect(resolveCreatePromptProcessor([])).toBe('');
+		expect(resolveCreatePromptProcessor(null)).toBe('');
 	});
 });

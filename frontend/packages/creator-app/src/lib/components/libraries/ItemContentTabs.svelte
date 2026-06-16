@@ -8,7 +8,7 @@
 -->
 <script>
 	import { _, locale } from '@lamb/ui';
-	import { renderMarkdownStrict } from '$lib/utils/sanitize';
+	import { renderMarkdownStrict } from '@lamb/ui';
 	import { getItemCapabilities, getItemContentByCapability } from '$lib/services/libraryService';
 	import { getRenderer } from '$lib/components/libraries/capabilities/index.js';
 	import { Tabs, Banner, Button, EmptyState } from '$lib/components/ui';

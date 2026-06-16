@@ -264,7 +264,9 @@
         "fileReadError": "Error reading the selected file."
       },
       "ragOptions": {
-        "title": "RAG Options"
+        "title": "RAG Options",
+        "legacyPpsNotice": "This assistant uses a legacy configuration (simple_augment). It works correctly but cannot be edited. To change the RAG, knowledge base, or document settings, create a new assistant.",
+        "document": "Document"
       },
       "ragTopK": {
         "label": "RAG Top K",

@@ -11,29 +11,35 @@ logger = logging.getLogger('lamb.completions.rag.library_file_rag')
 logger.setLevel(logging.WARNING)
 
 
+def _error_result(message: str) -> Dict[str, Any]:
+    return {
+        "context": f"[Reference document unavailable: {message}]",
+        "sources": [],
+        "error": message,
+    }
+
+
 def rag_processor(
     messages: List[Dict[str, Any]],
     assistant: Assistant = None,
     request: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    empty_result = {"context": "", "sources": [], "_timing": {"fetch_ms": 0, "cache": "skip"}}
-
     if assistant is None:
         logger.warning("No assistant provided")
-        return empty_result
+        return _error_result("no assistant configuration")
 
     try:
         metadata = json.loads(assistant.metadata) if assistant.metadata else {}
     except (json.JSONDecodeError, TypeError):
         logger.warning("Invalid metadata JSON")
-        return empty_result
+        return _error_result("invalid assistant metadata")
 
     library_id = metadata.get("library_id")
     item_id = metadata.get("item_id")
 
     if not library_id or not item_id:
         logger.warning("library_id and item_id are required for library_file_rag")
-        return empty_result
+        return _error_result("library_id and item_id are required")
 
     org_id = getattr(assistant, "organization_id", None) or "global"
     return _fetch_with_cache(org_id, library_id, item_id)
@@ -61,14 +67,12 @@ def _fetch_with_cache(org_id: str, library_id: str, item_id: str) -> Dict[str, A
 
 
 def _fetch_from_library_manager(library_id: str, item_id: str) -> Dict[str, Any]:
-    empty_result = {"context": "", "sources": [], "_timing": {"fetch_ms": 0, "cache": "skip"}}
-
     lm_url = os.environ.get("LAMB_LIBRARY_SERVER", "").rstrip("/")
     lm_token = os.environ.get("LAMB_LIBRARY_TOKEN", "")
 
     if not lm_url or not lm_token:
         logger.warning("LAMB_LIBRARY_SERVER or LAMB_LIBRARY_TOKEN not configured")
-        return empty_result
+        return _error_result("Library Manager is not configured")
 
     url = f"{lm_url}/libraries/{library_id}/items/{item_id}/content"
     headers = {"Authorization": f"Bearer {lm_token}"}
@@ -77,6 +81,8 @@ def _fetch_from_library_manager(library_id: str, item_id: str) -> Dict[str, Any]
         response = httpx.get(url, params={"format": "markdown"}, headers=headers, timeout=30.0)
         if response.status_code == 200:
             content = response.text
+            if not content.strip():
+                return _error_result("library document is empty")
             return {
                 "context": content,
                 "sources": [{
@@ -85,12 +91,13 @@ def _fetch_from_library_manager(library_id: str, item_id: str) -> Dict[str, Any]
                     "similarity": 1.0,
                 }],
             }
-        else:
-            logger.warning(
-                f"Library Manager returned {response.status_code} for "
-                f"library={library_id} item={item_id}"
-            )
-            return empty_result
+        logger.warning(
+            f"Library Manager returned {response.status_code} for "
+            f"library={library_id} item={item_id}"
+        )
+        return _error_result(
+            f"Library Manager returned HTTP {response.status_code}"
+        )
     except httpx.HTTPError as e:
         logger.warning(f"Failed to fetch from Library Manager: {e}")
-        return empty_result
+        return _error_result(f"failed to fetch document: {e}")

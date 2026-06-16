@@ -53,8 +53,33 @@ def _decode_jwt(request: Request, token: Optional[str] = None) -> dict:
 
 
 def _require_instructor(payload: dict):
-    if not payload.get("is_instructor") and payload.get("lti_type") not in ("dashboard", "setup"):
+    if not payload.get("is_instructor") and payload.get("lti_type") != "dashboard":
         raise HTTPException(status_code=403, detail="Instructor access required")
+
+
+def _assert_activity(payload: dict, activity_id: int):
+    """Reject instructor tokens not bound to this activity (prevents cross-activity IDOR)."""
+    tid = payload.get("lti_activity_id")
+    if tid is None or int(tid) != int(activity_id):
+        raise HTTPException(status_code=403, detail="Activity does not match token")
+
+
+def _lookup_submission_activity_id(file_submission_id: str) -> int:
+    """Resolve activity_id for a file submission; 404 if missing."""
+    conn = _service.db.get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        conn.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
+        row = conn.execute(
+            "SELECT activity_id FROM mod_file_eval_submissions WHERE id = ?",
+            (file_submission_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        return int(row["activity_id"])
+    finally:
+        conn.close()
 
 
 # ── Activity view (for student or instructor) ─────────────────────────────
@@ -62,12 +87,17 @@ def _require_instructor(payload: dict):
 @router.get("/activities/{activity_id}/view")
 async def get_activity_view(activity_id: int, request: Request, token: str = ""):
     payload = _decode_jwt(request, token)
-    tid = payload.get("lti_activity_id")
-    if tid is not None and int(tid) != int(activity_id):
-        raise HTTPException(status_code=403, detail="Activity does not match token")
-    student_id = payload.get("lti_user_email", "")
     is_instructor = payload.get("is_instructor") or payload.get("lti_type") in ("dashboard",)
 
+    if is_instructor:
+        _require_instructor(payload)
+        _assert_activity(payload, activity_id)
+    else:
+        tid = payload.get("lti_activity_id")
+        if tid is not None and int(tid) != int(activity_id):
+            raise HTTPException(status_code=403, detail="Activity does not match token")
+
+    student_id = payload.get("lti_user_email", "")
     cfg = _service.get_setup_config(activity_id)
     activity_info = _service.get_activity_info(activity_id)
 
@@ -90,10 +120,7 @@ async def update_setup_config(
     """Update setup_config for an activity (evaluator_id, deadline, submission_type, etc.)."""
     payload = _decode_jwt(request, token)
     _require_instructor(payload)
-
-    tid = payload.get("lti_activity_id")
-    if tid is not None and int(tid) != int(activity_id):
-        raise HTTPException(status_code=403, detail="Activity does not match token")
+    _assert_activity(payload, activity_id)
 
     # Allowed fields to update
     allowed_fields = {"evaluator_id", "description", "deadline", "submission_type", "max_group_size", "language"}
@@ -197,6 +224,7 @@ async def upload_submission(
 async def list_submissions(activity_id: int, request: Request, token: str = ""):
     payload = _decode_jwt(request, token)
     _require_instructor(payload)
+    _assert_activity(payload, activity_id)
     return _service.get_submissions_by_activity(activity_id)
 
 
@@ -286,6 +314,8 @@ async def download_submission_by_id(file_submission_id: str, request: Request, t
         if not fs:
             raise HTTPException(status_code=404, detail="Submission not found")
 
+        _assert_activity(payload, int(fs["activity_id"]))
+
         file_path = fs.get("file_path", "")
         if not file_path or not os.path.isfile(file_path):
             logger.warning("File not found on disk for submission %s: %s", file_submission_id, file_path)
@@ -323,6 +353,7 @@ async def start_evaluation(
 ):
     payload = _decode_jwt(request, token)
     _require_instructor(payload)
+    _assert_activity(payload, activity_id)
 
     cfg = _service.get_setup_config(activity_id)
     evaluator_id = cfg.get("evaluator_id")
@@ -344,6 +375,7 @@ async def start_evaluation(
 async def evaluation_status(activity_id: int, request: Request, token: str = ""):
     payload = _decode_jwt(request, token)
     _require_instructor(payload)
+    _assert_activity(payload, activity_id)
     return _eval_svc.get_evaluation_status(activity_id)
 
 
@@ -353,6 +385,7 @@ async def evaluation_status(activity_id: int, request: Request, token: str = "")
 async def update_grade(file_submission_id: str, body: GradeUpdate, request: Request, token: str = ""):
     payload = _decode_jwt(request, token)
     _require_instructor(payload)
+    _assert_activity(payload, _lookup_submission_activity_id(file_submission_id))
     grade = _grade_svc.create_or_update_grade(file_submission_id, body.score, body.comment)
     return {"success": True, "grade": grade}
 
@@ -361,6 +394,7 @@ async def update_grade(file_submission_id: str, body: GradeUpdate, request: Requ
 async def accept_ai_grades(activity_id: int, request: Request, token: str = ""):
     payload = _decode_jwt(request, token)
     _require_instructor(payload)
+    _assert_activity(payload, activity_id)
     count = _grade_svc.accept_ai_grades_for_activity(activity_id)
     return {"success": True, "accepted": count}
 
@@ -371,5 +405,6 @@ async def accept_ai_grades(activity_id: int, request: Request, token: str = ""):
 async def sync_grades(activity_id: int, request: Request, token: str = ""):
     payload = _decode_jwt(request, token)
     _require_instructor(payload)
+    _assert_activity(payload, activity_id)
     result = LTIGradePassback.send_activity_grades(activity_id)
     return result
