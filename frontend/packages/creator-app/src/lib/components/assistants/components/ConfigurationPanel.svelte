@@ -76,6 +76,7 @@
 	);
 	let showRagOptions = $derived(hasRagOptions(selectedRagProcessor));
 	let isLegacySingleFileRag = $derived(selectedRagProcessor === 'single_file_rag');
+	let isLegacyEdit = $derived(formState === 'edit' && isLegacyPps(selectedPromptProcessor));
 	let showDocumentSection = $derived.by(() => {
 		if (!ppsSupportsDocumentRag(selectedPromptProcessor)) {
 			return false;
@@ -93,7 +94,6 @@
 			? promptProcessors.filter((p) => !PPS_HIDDEN_IN_CREATE.includes(p))
 			: promptProcessors
 	);
-	let isLegacyEdit = $derived(formState === 'edit' && isLegacyPps(selectedPromptProcessor));
 
 	async function handleConnectorChange() {
 		await tick();
