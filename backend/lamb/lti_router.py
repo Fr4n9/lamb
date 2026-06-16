@@ -408,6 +408,17 @@ async def lti_configure_activity(request: Request):
         if not creator_user:
             return JSONResponse({"detail": "You don't have access to this organization"}, status_code=403)
 
+        allowed = db_manager.get_published_assistants_for_org_user(
+            organization_id, creator_user["id"], creator_user["user_email"]
+        )
+        allowed_ids = {a["id"] for a in allowed}
+        invalid = [aid for aid in assistant_ids if aid not in allowed_ids]
+        if invalid:
+            return JSONResponse(
+                {"detail": f"Assistants not available in this organization: {invalid}"},
+                status_code=400,
+            )
+
         resource_link_id = data.get("lti_resource_link_id")
         context_id = data.get("lti_context_id", "")
         context_title = data.get("lti_context_title", "")
