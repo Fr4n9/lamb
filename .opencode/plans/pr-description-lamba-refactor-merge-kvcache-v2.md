@@ -83,6 +83,7 @@ This is the **original Phase 4 branch** (`feature/issue#277/phase4_lamba_port`).
 - `COMPATIBLE_RAG` validation in `main.py` (`load_and_validate_plugins`): rejects invalid PPS-RAG combinations at **completion** time.
 - `metadata_validators.py` + Creator Interface create/update: rejects incompatible combos at **save** time (see §5, commit `eb0c8718`).
 - **Default PPS changed:** `kvcache_augment` is now the default PPS for new assistants (was `simple_augment`). `simple_augment` is hidden from the create dropdown and only visible (disabled) in edit mode.
+- **`LAMB_LEGACY_PPS_DEFAULT` (backend env):** When `true`, served defaults (`/static/json/defaults.json`, `/creator/assistant/defaults`) force `simple_augment` for Playwright/E2E. When `false` (normal dev/prod), served defaults **always force `kvcache_augment`**, overriding stale org-level `assistant_defaults` in SQLite. This is a **temporary** policy in `assistant_default_pps.py` — see §11.
 
 **Key files:**
 - `backend/lamb/completions/pps/kvcache_augment.py` (new, 197 lines)
@@ -149,7 +150,7 @@ This is the **original Phase 4 branch** (`feature/issue#277/phase4_lamba_port`).
 |------|--------|
 | `backend/static/json/defaults.json` | Default PPS: `simple_augment` → `kvcache_augment` |
 | `backend/creator_interface/assistant_router.py` | Metadata default PPS: `simple_augment` → `kvcache_augment` |
-| `backend/lamb/database_manager.py` | Fallback default PPS: `simple_augment` → `kvcache_augment` |
+| `backend/lamb/assistant_default_pps.py` | Served-defaults PPS policy (`LAMB_LEGACY_PPS_DEFAULT`) |
 | `backend/lamb/completions/pps/simple_augment.py` | Cleanup: removed document_context, added COMPATIBLE_RAG |
 | `backend/lamb/completions/rag/context_aware_rag.py` | Legacy KB v1 path unchanged; query rewriting via `_query_rewriting_helper` only |
 | `backend/lamb/completions/main.py` | COMPATIBLE_RAG at completion time; `_require_document_context` HTTP 502 on document load failure |
@@ -904,6 +905,7 @@ To be reviewed in a **separate pass** after this PR is stable on `dev`:
 
 ### Pipeline / assistants
 
+- **Served-defaults PPS policy (temporary — monitor post-merge):** `backend/lamb/assistant_default_pps.py` applies `apply_defaults_pps_policy()` on every defaults response. With `LAMB_LEGACY_PPS_DEFAULT=false`, API always serves `kvcache_augment` even if org `assistant_defaults` in the DB still say `simple_augment`. With `true`, serves `simple_augment` for E2E. **Follow-up:** remove the force-on-serve hack once org defaults are migrated or org Admin no longer stores `prompt_processor`; let file + org merge behave normally, keeping the env flag only for Playwright if still needed.
 - **Legacy `single_file_rag` full migration (deferred):** Edit mode now locks all `simple_augment` assistants (generalized legacy banner + disabled KB/KS/Top-K/document controls). `single_file_rag` still shows read-only `file_path` plus the specific single-file notice. Future work: editable via `LibraryItemSelector` with RAG type locked + backend dual-path in `single_file_rag.py`.
 - **Legacy `no_rag` notice gap:** Assistants with `simple_augment` + `no_rag` do not mount `RagOptionsPanel`, so they only see the disabled PPS field — no amber banner. Acceptable for now; add a ConfigurationPanel-level notice if needed.
 - **RAG display names:** `context_aware_rag` and `query_rewriting_ks_rag` both show as "Context Aware Rag" in the UI; disambiguation suffix "(Old)" not yet implemented in `getRagProcessorDisplayName()`.

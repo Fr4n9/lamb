@@ -22,17 +22,21 @@ def default_prompt_processor() -> str:
     return "kvcache_augment"
 
 
-def apply_legacy_pps_override(mapping: dict[str, Any] | None) -> dict[str, Any] | None:
-    """When LAMB_LEGACY_PPS_DEFAULT is set, force prompt_processor to simple_augment."""
-    if not config.LAMB_LEGACY_PPS_DEFAULT or not mapping:
+def apply_defaults_pps_policy(mapping: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Apply env-driven prompt_processor when serving assistant defaults.
+
+    When LAMB_LEGACY_PPS_DEFAULT is false, always serves kvcache_augment (overrides
+    stale org DB values). When true, serves simple_augment (Playwright / legacy E2E).
+    """
+    if not mapping:
         return mapping
     result = dict(mapping)
-    result["prompt_processor"] = "simple_augment"
+    result["prompt_processor"] = default_prompt_processor()
     return result
 
 
 def load_defaults_json_document() -> dict[str, Any]:
-    """Load defaults.json from disk, applying legacy PPS override when configured."""
+    """Load defaults.json from disk, applying served-defaults PPS policy."""
     for path in DEFAULTS_JSON_PATHS:
         if not path.exists():
             continue
@@ -40,10 +44,10 @@ def load_defaults_json_document() -> dict[str, Any]:
             data = json.load(handle)
         if isinstance(data.get("config"), dict):
             data = dict(data)
-            data["config"] = apply_legacy_pps_override(dict(data["config"]))
+            data["config"] = apply_defaults_pps_policy(dict(data["config"]))
             return data
         if isinstance(data, dict):
-            return {"config": apply_legacy_pps_override(dict(data))}
+            return {"config": apply_defaults_pps_policy(dict(data))}
 
     minimal = {
         "connector": "openai",

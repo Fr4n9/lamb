@@ -257,7 +257,7 @@ from lamb.assistant_default_pps import load_defaults_json_document
 
 @app.get("/static/json/defaults.json", include_in_schema=False)
 async def serve_defaults_json():
-    """Serve defaults.json with optional LAMB_LEGACY_PPS_DEFAULT override."""
+    """Serve defaults.json with LAMB_LEGACY_PPS_DEFAULT-aware PPS policy."""
     return JSONResponse(load_defaults_json_document())
 
 
