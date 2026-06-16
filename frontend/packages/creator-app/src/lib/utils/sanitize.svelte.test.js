@@ -4,7 +4,7 @@
 // exercise them.
 
 import { describe, it, expect } from 'vitest';
-import { renderMarkdownSafe, renderMarkdownStrict } from './sanitize.js';
+import { renderMarkdownSafe, renderMarkdownStrict } from '@lamb/ui';
 
 describe('renderMarkdownStrict — XSS hardening', () => {
 	it('strips <script> tags', () => {

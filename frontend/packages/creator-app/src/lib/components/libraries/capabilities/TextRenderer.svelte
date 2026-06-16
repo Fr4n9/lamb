@@ -10,7 +10,7 @@
                the other renderers and future hooks)
 -->
 <script>
-	import { renderMarkdownStrict } from '$lib/utils/sanitize';
+	import { renderMarkdownStrict } from '@lamb/ui';
 	import { _ } from '@lamb/ui';
 	import { EmptyState } from '$lib/components/ui';
 	import { FileText } from 'lucide-svelte';
