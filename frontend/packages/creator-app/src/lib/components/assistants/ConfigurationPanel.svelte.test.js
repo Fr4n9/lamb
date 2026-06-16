@@ -76,3 +76,19 @@ describe('ConfigurationPanel - PPS dropdown in create mode', () => {
 		expect(select).toBeDisabled();
 	});
 });
+
+describe('ConfigurationPanel - legacy edit mode', () => {
+	it('passes isLegacyEdit=true to RagOptionsPanel when editing legacy PPS', () => {
+		const { container } = render(ConfigurationPanel, {
+			props: {
+				...baseProps,
+				formState: 'edit',
+				selectedPromptProcessor: 'simple_augment',
+				selectedRagProcessor: 'simple_rag',
+				ownedKnowledgeBases: [{ id: 'kb1', name: 'Test KB' }]
+			}
+		});
+		const legacyBanner = container.querySelector('.bg-amber-50');
+		expect(legacyBanner).toBeTruthy();
+	});
+});
