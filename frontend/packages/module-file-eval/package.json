@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@lamb/ui": "workspace:*",
+    "dompurify": "^3.4.1",
     "svelte-i18n": "^4.0.1",
     "marked": "^15.0.12"
   }

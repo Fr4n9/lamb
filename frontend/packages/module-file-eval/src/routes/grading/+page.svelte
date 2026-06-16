@@ -14,6 +14,7 @@
 	} from '$lib/services/gradingService.js';
 	import { getActivityId } from '$lib/services/api.js';
 	import { marked } from 'marked';
+	import DOMPurify from 'dompurify';
 
 	marked.use({
 		gfm: true,
@@ -27,7 +28,7 @@
 	function aiFeedbackMarkdownToHtml(md) {
 		if (md == null || md === '') return '';
 		try {
-			return String(marked.parse(md));
+			return DOMPurify.sanitize(String(marked.parse(md)), { USE_PROFILES: { html: true } });
 		} catch {
 			return `<p class="whitespace-pre-wrap">${String(md)
 				.replace(/&/g, '&amp;')
