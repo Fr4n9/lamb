@@ -8,7 +8,8 @@
 		getRagProcessorDisplayName,
 		getCompatibleRagForPps,
 		ppsSupportsDocumentRag,
-		isDocumentRag
+		isDocumentRag,
+		PPS_HIDDEN_IN_CREATE
 	} from '$lib/utils/ragProcessorHelpers.js';
 	import { extractModelsMetadata } from '../logic/assistantFormUtils.svelte.js';
 	import RagOptionsPanel from './RagOptionsPanel.svelte';
@@ -83,6 +84,11 @@
 	let filteredRAGProcessors = $derived(
 		getCompatibleRagForPps(selectedPromptProcessor, ragProcessors).filter((p) => !isDocumentRag(p))
 	);
+	let filteredPromptProcessors = $derived(
+		formState === 'create'
+			? promptProcessors.filter((p) => !PPS_HIDDEN_IN_CREATE.includes(p))
+			: promptProcessors
+	);
 
 	async function handleConnectorChange() {
 		await tick();
@@ -146,7 +152,7 @@
 				disabled={formState === 'edit'}
 				class="focus:ring-brand focus:border-brand mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 pr-10 pl-3 text-base text-gray-900 shadow-sm focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 sm:text-sm"
 			>
-				{#each promptProcessors as processor (processor)}
+				{#each filteredPromptProcessors as processor (processor)}
 					<option value={processor}>{processor}</option>
 				{/each}
 			</select>
