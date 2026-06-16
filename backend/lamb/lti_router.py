@@ -737,6 +737,9 @@ async def lti_dashboard_stats(resource_link_id: str = "", token: str = ""):
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
 
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
+
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -753,6 +756,9 @@ async def lti_dashboard_students(resource_link_id: str = "", token: str = "",
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
 
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
+
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -768,6 +774,9 @@ async def lti_dashboard_chats(resource_link_id: str = "", token: str = "",
     data = _validate_lti_jwt(token, "dashboard")
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
+
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
 
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
@@ -787,6 +796,9 @@ async def lti_dashboard_chat_detail(chat_id: str, resource_link_id: str = "",
     data = _validate_lti_jwt(token, "dashboard")
     if not data:
         raise HTTPException(status_code=403, detail="Invalid token")
+
+    if data.get("lti_resource_link_id") != resource_link_id:
+        raise HTTPException(status_code=403, detail="Resource link does not match token")
 
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
@@ -816,6 +828,9 @@ async def lti_enter_chat(request: Request, resource_link_id: str = "", token: st
     data = _validate_lti_jwt(token, "dashboard")
     if not data:
         return HTMLResponse(SESSION_EXPIRED_HTML, status_code=403)
+
+    if data.get("lti_resource_link_id") != resource_link_id:
+        return HTMLResponse("<h2>Invalid request.</h2>", status_code=403)
 
     activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
     if not activity:
