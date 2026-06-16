@@ -554,6 +554,15 @@ async def create_assistant_directly(request: Request, auth: AuthContext = Depend
         if error:
             raise HTTPException(status_code=400, detail=error)
 
+        normalized_metadata, metadata_error = validate_update_plugin_metadata(new_body)
+        if metadata_error:
+            logger.error(
+                f"Rejected create for assistant '{original_name}' due to invalid metadata: {metadata_error}"
+            )
+            raise HTTPException(status_code=400, detail=metadata_error)
+        new_body["metadata"] = normalized_metadata
+        new_body["api_callback"] = normalized_metadata
+
         # 6. Create Assistant in DB
         assistant_id = None
         try:

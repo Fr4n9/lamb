@@ -1,10 +1,4 @@
-import { describe, test, it, expect, vi } from 'vitest';
-
-vi.mock('$lib/utils/ragProcessorHelpers.js', () => ({
-	isKbBasedRag: (p) => ['simple_rag', 'context_aware_rag', 'hierarchical_rag'].includes(p),
-	isSingleFileRag: (p) => p === 'single_file_rag',
-	isRubricRag: (p) => p === 'rubric_rag'
-}));
+import { describe, test, it, expect } from 'vitest';
 
 import { validateSubmission, buildAssistantPayload } from './logic/assistantFormSubmit.js';
 
@@ -13,7 +7,8 @@ describe('validateSubmission', () => {
 		const result = validateSubmission({
 			name: '',
 			selectedRagProcessor: 'no_rag',
-			selectedRubricId: ''
+			selectedRubricId: '',
+			selectedPromptProcessor: 'simple_augment'
 		});
 		expect(result).toContain('Name');
 	});
@@ -22,16 +17,56 @@ describe('validateSubmission', () => {
 		const result = validateSubmission({
 			name: 'test',
 			selectedRagProcessor: 'rubric_rag',
-			selectedRubricId: ''
+			selectedRubricId: '',
+			selectedPromptProcessor: 'simple_augment'
 		});
 		expect(result).toContain('rubric');
+	});
+
+	test('returns error when RAG processor is incompatible with PPS', () => {
+		const result = validateSubmission({
+			name: 'test',
+			selectedRagProcessor: 'simple_rag',
+			selectedRubricId: '',
+			selectedPromptProcessor: 'kvcache_augment',
+			documentRagEnabled: false
+		});
+		expect(result).toContain('not compatible');
+	});
+
+	test('returns error when document RAG enabled without library/item', () => {
+		const result = validateSubmission({
+			name: 'test',
+			selectedRagProcessor: 'no_rag',
+			selectedRubricId: '',
+			selectedPromptProcessor: 'kvcache_augment',
+			documentRagEnabled: true,
+			selectedLibraryId: '',
+			selectedItemId: ''
+		});
+		expect(result).toContain('library and document');
+	});
+
+	test('returns error when document RAG enabled with unsupported PPS', () => {
+		const result = validateSubmission({
+			name: 'test',
+			selectedRagProcessor: 'no_rag',
+			selectedRubricId: '',
+			selectedPromptProcessor: 'simple_augment',
+			documentRagEnabled: true,
+			selectedLibraryId: 'lib-1',
+			selectedItemId: 'item-1'
+		});
+		expect(result).toContain('Reference Document');
 	});
 
 	test('returns null when valid', () => {
 		const result = validateSubmission({
 			name: 'test',
 			selectedRagProcessor: 'no_rag',
-			selectedRubricId: ''
+			selectedRubricId: '',
+			selectedPromptProcessor: 'simple_augment',
+			documentRagEnabled: false
 		});
 		expect(result).toBeNull();
 	});
@@ -51,9 +86,11 @@ describe('buildAssistantPayload', () => {
 			selectedRagProcessor: 'no_rag',
 			selectedLibraryId: '',
 			selectedItemId: '',
+			documentRagEnabled: false,
 			visionEnabled: false,
 			imageGenerationEnabled: false,
 			selectedKnowledgeBases: [],
+			selectedKnowledgeStores: [],
 			selectedRubricId: '',
 			rubricFormat: 'markdown'
 		};
@@ -78,9 +115,11 @@ describe('buildAssistantPayload', () => {
 			selectedRagProcessor: 'rubric_rag',
 			selectedLibraryId: '',
 			selectedItemId: '',
+			documentRagEnabled: false,
 			visionEnabled: false,
 			imageGenerationEnabled: false,
 			selectedKnowledgeBases: [],
+			selectedKnowledgeStores: [],
 			selectedRubricId: 'rubric-123',
 			rubricFormat: 'json'
 		};
@@ -103,9 +142,11 @@ describe('buildAssistantPayload', () => {
 			selectedRagProcessor: 'simple_rag',
 			selectedLibraryId: '',
 			selectedItemId: '',
+			documentRagEnabled: false,
 			visionEnabled: true,
 			imageGenerationEnabled: false,
 			selectedKnowledgeBases: ['kb1', 'kb2'],
+			selectedKnowledgeStores: [],
 			selectedRubricId: '',
 			rubricFormat: 'markdown'
 		};
@@ -134,6 +175,7 @@ describe('buildAssistantPayload', () => {
 			visionEnabled: false,
 			imageGenerationEnabled: false,
 			selectedKnowledgeBases: [],
+			selectedKnowledgeStores: [],
 			selectedRubricId: '',
 			rubricFormat: 'markdown'
 		};
@@ -144,16 +186,43 @@ describe('buildAssistantPayload', () => {
 		expect(metadata.file_path).toBeUndefined();
 		expect(metadata.document_rag).toBeUndefined();
 	});
+
+	test('does not emit document_rag when PPS does not support it', () => {
+		const form = {
+			name: 'test',
+			description: '',
+			system_prompt: '',
+			prompt_template: '',
+			RAG_Top_k: 3,
+			selectedPromptProcessor: 'simple_augment',
+			selectedConnector: 'openai',
+			selectedLlm: 'gpt-4o-mini',
+			selectedRagProcessor: 'no_rag',
+			selectedLibraryId: 'lib-1',
+			selectedItemId: 'item-1',
+			documentRagEnabled: true,
+			visionEnabled: false,
+			imageGenerationEnabled: false,
+			selectedKnowledgeBases: [],
+			selectedKnowledgeStores: [],
+			selectedRubricId: '',
+			rubricFormat: 'markdown'
+		};
+		const payload = buildAssistantPayload(form);
+		const metadata = JSON.parse(payload.metadata);
+		expect(metadata.document_rag).toBeUndefined();
+		expect(metadata.library_id).toBeUndefined();
+	});
 });
 
 describe('buildAssistantPayload with document_rag', () => {
-	it('includes document_rag and library refs when documentRagEnabled', () => {
+	it('includes document_rag and library refs when documentRagEnabled with kvcache_augment', () => {
 		const form = {
 			name: 'Test',
 			description: '',
 			system_prompt: '',
 			prompt_template: '',
-			selectedPromptProcessor: 'simple_augment',
+			selectedPromptProcessor: 'kvcache_augment',
 			selectedConnector: 'openai',
 			selectedLlm: 'gpt-4o-mini',
 			selectedRagProcessor: 'no_rag',
@@ -164,7 +233,8 @@ describe('buildAssistantPayload with document_rag', () => {
 			visionEnabled: false,
 			imageGenerationEnabled: false,
 			RAG_Top_k: 3,
-			selectedKnowledgeBases: []
+			selectedKnowledgeBases: [],
+			selectedKnowledgeStores: []
 		};
 		const payload = buildAssistantPayload(form);
 		const metadata = JSON.parse(payload.metadata);
@@ -180,10 +250,10 @@ describe('buildAssistantPayload with document_rag', () => {
 			description: '',
 			system_prompt: '',
 			prompt_template: '',
-			selectedPromptProcessor: 'simple_augment',
+			selectedPromptProcessor: 'kvcache_augment',
 			selectedConnector: 'openai',
 			selectedLlm: 'gpt-4o-mini',
-			selectedRagProcessor: 'context_aware_rag',
+			selectedRagProcessor: 'query_rewriting_ks_rag',
 			documentRagEnabled: false,
 			selectedLibraryId: '',
 			selectedItemId: '',
@@ -191,7 +261,8 @@ describe('buildAssistantPayload with document_rag', () => {
 			visionEnabled: false,
 			imageGenerationEnabled: false,
 			RAG_Top_k: 3,
-			selectedKnowledgeBases: ['kb-1']
+			selectedKnowledgeBases: [],
+			selectedKnowledgeStores: ['ks-1']
 		};
 		const payload = buildAssistantPayload(form);
 		const metadata = JSON.parse(payload.metadata);
@@ -216,7 +287,8 @@ describe('buildAssistantPayload with document_rag', () => {
 			visionEnabled: false,
 			imageGenerationEnabled: false,
 			RAG_Top_k: 3,
-			selectedKnowledgeBases: []
+			selectedKnowledgeBases: [],
+			selectedKnowledgeStores: []
 		};
 		const payload = buildAssistantPayload(form);
 		const metadata = JSON.parse(payload.metadata);

@@ -181,7 +181,7 @@ describe('validateImportedAssistant', () => {
 		).toBe(true);
 	});
 
-	test('reports missing file_path for single_file_rag', () => {
+	test('reports missing file_path or library refs for single_file_rag', () => {
 		const result = validateImportedAssistant(
 			validAssistantJSON({
 				metadata: JSON.stringify({
@@ -196,7 +196,49 @@ describe('validateImportedAssistant', () => {
 			extractModelsFromConnectorData
 		);
 		expect(
-			result.validationLog.some((log) => log.startsWith('❌') && log.includes('file_path'))
+			result.validationLog.some(
+				(log) => log.startsWith('❌') && log.includes('single_file_rag')
+			)
+		).toBe(true);
+	});
+
+	test('accepts single_file_rag with library_id and item_id', () => {
+		const result = validateImportedAssistant(
+			validAssistantJSON({
+				metadata: JSON.stringify({
+					prompt_processor: 'default_processor',
+					connector: 'openai',
+					llm: 'gpt-4',
+					rag_processor: 'single_file_rag',
+					library_id: 'lib-1',
+					item_id: 'item-1'
+				})
+			}),
+			BASE_CAPABILITIES,
+			extractModelsFromConnectorData
+		);
+		expect(result.hasErrors).toBe(false);
+	});
+
+	test('reports incompatible document_rag with simple_augment', () => {
+		const result = validateImportedAssistant(
+			validAssistantJSON({
+				metadata: JSON.stringify({
+					prompt_processor: 'simple_augment',
+					connector: 'openai',
+					llm: 'gpt-4',
+					rag_processor: 'no_rag',
+					document_rag: 'library_file_rag',
+					library_id: 'lib-1',
+					item_id: 'item-1'
+				})
+			}),
+			{ ...BASE_CAPABILITIES, prompt_processors: ['simple_augment', 'kvcache_augment'] },
+			extractModelsFromConnectorData
+		);
+		expect(result.hasErrors).toBe(true);
+		expect(
+			result.validationLog.some((log) => log.startsWith('❌') && log.includes('document_rag'))
 		).toBe(true);
 	});
 

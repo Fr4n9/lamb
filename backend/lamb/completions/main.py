@@ -170,6 +170,7 @@ async def create_completion(
         logger.debug(f"Plugins loaded: {pps}, {connectors}, {rag_processors}")
         rag_context = await get_rag_context(request, rag_processors, plugin_config["rag_processor"], assistant_details)
         document_context = await get_rag_context(request, rag_processors, plugin_config.get("document_rag", ""), assistant_details)
+        _require_document_context(plugin_config, document_context)
         logger.debug(f"RAG context: {rag_context}")
         messages = process_completion_request(request, assistant_details, plugin_config, rag_context, pps, document_context)
         logger.debug(f"Messages: {messages}")
@@ -374,6 +375,33 @@ async def get_rag_context(request: Dict[str, Any], rag_processors: Dict[str, Any
     logger.debug("No RAG processor requested")
     return None
 
+
+def _require_document_context(plugin_config: Dict[str, str], document_context: Any) -> None:
+    """Fail the completion when document_rag is configured but loading failed."""
+    document_rag = plugin_config.get("document_rag", "")
+    if not document_rag:
+        return
+
+    if not document_context or not isinstance(document_context, dict):
+        raise HTTPException(
+            status_code=502,
+            detail="Reference document could not be loaded: no context returned",
+        )
+
+    if document_context.get("error"):
+        raise HTTPException(
+            status_code=502,
+            detail=f"Reference document could not be loaded: {document_context['error']}",
+        )
+
+    context_text = document_context.get("context", "")
+    if not context_text or not str(context_text).strip():
+        raise HTTPException(
+            status_code=502,
+            detail="Reference document could not be loaded: empty document content",
+        )
+
+
 def load_plugins(plugin_type: str) -> Dict[str, Any]:
     """
     Dynamically load plugins from the specified directory
@@ -482,6 +510,7 @@ async def run_lamb_assistant(
         pps, connectors, rag_processors = load_and_validate_plugins(plugin_config)
         rag_context = await get_rag_context(request, rag_processors, plugin_config["rag_processor"], assistant_details)
         document_context = await get_rag_context(request, rag_processors, plugin_config.get("document_rag", ""), assistant_details)
+        _require_document_context(plugin_config, document_context)
         messages = process_completion_request(request, assistant_details, plugin_config, rag_context, pps, document_context)
         stream = request.get("stream", False)
         llm = plugin_config.get("llm") # Get LLM from config

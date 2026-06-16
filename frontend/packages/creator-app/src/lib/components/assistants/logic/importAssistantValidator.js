@@ -1,7 +1,12 @@
 // importAssistantValidator.js — Pure validation for assistant import JSON
 // Extracted from AssistantForm.svelte handleFileSelect (Task Extra: SRP)
 
-import { isKbBasedRag, isSingleFileRag } from '$lib/utils/ragProcessorHelpers.js';
+import {
+	isKbBasedRag,
+	isSingleFileRag,
+	PPS_COMPATIBLE_RAG,
+	ppsSupportsDocumentRag
+} from '$lib/utils/ragProcessorHelpers.js';
 
 /**
  * @typedef {Object} ImportValidationResult
@@ -10,6 +15,18 @@ import { isKbBasedRag, isSingleFileRag } from '$lib/utils/ragProcessorHelpers.js
  * @property {string[]} validationLog - Ordered log of validation messages (consumed by caller in Console but not displayed in UI directly)
  * @property {boolean} hasErrors - True if any ❌ entries exist
  */
+
+/**
+ * @param {string} pps
+ * @param {string} rag
+ * @returns {boolean}
+ */
+function isRagCompatibleWithPps(pps, rag) {
+	if (!rag) return true;
+	const compatible = PPS_COMPATIBLE_RAG[pps];
+	if (!compatible) return true;
+	return compatible.includes(rag);
+}
 
 /**
  * Validates an imported assistant JSON against system capabilities.
@@ -105,9 +122,41 @@ export function validateImportedAssistant(jsonContent, capabilities, modelExtrac
 				);
 			}
 
-			// Specific checks based on rag_processor
-			if (isSingleFileRag(callbackData.rag_processor) && !callbackData.file_path) {
-				validationLog.push('❌ Missing file_path in metadata for single_file_rag processor.');
+			if (
+				callbackData.rag_processor &&
+				callbackData.prompt_processor &&
+				!isRagCompatibleWithPps(callbackData.prompt_processor, callbackData.rag_processor)
+			) {
+				validationLog.push(
+					`❌ rag_processor '${callbackData.rag_processor}' is not compatible with prompt_processor '${callbackData.prompt_processor}'.`
+				);
+			}
+
+			// single_file_rag: file_path OR library_id + item_id
+			if (isSingleFileRag(callbackData.rag_processor)) {
+				const hasLibraryRef =
+					callbackData.library_id?.trim() && callbackData.item_id?.trim();
+				const hasFileRef = Boolean(callbackData.file_path?.trim());
+				if (!hasLibraryRef && !hasFileRef) {
+					validationLog.push(
+						'❌ single_file_rag requires file_path or library_id + item_id in metadata.'
+					);
+				}
+			}
+
+			if (callbackData.document_rag === 'library_file_rag') {
+				if (!ppsSupportsDocumentRag(callbackData.prompt_processor)) {
+					validationLog.push(
+						`❌ document_rag=library_file_rag is not supported with prompt_processor '${callbackData.prompt_processor}'.`
+					);
+				}
+				const hasLibraryRef =
+					callbackData.library_id?.trim() && callbackData.item_id?.trim();
+				if (!hasLibraryRef) {
+					validationLog.push(
+						'❌ document_rag=library_file_rag requires library_id + item_id in metadata.'
+					);
+				}
 			}
 		} catch (callbackError) {
 			validationLog.push(

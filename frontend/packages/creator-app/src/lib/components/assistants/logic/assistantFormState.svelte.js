@@ -21,7 +21,8 @@ import {
 	isKsBasedRag,
 	isSingleFileRag,
 	isRubricRag,
-	normalizeRagProcessor
+	normalizeRagProcessor,
+	ppsSupportsDocumentRag
 } from '$lib/utils/ragProcessorHelpers.js';
 import { loadRagPlaceholders, selectModel } from './assistantFormUtils.svelte.js';
 import { getAssistantMetadataObject } from '$lib/utils/assistantData';
@@ -143,10 +144,23 @@ export function createAssistantFormState() {
 }
 
 /**
+ * Clear Reference Document state when the current PPS does not support it.
+ * @param {ReturnType<typeof createAssistantFormState>} form
+ */
+export function clearDocumentRagIfUnsupported(form) {
+	if (!ppsSupportsDocumentRag(form.selectedPromptProcessor)) {
+		form.documentRagEnabled = false;
+		form.selectedLibraryId = '';
+		form.selectedItemId = '';
+	}
+}
+
+/**
  * Mark form as dirty when user makes changes.
  * @param {ReturnType<typeof createAssistantFormState>} form
  */
 export function handleFieldChange(form) {
+	clearDocumentRagIfUnsupported(form);
 	form.formDirty = true;
 }
 

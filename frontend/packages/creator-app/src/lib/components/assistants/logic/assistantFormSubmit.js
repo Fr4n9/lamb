@@ -4,11 +4,30 @@
  * Extracted from AssistantForm.svelte to enable isolated testing.
  */
 
-import { isKbBasedRag, isKsBasedRag, isSingleFileRag, isRubricRag } from '$lib/utils/ragProcessorHelpers.js';
+import {
+	isKbBasedRag,
+	isKsBasedRag,
+	isSingleFileRag,
+	isRubricRag,
+	PPS_COMPATIBLE_RAG,
+	ppsSupportsDocumentRag
+} from '$lib/utils/ragProcessorHelpers.js';
+
+/**
+ * @param {string} pps
+ * @param {string} rag
+ * @returns {boolean}
+ */
+function isRagCompatibleWithPps(pps, rag) {
+	if (!rag) return true;
+	const compatible = PPS_COMPATIBLE_RAG[pps];
+	if (!compatible) return true;
+	return compatible.includes(rag);
+}
 
 /**
  * Validates form data before submission.
- * @param {{ name: string, selectedRagProcessor: string, selectedRubricId: string }} form
+ * @param {Record<string, any>} form
  * @returns {string | null} Error message or null if valid
  */
 export function validateSubmission(form) {
@@ -16,6 +35,30 @@ export function validateSubmission(form) {
 	if (isRubricRag(form.selectedRagProcessor) && !form.selectedRubricId) {
 		return 'Please select a rubric when using Rubric RAG.';
 	}
+
+	if (
+		form.selectedRagProcessor &&
+		!isRagCompatibleWithPps(form.selectedPromptProcessor, form.selectedRagProcessor)
+	) {
+		return (
+			`RAG processor '${form.selectedRagProcessor}' is not compatible with ` +
+			`prompt processor '${form.selectedPromptProcessor}'.`
+		);
+	}
+
+	if (form.documentRagEnabled && !ppsSupportsDocumentRag(form.selectedPromptProcessor)) {
+		return (
+			`Reference Document is not supported with prompt processor ` +
+			`'${form.selectedPromptProcessor}'.`
+		);
+	}
+
+	if (form.documentRagEnabled && ppsSupportsDocumentRag(form.selectedPromptProcessor)) {
+		if (!form.selectedLibraryId?.trim() || !form.selectedItemId?.trim()) {
+			return 'Please select a library and document for Reference Document.';
+		}
+	}
+
 	return null;
 }
 
@@ -36,7 +79,10 @@ export function buildAssistantPayload(form) {
 		}
 	};
 
-	if (form.documentRagEnabled) {
+	const supportsDocumentRag =
+		form.documentRagEnabled && ppsSupportsDocumentRag(form.selectedPromptProcessor);
+
+	if (supportsDocumentRag) {
 		metadataObj.document_rag = 'library_file_rag';
 		metadataObj.library_id = form.selectedLibraryId || '';
 		metadataObj.item_id = form.selectedItemId || '';
