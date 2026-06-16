@@ -1743,7 +1743,7 @@ class LambDatabaseManager:
             return {
                 "connector": "openai",
                 "llm": "gpt-4o-mini",
-                "prompt_processor": "simple_augment",
+                "prompt_processor": "kvcache_augment",
                 "rag_processor": "No RAG"
             }
         except Exception as e:
@@ -1751,7 +1751,7 @@ class LambDatabaseManager:
             return {
                 "connector": "openai",
                 "llm": "gpt-4o-mini",
-                "prompt_processor": "simple_augment",
+                "prompt_processor": "kvcache_augment",
                 "rag_processor": "No RAG"
             }
 

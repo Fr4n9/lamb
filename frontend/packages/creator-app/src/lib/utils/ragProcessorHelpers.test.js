@@ -10,7 +10,9 @@ import {
 	PPS_COMPATIBLE_RAG,
 	getCompatibleRagForPps,
 	ppsSupportsDocumentRag,
-	isDocumentRag
+	isDocumentRag,
+	isLegacyPps,
+	PPS_HIDDEN_IN_CREATE
 } from './ragProcessorHelpers.js';
 
 describe('isKbBasedRag', () => {
@@ -228,5 +230,42 @@ describe('isDocumentRag', () => {
 
 	test('returns false for empty string', () => {
 		expect(isDocumentRag('')).toBe(false);
+	});
+});
+
+describe('isLegacyPps', () => {
+	test('returns true for simple_augment', () => {
+		expect(isLegacyPps('simple_augment')).toBe(true);
+	});
+
+	test('returns false for kvcache_augment', () => {
+		expect(isLegacyPps('kvcache_augment')).toBe(false);
+	});
+
+	test('returns false for empty string', () => {
+		expect(isLegacyPps('')).toBe(false);
+	});
+
+	test('returns false for null/undefined', () => {
+		expect(isLegacyPps(null)).toBe(false);
+		expect(isLegacyPps(undefined)).toBe(false);
+	});
+
+	test('returns false for unknown PPS name', () => {
+		expect(isLegacyPps('unknown_pps')).toBe(false);
+	});
+});
+
+describe('PPS_HIDDEN_IN_CREATE', () => {
+	test('contains simple_augment', () => {
+		expect(PPS_HIDDEN_IN_CREATE).toContain('simple_augment');
+	});
+
+	test('does not contain kvcache_augment', () => {
+		expect(PPS_HIDDEN_IN_CREATE).not.toContain('kvcache_augment');
+	});
+
+	test('is frozen', () => {
+		expect(Object.isFrozen(PPS_HIDDEN_IN_CREATE)).toBe(true);
 	});
 });

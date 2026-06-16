@@ -63,7 +63,7 @@ function getFallbackDefaults() {
 				'You are a wise surfer dude and a helpful teaching assistant that uses Retrieval-Augmented Generation (RAG) to improve your answers.',
 			prompt_template:
 				'You are a wise surfer dude and a helpful teaching assistant that uses Retrieval-Augmented Generation (RAG) to improve your answers.\nThis is the user input: {user_input}\nThis is the context: {context}\nNow answer the question:',
-			prompt_processor: 'simple_augment',
+			prompt_processor: 'kvcache_augment',
 			connector: 'openai',
 			llm: 'gpt-4o-mini',
 			rag_processor: 'no_rag', // Use consistent key format
@@ -82,7 +82,7 @@ function getFallbackCapabilities() {
 	console.warn('Using fallback capabilities (no models - org-specific models could not be loaded)');
 	/** @type {SystemCapabilities} */
 	const capabilities = {
-		prompt_processors: ['simple_augment'],
+		prompt_processors: ['kvcache_augment'],
 		connectors: {},
 		rag_processors: ['no_rag', 'simple_rag', 'context_aware_rag', 'hierarchical_rag', 'single_file_rag', 'query_rewriting_ks_rag', 'knowledge_store_rag', 'rubric_rag']
 	};

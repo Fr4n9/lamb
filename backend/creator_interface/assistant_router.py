@@ -343,17 +343,17 @@ def _ensure_metadata_defaults(metadata_raw) -> str:
     the pipeline fails with 'Prompt processor default not found'.
     """
     if not metadata_raw:
-        return json.dumps({"prompt_processor": "simple_augment"})
+        return json.dumps({"prompt_processor": "kvcache_augment"})
 
     if isinstance(metadata_raw, str):
         try:
             meta = json.loads(metadata_raw)
         except (json.JSONDecodeError, TypeError):
-            return json.dumps({"prompt_processor": "simple_augment"})
+            return json.dumps({"prompt_processor": "kvcache_augment"})
     elif isinstance(metadata_raw, dict):
         meta = metadata_raw
     else:
-        return json.dumps({"prompt_processor": "simple_augment"})
+        return json.dumps({"prompt_processor": "kvcache_augment"})
 
     if not meta.get("prompt_processor"):
         meta["prompt_processor"] = "simple_augment"

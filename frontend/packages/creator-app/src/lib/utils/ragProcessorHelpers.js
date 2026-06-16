@@ -26,6 +26,19 @@ export const RAG_TYPES = Object.freeze({
 	DOCUMENT_RAG: ['library_file_rag']
 });
 
+/** @readonly */
+export const PPS_HIDDEN_IN_CREATE = Object.freeze(['simple_augment']);
+
+/**
+ * Returns true if the PPS is a legacy prompt processor.
+ * Legacy PPS assistants show a locked read-only UI in edit mode.
+ * @param {string} pps
+ * @returns {boolean}
+ */
+export function isLegacyPps(pps) {
+	return pps === 'simple_augment';
+}
+
 /**
  * Returns true if the processor uses knowledge base collections (legacy).
  * @param {string} processor
