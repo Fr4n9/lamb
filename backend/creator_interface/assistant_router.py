@@ -356,7 +356,7 @@ def _ensure_metadata_defaults(metadata_raw) -> str:
         return json.dumps({"prompt_processor": "kvcache_augment"})
 
     if not meta.get("prompt_processor"):
-        meta["prompt_processor"] = "simple_augment"
+        meta["prompt_processor"] = "kvcache_augment"
     if not meta.get("connector"):
         meta["connector"] = "openai"
 
