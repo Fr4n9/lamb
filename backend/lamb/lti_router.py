@@ -420,13 +420,14 @@ async def lti_configure_activity(request: Request):
         # Check if activity already exists (reconfiguration case)
         existing_activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
         
+        reserved = {"token", "organization_id", "assistant_ids", "activity_type", "chat_visibility_enabled"}
+        extras = {k: v for k, v in payload.items() if k not in reserved}
+
         if existing_activity:
             # Reconfigure existing activity
             logger.info(f"Activity {resource_link_id} already exists, reconfiguring")
             added_ids, removed_ids = manager.reconfigure_activity(existing_activity, assistant_ids)
             activity = existing_activity
-            
-            # Module hook for reconfiguration
             module = _get_activity_module(activity)
             module.on_activity_reconfigured(activity, added_ids, removed_ids)
         else:
@@ -448,19 +449,17 @@ async def lti_configure_activity(request: Request):
                 logger.error(f"Failed to configure activity {resource_link_id}")
                 return JSONResponse({"detail": "Failed to configure activity"}, status_code=500)
 
-            # Phase 2: module hook (creates OWI group, adds model permissions, updates DB)
             module = _get_activity_module(activity)
-            reserved = {"token", "organization_id", "assistant_ids", "activity_type", "chat_visibility_enabled"}
-            extras = {k: v for k, v in payload.items() if k not in reserved}
-            setup_data = {
-                "resource_link_id": resource_link_id,
-                "assistant_ids": assistant_ids,
-                "configured_by_email": creator_user["user_email"],
-                "activity_name": resolved_activity_name,
-                "chat_visibility_enabled": chat_visibility_enabled,
-                **extras,
-            }
-            module.on_activity_configured(activity['id'], setup_data)
+
+        setup_data = {
+            "resource_link_id": resource_link_id,
+            "assistant_ids": assistant_ids,
+            "configured_by_email": creator_user["user_email"],
+            "activity_name": resolved_activity_name,
+            "chat_visibility_enabled": chat_visibility_enabled,
+            **extras,
+        }
+        module.on_activity_configured(activity['id'], setup_data)
 
         # Re-fetch activity: module may have filled in OWI fields
         activity = db_manager.get_lti_activity_by_resource_link(resource_link_id)
