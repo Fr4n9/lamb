@@ -342,21 +342,25 @@ def _ensure_metadata_defaults(metadata_raw) -> str:
     The completion pipeline requires a valid prompt_processor. If not set,
     the pipeline fails with 'Prompt processor default not found'.
     """
+    from lamb.assistant_default_pps import default_prompt_processor
+
+    fallback_pps = default_prompt_processor()
+
     if not metadata_raw:
-        return json.dumps({"prompt_processor": "kvcache_augment"})
+        return json.dumps({"prompt_processor": fallback_pps})
 
     if isinstance(metadata_raw, str):
         try:
             meta = json.loads(metadata_raw)
         except (json.JSONDecodeError, TypeError):
-            return json.dumps({"prompt_processor": "kvcache_augment"})
+            return json.dumps({"prompt_processor": fallback_pps})
     elif isinstance(metadata_raw, dict):
         meta = metadata_raw
     else:
-        return json.dumps({"prompt_processor": "kvcache_augment"})
+        return json.dumps({"prompt_processor": fallback_pps})
 
     if not meta.get("prompt_processor"):
-        meta["prompt_processor"] = "kvcache_augment"
+        meta["prompt_processor"] = fallback_pps
     if not meta.get("connector"):
         meta["connector"] = "openai"
 
@@ -1836,7 +1840,9 @@ async def get_assistant_defaults_for_current_user(request: Request, auth: AuthCo
         org_service = OrganizationService()
         result = org_service.get_assistant_defaults(org_slug)
 
-        return result
+        from lamb.assistant_default_pps import apply_legacy_pps_override
+
+        return apply_legacy_pps_override(result)
 
     except HTTPException:
         raise

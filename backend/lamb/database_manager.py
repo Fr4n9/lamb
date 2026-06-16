@@ -1720,6 +1720,8 @@ class LambDatabaseManager:
         import os
         from pathlib import Path
 
+        from lamb.assistant_default_pps import apply_legacy_pps_override, default_prompt_processor
+
         try:
             # Try multiple possible paths
             possible_paths = [
@@ -1736,14 +1738,14 @@ class LambDatabaseManager:
                         data = json.load(f)
                         # Extract the config section which contains the assistant defaults
                         if 'config' in data:
-                            return data['config']
-                        return data
+                            return apply_legacy_pps_override(data['config'])
+                        return apply_legacy_pps_override(data)
 
             logger.warning("defaults.json not found, using minimal defaults")
             return {
                 "connector": "openai",
                 "llm": "gpt-4o-mini",
-                "prompt_processor": "kvcache_augment",
+                "prompt_processor": default_prompt_processor(),
                 "rag_processor": "No RAG"
             }
         except Exception as e:
@@ -1751,7 +1753,7 @@ class LambDatabaseManager:
             return {
                 "connector": "openai",
                 "llm": "gpt-4o-mini",
-                "prompt_processor": "kvcache_augment",
+                "prompt_processor": default_prompt_processor(),
                 "rag_processor": "No RAG"
             }
 
