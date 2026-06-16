@@ -84,10 +84,6 @@ LAMB_ENABLE_DEBUG = _env_bool('LAMB_ENABLE_DEBUG', False)
 LAMB_ENABLE_LIBRARIES = os.getenv(
     "LAMB_LIBRARY_SERVER_ENABLE", "ENABLE").upper().strip() != "DISABLE"
 
-# When true, default prompt_processor is simple_augment (legacy) instead of kvcache_augment.
-# Intended for Playwright/E2E environments so existing tests keep the old default.
-LAMB_LEGACY_PPS_DEFAULT = _env_bool("LAMB_LEGACY_PPS_DEFAULT", False)
-
 # Database Configuration
 LAMB_DB_PATH = os.getenv('LAMB_DB_PATH', '/data/lamb')
 LAMB_DB_PREFIX = os.getenv('LAMB_DB_PREFIX', 'LAMB_')

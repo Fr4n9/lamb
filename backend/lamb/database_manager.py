@@ -1720,7 +1720,7 @@ class LambDatabaseManager:
         import os
         from pathlib import Path
 
-        from lamb.assistant_default_pps import apply_defaults_pps_policy, default_prompt_processor
+        from lamb.assistant_default_pps import default_prompt_processor
 
         try:
             # Try multiple possible paths
@@ -1738,8 +1738,8 @@ class LambDatabaseManager:
                         data = json.load(f)
                         # Extract the config section which contains the assistant defaults
                         if 'config' in data:
-                            return apply_defaults_pps_policy(data['config'])
-                        return apply_defaults_pps_policy(data)
+                            return data['config']
+                        return data
 
             logger.warning("defaults.json not found, using minimal defaults")
             return {

@@ -12,7 +12,7 @@ import {
 	ppsSupportsDocumentRag,
 	isDocumentRag,
 	isLegacyPps,
-	PPS_HIDDEN_IN_CREATE
+	resolveCreatePromptProcessor
 } from './ragProcessorHelpers.js';
 
 describe('isKbBasedRag', () => {
@@ -256,16 +256,19 @@ describe('isLegacyPps', () => {
 	});
 });
 
-describe('PPS_HIDDEN_IN_CREATE', () => {
-	test('contains simple_augment', () => {
-		expect(PPS_HIDDEN_IN_CREATE).toContain('simple_augment');
+describe('resolveCreatePromptProcessor', () => {
+	test('prefers kvcache_augment when available', () => {
+		expect(resolveCreatePromptProcessor(['simple_augment', 'kvcache_augment'])).toBe(
+			'kvcache_augment'
+		);
 	});
 
-	test('does not contain kvcache_augment', () => {
-		expect(PPS_HIDDEN_IN_CREATE).not.toContain('kvcache_augment');
+	test('falls back to first processor when kvcache is unavailable', () => {
+		expect(resolveCreatePromptProcessor(['simple_augment', 'other'])).toBe('simple_augment');
 	});
 
-	test('is frozen', () => {
-		expect(Object.isFrozen(PPS_HIDDEN_IN_CREATE)).toBe(true);
+	test('returns empty string for empty list', () => {
+		expect(resolveCreatePromptProcessor([])).toBe('');
+		expect(resolveCreatePromptProcessor(null)).toBe('');
 	});
 });

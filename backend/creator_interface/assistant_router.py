@@ -1840,9 +1840,7 @@ async def get_assistant_defaults_for_current_user(request: Request, auth: AuthCo
         org_service = OrganizationService()
         result = org_service.get_assistant_defaults(org_slug)
 
-        from lamb.assistant_default_pps import apply_defaults_pps_policy
-
-        return apply_defaults_pps_policy(result)
+        return result
 
     except HTTPException:
         raise

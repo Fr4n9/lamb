@@ -145,7 +145,7 @@ describe('handleFieldChange', () => {
 describe('resetFormFieldsToDefaults', () => {
 	test('resets form fields to config defaults', () => {
 		const form = createAssistantFormState();
-		form.promptProcessors = ['default_processor', 'other'];
+		form.promptProcessors = ['simple_augment', 'kvcache_augment', 'other'];
 		form.connectorsList = ['openai', 'ollama'];
 		form.ragProcessors = ['no_rag', 'simple_rag'];
 		form.name = 'existing'; // should NOT be reset
@@ -156,7 +156,7 @@ describe('resetFormFieldsToDefaults', () => {
 		expect(form.system_prompt).toBe('Default system prompt');
 		expect(form.prompt_template).toBe('Default template');
 		expect(form.RAG_Top_k).toBe(3);
-		expect(form.selectedPromptProcessor).toBe('default_processor');
+		expect(form.selectedPromptProcessor).toBe('kvcache_augment');
 		expect(form.selectedConnector).toBe('openai');
 		expect(form.selectedRagProcessor).toBe('no_rag');
 		expect(form.selectedLlm).toBe('gpt-4');

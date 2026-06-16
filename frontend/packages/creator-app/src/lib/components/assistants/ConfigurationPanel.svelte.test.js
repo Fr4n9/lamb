@@ -59,11 +59,11 @@ const baseProps = {
 };
 
 describe('ConfigurationPanel - PPS dropdown in create mode', () => {
-	it('hides simple_augment from PPS dropdown in create mode', () => {
+	it('shows both PPS options in create mode', () => {
 		render(ConfigurationPanel, { props: { ...baseProps, formState: 'create' } });
 		const select = document.getElementById('prompt-processor');
 		const options = Array.from(select.querySelectorAll('option')).map((o) => o.value);
-		expect(options).not.toContain('simple_augment');
+		expect(options).toContain('simple_augment');
 		expect(options).toContain('kvcache_augment');
 	});
 

@@ -57,6 +57,7 @@ This is the **original Phase 4 branch** (`feature/issue#277/phase4_lamba_port`).
 - `ab442b79` — design system tokens, logo, version
 - `d728c491` — DB init once per process; LTI module `config.js` samples
 - `eb0c8718` — pre-merge PPS/RAG + document RAG validation (see §5)
+- **Create PPS default (post-merge):** `resolveCreatePromptProcessor()` forces `kvcache_augment` on create reset/submit; both PPS visible in Advanced create; removed temporary `LAMB_LEGACY_PPS_DEFAULT` / `apply_defaults_pps_policy` served-defaults hack
 
 ### Other integration merges (same branch)
 
@@ -82,8 +83,7 @@ This is the **original Phase 4 branch** (`feature/issue#277/phase4_lamba_port`).
 - **Labeled doc wrapper:** wraps the document with a "REFERENCE DOCUMENT" header + creator selection note + recency-bias reminder.
 - `COMPATIBLE_RAG` validation in `main.py` (`load_and_validate_plugins`): rejects invalid PPS-RAG combinations at **completion** time.
 - `metadata_validators.py` + Creator Interface create/update: rejects incompatible combos at **save** time (see §5, commit `eb0c8718`).
-- **Default PPS changed:** `kvcache_augment` is now the default PPS for new assistants (was `simple_augment`). `simple_augment` is hidden from the create dropdown and only visible (disabled) in edit mode.
-- **`LAMB_LEGACY_PPS_DEFAULT` (backend env):** When `true`, served defaults (`/static/json/defaults.json`, `/creator/assistant/defaults`) force `simple_augment` for Playwright/E2E. When `false` (normal dev/prod), served defaults **always force `kvcache_augment`**, overriding stale org-level `assistant_defaults` in SQLite. This is a **temporary** policy in `assistant_default_pps.py` — see §11.
+- **Default PPS changed:** `kvcache_augment` is now the default PPS for new assistants (was `simple_augment`). Create mode uses `resolveCreatePromptProcessor()` so the form always selects `kvcache_augment` when available, regardless of stale org defaults or localStorage cache. Both PPS are visible in Advanced Mode create; legacy `simple_augment` remains disabled (read-only) in edit mode only.
 
 **Key files:**
 - `backend/lamb/completions/pps/kvcache_augment.py` (new, 197 lines)
@@ -112,8 +112,8 @@ This is the **original Phase 4 branch** (`feature/issue#277/phase4_lamba_port`).
 
 ### 1.4 Frontend — PPS/RAG Compatibility Filtering
 
-- `ragProcessorHelpers.js`: `PPS_COMPATIBLE_RAG` backend mirror, `getCompatibleRagForPps()`, `ppsSupportsDocumentRag()`, `isHiddenInCreate()`, `isDocumentRag()`, `isLegacyPps()`, `PPS_HIDDEN_IN_CREATE`.
-- `ConfigurationPanel.svelte`: RAG dropdown filtered by PPS compatibility; PPS dropdown hides `simple_augment` in create mode.
+- `ragProcessorHelpers.js`: `PPS_COMPATIBLE_RAG` backend mirror, `getCompatibleRagForPps()`, `ppsSupportsDocumentRag()`, `isHiddenInCreate()`, `isDocumentRag()`, `isLegacyPps()`, `resolveCreatePromptProcessor()`.
+- `ConfigurationPanel.svelte`: RAG dropdown filtered by PPS compatibility; PPS dropdown shows both processors in create Advanced Mode.
 - **Legacy PPS lock in edit mode:** All assistants using `simple_augment` show a locked read-only UI in edit mode with an i18n'd amber notice banner. KB selectors, KS selectors, Top-K input, and document toggle are all disabled. The user is directed to create a new assistant for changes.
 - `LibraryItemSelector.svelte`: library + item selector for Document RAG.
 - `AssistantForm` refactored: from ~1,747 LOC monolith to ~535 LOC orchestrator + logic modules + UI subcomponents.
@@ -141,7 +141,7 @@ This is the **original Phase 4 branch** (`feature/issue#277/phase4_lamba_port`).
 | `frontend/.../logic/assistantFormSubmit.js` | Extracted submit logic |
 | `frontend/.../logic/importAssistantValidator.js` | Import validation (141 lines) |
 | `frontend/.../utils/ragProcessorHelpers.js` | PPS/RAG compatibility + helpers (183 lines) |
-| `frontend/.../components/assistants/ConfigurationPanel.svelte.test.js` | PPS filtering + legacy edit lock tests |
+| `frontend/.../components/assistants/ConfigurationPanel.svelte.test.js` | Both PPS in create dropdown + legacy edit lock tests |
 | `frontend/.../components/assistants/RagOptionsPanel.svelte.test.js` | Legacy banner + disabled selectors tests |
 
 ### Modified files
@@ -149,19 +149,22 @@ This is the **original Phase 4 branch** (`feature/issue#277/phase4_lamba_port`).
 | File | Change |
 |------|--------|
 | `backend/static/json/defaults.json` | Default PPS: `simple_augment` → `kvcache_augment` |
-| `backend/creator_interface/assistant_router.py` | Metadata default PPS: `simple_augment` → `kvcache_augment` |
-| `backend/lamb/assistant_default_pps.py` | Served-defaults PPS policy (`LAMB_LEGACY_PPS_DEFAULT`) |
+| `backend/creator_interface/assistant_router.py` | Metadata default PPS: `simple_augment` → `kvcache_augment`; removed served-defaults PPS override |
+| `backend/lamb/assistant_default_pps.py` | Simplified: `default_prompt_processor()` + `load_defaults_json_document()` (no env policy) |
+| `backend/config.py` | Removed `LAMB_LEGACY_PPS_DEFAULT` env flag |
+| `backend/.env.example` | Removed `LAMB_LEGACY_PPS_DEFAULT` docs |
+| `testing/playwright/.env.sample` | Removed `LAMB_LEGACY_PPS_DEFAULT` docs |
 | `backend/lamb/completions/pps/simple_augment.py` | Cleanup: removed document_context, added COMPATIBLE_RAG |
 | `backend/lamb/completions/rag/context_aware_rag.py` | Legacy KB v1 path unchanged; query rewriting via `_query_rewriting_helper` only |
 | `backend/lamb/completions/main.py` | COMPATIBLE_RAG at completion time; `_require_document_context` HTTP 502 on document load failure |
 | `backend/creator_interface/assistant_router.py` | Metadata validation on create **and** update |
-| `frontend/.../assistants/AssistantForm.svelte` | Refactor: ~1747→~535 LOC, extracted subcomponents and logic |
-| `frontend/.../assistants/logic/assistantFormState.svelte.js` | Document RAG fields; `clearDocumentRagIfUnsupported()` |
+| `frontend/.../assistants/AssistantForm.svelte` | Refactor: ~1747→~535 LOC; `resolveCreatePromptProcessor()` on non-advanced submit |
+| `frontend/.../assistants/logic/assistantFormState.svelte.js` | Document RAG fields; create reset uses `resolveCreatePromptProcessor()` |
 | `frontend/.../assistants/logic/assistantFormSubmit.js` | `document_rag: 'library_file_rag'`; submit validation for PPS/RAG/refs |
 | `frontend/.../assistants/logic/importAssistantValidator.js` | Import checks aligned with backend metadata rules |
 | `frontend/.../stores/assistantConfigStore.js` | Fallback PPS + capabilities; added new RAGs to store |
-| `frontend/.../utils/ragProcessorHelpers.js` | Added `isLegacyPps()` + `PPS_HIDDEN_IN_CREATE` |
-| `frontend/.../components/assistants/components/ConfigurationPanel.svelte` | PPS filtering in create, `isLegacyEdit` wiring, document toggle disabled |
+| `frontend/.../utils/ragProcessorHelpers.js` | Added `isLegacyPps()` + `resolveCreatePromptProcessor()` |
+| `frontend/.../components/assistants/components/ConfigurationPanel.svelte` | Both PPS in create Advanced Mode, `isLegacyEdit` wiring, document toggle disabled |
 | `frontend/.../components/assistants/components/RagOptionsPanel.svelte` | Generalized legacy banner for all `simple_augment` RAGs, disabled selectors |
 | `frontend/.../components/assistants/components/KnowledgeBaseSelector.svelte` | Added `disabled` prop |
 | `frontend/.../components/assistants/components/KnowledgeStoreSelector.svelte` | Added `disabled` prop |
@@ -905,7 +908,7 @@ To be reviewed in a **separate pass** after this PR is stable on `dev`:
 
 ### Pipeline / assistants
 
-- **Served-defaults PPS policy (temporary — monitor post-merge):** `backend/lamb/assistant_default_pps.py` applies `apply_defaults_pps_policy()` on every defaults response. With `LAMB_LEGACY_PPS_DEFAULT=false`, API always serves `kvcache_augment` even if org `assistant_defaults` in the DB still say `simple_augment`. With `true`, serves `simple_augment` for E2E. **Follow-up:** remove the force-on-serve hack once org defaults are migrated or org Admin no longer stores `prompt_processor`; let file + org merge behave normally, keeping the env flag only for Playwright if still needed.
+- **Org `assistant_defaults` migration (optional):** Orgs with `prompt_processor: simple_augment` stored in SQLite may still serve that value via `/creator/assistant/defaults`, but create flow now ignores it via `resolveCreatePromptProcessor()`. Follow-up: migrate org defaults or stop persisting `prompt_processor` in org Admin if desired.
 - **Legacy `single_file_rag` full migration (deferred):** Edit mode now locks all `simple_augment` assistants (generalized legacy banner + disabled KB/KS/Top-K/document controls). `single_file_rag` still shows read-only `file_path` plus the specific single-file notice. Future work: editable via `LibraryItemSelector` with RAG type locked + backend dual-path in `single_file_rag.py`.
 - **Legacy `no_rag` notice gap:** Assistants with `simple_augment` + `no_rag` do not mount `RagOptionsPanel`, so they only see the disabled PPS field — no amber banner. Acceptable for now; add a ConfigurationPanel-level notice if needed.
 - **RAG display names:** `context_aware_rag` and `query_rewriting_ks_rag` both show as "Context Aware Rag" in the UI; disambiguation suffix "(Old)" not yet implemented in `getRagProcessorDisplayName()`.
@@ -923,3 +926,5 @@ To be reviewed in a **separate pass** after this PR is stable on `dev`:
 - Import validator vs backend mismatch → fixed `eb0c8718`
 - FR-10 interlock lost after merge → fixed `756faf82`
 - `document_context` leaking to `simple_augment` → fixed `f3f18ed5`
+- Create form stuck on `simple_augment` from org defaults / localStorage → fixed via `resolveCreatePromptProcessor()`; removed `LAMB_LEGACY_PPS_DEFAULT` hack
+- Playwright create-assistant specs: no changes required (audit: 7 specs; none assert implicit `simple_augment` on create)

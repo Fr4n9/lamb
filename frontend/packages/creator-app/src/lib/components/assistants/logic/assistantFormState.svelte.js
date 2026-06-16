@@ -22,7 +22,8 @@ import {
 	isSingleFileRag,
 	isRubricRag,
 	normalizeRagProcessor,
-	ppsSupportsDocumentRag
+	ppsSupportsDocumentRag,
+	resolveCreatePromptProcessor
 } from '$lib/utils/ragProcessorHelpers.js';
 import { loadRagPlaceholders, selectModel } from './assistantFormUtils.svelte.js';
 import { getAssistantMetadataObject } from '$lib/utils/assistantData';
@@ -174,8 +175,7 @@ export function resetFormFieldsToDefaults(form, getAvailableModels) {
 	form.system_prompt = defaults.system_prompt || '';
 	form.prompt_template = defaults.prompt_template || '';
 	form.RAG_Top_k = parseInt(defaults.RAG_Top_k || '3', 10) || 3;
-	form.selectedPromptProcessor =
-		defaults.prompt_processor || (form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
+	form.selectedPromptProcessor = resolveCreatePromptProcessor(form.promptProcessors);
 	form.selectedConnector =
 		defaults.connector || (form.connectorsList.length > 0 ? form.connectorsList[0] : '');
 	let defaultRag = normalizeRagProcessor(defaults.rag_processor);

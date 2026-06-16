@@ -26,8 +26,15 @@ export const RAG_TYPES = Object.freeze({
 	DOCUMENT_RAG: ['library_file_rag']
 });
 
-/** @readonly */
-export const PPS_HIDDEN_IN_CREATE = Object.freeze(['simple_augment']);
+/**
+ * Default PPS for new assistants: always kvcache_augment when available.
+ * @param {string[]} promptProcessors
+ * @returns {string}
+ */
+export function resolveCreatePromptProcessor(promptProcessors) {
+	if (promptProcessors?.includes('kvcache_augment')) return 'kvcache_augment';
+	return promptProcessors?.[0] ?? '';
+}
 
 /**
  * Returns true if the PPS is a legacy prompt processor.

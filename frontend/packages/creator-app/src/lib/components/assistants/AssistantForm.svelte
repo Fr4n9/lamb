@@ -9,6 +9,7 @@
 	import { isKbBasedRag, isKsBasedRag, isSingleFileRag, isRubricRag } from '$lib/utils/ragProcessorHelpers.js';
 	import { validateImportedAssistant } from './logic/importAssistantValidator.js';
 	import { createAssistantFormState, resetFormFieldsToDefaults, populateFormFields, revertToInitial, clearRagDependentState, handleFieldChange } from './logic/assistantFormState.svelte.js';
+	import { resolveCreatePromptProcessor } from '$lib/utils/ragProcessorHelpers.js';
 	import { fetchKnowledgeBases, fetchRubricsList, fetchLibraries, fetchLibraryItems, fetchKnowledgeStores } from './logic/assistantFormFetchers.js';
 	import { validateSubmission, buildAssistantPayload } from './logic/assistantFormSubmit.js';
 	import AssistantFormHeader from './components/AssistantFormHeader.svelte';
@@ -260,7 +261,7 @@
 		// In non-advanced mode, ensure defaults are used
 		if (form.formState === 'create' && !form.isAdvancedMode) {
 			const defaults = get(assistantConfigStore).configDefaults?.config || {};
-			form.selectedPromptProcessor = defaults.prompt_processor || (form.promptProcessors.length > 0 ? form.promptProcessors[0] : '');
+			form.selectedPromptProcessor = resolveCreatePromptProcessor(form.promptProcessors);
 			form.selectedConnector = defaults.connector || (form.connectorsList.length > 0 ? form.connectorsList[0] : '');
 			await tick();
 			// Reset LLM if needed with the new models list
