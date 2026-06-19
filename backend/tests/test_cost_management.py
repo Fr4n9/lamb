@@ -593,6 +593,40 @@ class TestTokenRepartition:
         assert result["non_cached"] == 958
         assert result["prompt_tokens"] == 19156
 
+    def test_openrouter_cache_write_tokens(self):
+        from lamb.completions.token_repartition import extract_token_buckets
+        usage_data = {
+            "prompt_tokens": 17569,
+            "completion_tokens": 3448,
+            "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 16432,
+            },
+        }
+        result = extract_token_buckets(usage_data)
+        assert result["cache_read"] == 0
+        assert result["cache_write"] == 16432
+        assert result["non_cached"] == 1137
+        assert result["prompt_tokens"] == 17569
+
+    def test_usage_to_dict_openrouter_cache_write_tokens(self):
+        from types import SimpleNamespace
+
+        from lamb.completions.connectors.openai import _usage_to_dict
+
+        usage = SimpleNamespace(
+            prompt_tokens=17569,
+            completion_tokens=3448,
+            total_tokens=21017,
+            prompt_tokens_details=SimpleNamespace(
+                cached_tokens=0,
+                cache_write_tokens=16432,
+            ),
+        )
+        result = _usage_to_dict(usage)
+        assert result["prompt_tokens_details"]["cache_creation_input_tokens"] == 16432
+        assert result["prompt_tokens_details"]["cached_tokens"] == 0
+
     def test_no_cache_details(self):
         from lamb.completions.token_repartition import extract_token_buckets
         usage_data = {"prompt_tokens": 500, "completion_tokens": 100}

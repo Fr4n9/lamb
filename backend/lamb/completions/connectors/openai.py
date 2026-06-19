@@ -22,11 +22,57 @@ logger = get_logger(__name__, component="API")
 multimodal_logger = get_logger('multimodal.openai', component="API")
 
 
+def _cache_creation_tokens_from_details(details) -> int | None:
+    """Map provider-specific cache-write fields to cache_creation_input_tokens."""
+    if details is None:
+        return None
+
+    creation = getattr(details, "cache_creation_input_tokens", None)
+    if creation:
+        return creation
+
+    write = getattr(details, "cache_write_tokens", None)
+    if write:
+        return write
+
+    model_dump = getattr(details, "model_dump", None)
+    if callable(model_dump):
+        data = model_dump()
+        if data.get("cache_creation_input_tokens"):
+            return data["cache_creation_input_tokens"]
+        if data.get("cache_write_tokens"):
+            return data["cache_write_tokens"]
+
+    return None
+
+
+def _prompt_tokens_details_to_dict(details) -> dict:
+    """Normalize prompt_tokens_details from an OpenAI SDK usage object."""
+    if details is None:
+        return {}
+
+    prompt_details = {}
+    cached = getattr(details, "cached_tokens", None)
+    if cached is not None:
+        prompt_details["cached_tokens"] = cached
+
+    creation = _cache_creation_tokens_from_details(details)
+    if creation is not None:
+        prompt_details["cache_creation_input_tokens"] = creation
+
+    text_tok = getattr(details, "text_tokens", None)
+    if text_tok is not None:
+        prompt_details["text_tokens"] = text_tok
+
+    return prompt_details
+
+
 def _usage_to_dict(usage) -> dict:
     """Normalize an OpenAI SDK usage object into a plain dict.
 
     Ensures cache_creation_input_tokens is captured even when the SDK's
-    Pydantic model does not include it (e.g. Alibaba-compatible APIs).
+    Pydantic model does not include it (e.g. Alibaba-compatible APIs,
+    OpenRouter cache_write_tokens alias).
     """
     if usage is None:
         return {}
@@ -37,20 +83,11 @@ def _usage_to_dict(usage) -> dict:
         "total_tokens": usage.total_tokens,
     }
 
-    details = getattr(usage, "prompt_tokens_details", None)
-    if details is not None:
-        prompt_details = {}
-        cached = getattr(details, "cached_tokens", None)
-        if cached is not None:
-            prompt_details["cached_tokens"] = cached
-        creation = getattr(details, "cache_creation_input_tokens", None)
-        if creation is not None:
-            prompt_details["cache_creation_input_tokens"] = creation
-        text_tok = getattr(details, "text_tokens", None)
-        if text_tok is not None:
-            prompt_details["text_tokens"] = text_tok
-        if prompt_details:
-            result["prompt_tokens_details"] = prompt_details
+    prompt_details = _prompt_tokens_details_to_dict(
+        getattr(usage, "prompt_tokens_details", None)
+    )
+    if prompt_details:
+        result["prompt_tokens_details"] = prompt_details
 
     return result
 
@@ -838,21 +875,8 @@ Returns:
         async for chunk in stream_obj: # Changed to async for
             # Capture usage when the final chunk carries it
             if usage_out is not None and hasattr(chunk, "usage") and chunk.usage:
-                usage_out["prompt_tokens"]     = chunk.usage.prompt_tokens
-                usage_out["completion_tokens"] = chunk.usage.completion_tokens
-                usage_out["total_tokens"]      = chunk.usage.total_tokens
-                if hasattr(chunk.usage, "prompt_tokens_details") and chunk.usage.prompt_tokens_details:
-                    details = chunk.usage.prompt_tokens_details
-                    usage_out["prompt_tokens_details"] = {}
-                    cached = getattr(details, "cached_tokens", None)
-                    if cached is not None:
-                        usage_out["prompt_tokens_details"]["cached_tokens"] = cached
-                    creation = getattr(details, "cache_creation_input_tokens", None)
-                    if creation is not None:
-                        usage_out["prompt_tokens_details"]["cache_creation_input_tokens"] = creation
-                    text_tok = getattr(details, "text_tokens", None)
-                    if text_tok is not None:
-                        usage_out["prompt_tokens_details"]["text_tokens"] = text_tok
+                usage_out.clear()
+                usage_out.update(_usage_to_dict(chunk.usage))
             log_provider_response(
                 "openai",
                 operation="chat.completions.create",

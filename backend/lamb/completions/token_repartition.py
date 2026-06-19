@@ -24,7 +24,11 @@ def extract_token_buckets(usage_data: dict[str, Any]) -> dict[str, int]:
 
     cache_read = details.get("cached_tokens", 0) or 0
 
-    flat_write = details.get("cache_creation_input_tokens", 0) or 0
+    flat_write = (
+        details.get("cache_creation_input_tokens", 0)
+        or details.get("cache_write_tokens", 0)
+        or 0
+    )
     nested_obj = details.get("cache_creation") or {}
     nested_write = 0
     if isinstance(nested_obj, dict):
