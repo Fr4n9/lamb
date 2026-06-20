@@ -1,0 +1,27 @@
+{
+  "run_id": "20260619_202643",
+  "sim_mode": "multi_turn",
+  "total_requests": 243,
+  "cost_usd_actual": 0.901862,
+  "cost_usd_no_cache": 1.717029,
+  "savings_usd": 0.815167,
+  "savings_pct": 47.48,
+  "total_cache_read_tokens": 4891585,
+  "total_cache_write_tokens": 219209,
+  "requests_with_cache_write": 225,
+  "avg_prompt_tokens_by_turn": {
+    "1": 17553.6,
+    "2": 18385.3,
+    "3": 19114.2,
+    "4": 19961.1,
+    "5": 20790.0,
+    "6": 21708.5,
+    "7": 22521.5,
+    "8": 23293.2,
+    "9": 24159,
+    "10": 24984.8,
+    "11": 25850.6,
+    "12": 26619.4,
+    "13": 26795.2
+  }
+}

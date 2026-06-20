@@ -181,6 +181,33 @@ class TestD3Fallback:
         assert "Some chunk." in last_msg["content"]
 
 
+class TestDocumentPlacementUserTemplate:
+    def test_document_in_user_context_not_system(self, monkeypatch):
+        import lamb.completions.pps.kvcache_augment as kvcache_module
+        monkeypatch.setattr(kvcache_module, "_DOC_PLACEMENT", "user_template")
+
+        assistant = MockAssistant(
+            system_prompt="You are a tutor.",
+            prompt_template="Q: {user_input}\nCtx: {context}",
+        )
+        request = _make_request([{"role": "user", "content": "Question?"}])
+        doc_ctx = {"context": "Reference doc.", "sources": []}
+        rag_ctx = {"context": "RAG chunks.", "sources": []}
+
+        result = kvcache_module.prompt_processor(
+            request, assistant=assistant, rag_context=rag_ctx, document_context=doc_ctx
+        )
+
+        system_msg = result[0]
+        assert "Reference doc." not in system_msg["content"]
+        assert system_msg["content"] == "You are a tutor."
+
+        last_msg = result[-1]
+        assert "Reference doc." in last_msg["content"]
+        assert "RAG chunks." in last_msg["content"]
+        assert "## REFERENCE DOCUMENT" in last_msg["content"]
+
+
 class TestLabeledDocWrapper:
     def test_labeled_doc_wrapper_in_system_prompt(self):
         assistant = MockAssistant(

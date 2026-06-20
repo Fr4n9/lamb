@@ -1,0 +1,10 @@
+{
+  "run_id": "test_run",
+  "total_requests": 10,
+  "cost_usd_actual": 0.035642,
+  "cost_usd_no_cache": 0.0663,
+  "savings_usd": 0.030658,
+  "savings_pct": 46.24,
+  "total_cache_read_tokens": 119000,
+  "total_cache_write_tokens": 51000
+}

@@ -1,0 +1,15 @@
+{
+  "run_id": "20260620_002750",
+  "sim_mode": "stateless",
+  "total_requests": 251,
+  "cost_usd_actual": 1.586376,
+  "cost_usd_no_cache": 1.587833,
+  "savings_usd": 0.001457,
+  "savings_pct": 0.09,
+  "total_cache_read_tokens": 8680,
+  "total_cache_write_tokens": 105,
+  "requests_with_cache_write": 3,
+  "avg_prompt_tokens_by_turn": {
+    "1": 17566.4
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "run_id": "20260605_143250",
+  "total_requests": 196,
+  "cost_usd_actual": 0.990057,
+  "cost_usd_no_cache": 1.932107,
+  "savings_usd": 0.94205,
+  "savings_pct": 48.76,
+  "total_cache_read_tokens": 3220672,
+  "total_cache_write_tokens": 0
+}

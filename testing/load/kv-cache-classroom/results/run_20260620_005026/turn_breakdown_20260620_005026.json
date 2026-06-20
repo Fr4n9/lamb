@@ -1,0 +1,128 @@
+{
+  "1": {
+    "count": 20,
+    "avg_prompt_tokens": 17621.0,
+    "avg_cached_tokens": 31.5,
+    "avg_cache_write_tokens": 3.5,
+    "avg_non_cached_prompt_tokens": 17586.0,
+    "avg_cost_usd_actual": 0.006141,
+    "avg_messages_sent": 1
+  },
+  "2": {
+    "count": 20,
+    "avg_prompt_tokens": 18341.7,
+    "avg_cached_tokens": 35,
+    "avg_cache_write_tokens": 777.7,
+    "avg_non_cached_prompt_tokens": 17529.0,
+    "avg_cost_usd_actual": 0.007103,
+    "avg_messages_sent": 3
+  },
+  "3": {
+    "count": 20,
+    "avg_prompt_tokens": 19338.7,
+    "avg_cached_tokens": 812.7,
+    "avg_cache_write_tokens": 974.4,
+    "avg_non_cached_prompt_tokens": 17551.6,
+    "avg_cost_usd_actual": 0.006696,
+    "avg_messages_sent": 5
+  },
+  "4": {
+    "count": 20,
+    "avg_prompt_tokens": 20197.6,
+    "avg_cached_tokens": 1787.0,
+    "avg_cache_write_tokens": 898.5,
+    "avg_non_cached_prompt_tokens": 17512.0,
+    "avg_cost_usd_actual": 0.006596,
+    "avg_messages_sent": 7
+  },
+  "5": {
+    "count": 20,
+    "avg_prompt_tokens": 21080.7,
+    "avg_cached_tokens": 2685.6,
+    "avg_cache_write_tokens": 893.4,
+    "avg_non_cached_prompt_tokens": 17501.8,
+    "avg_cost_usd_actual": 0.006879,
+    "avg_messages_sent": 9
+  },
+  "6": {
+    "count": 20,
+    "avg_prompt_tokens": 22105.4,
+    "avg_cached_tokens": 3578.9,
+    "avg_cache_write_tokens": 986,
+    "avg_non_cached_prompt_tokens": 17540.5,
+    "avg_cost_usd_actual": 0.006799,
+    "avg_messages_sent": 11
+  },
+  "7": {
+    "count": 20,
+    "avg_prompt_tokens": 22947.0,
+    "avg_cached_tokens": 4564.9,
+    "avg_cache_write_tokens": 925.4,
+    "avg_non_cached_prompt_tokens": 17456.8,
+    "avg_cost_usd_actual": 0.006794,
+    "avg_messages_sent": 13
+  },
+  "8": {
+    "count": 20,
+    "avg_prompt_tokens": 23932,
+    "avg_cached_tokens": 5490.3,
+    "avg_cache_write_tokens": 1006.3,
+    "avg_non_cached_prompt_tokens": 17435.4,
+    "avg_cost_usd_actual": 0.007104,
+    "avg_messages_sent": 15
+  },
+  "9": {
+    "count": 20,
+    "avg_prompt_tokens": 25070.2,
+    "avg_cached_tokens": 6496.6,
+    "avg_cache_write_tokens": 1051.4,
+    "avg_non_cached_prompt_tokens": 17522.2,
+    "avg_cost_usd_actual": 0.007297,
+    "avg_messages_sent": 17
+  },
+  "10": {
+    "count": 20,
+    "avg_prompt_tokens": 26135.7,
+    "avg_cached_tokens": 7548,
+    "avg_cache_write_tokens": 1095.4,
+    "avg_non_cached_prompt_tokens": 17492.2,
+    "avg_cost_usd_actual": 0.007067,
+    "avg_messages_sent": 19
+  },
+  "11": {
+    "count": 20,
+    "avg_prompt_tokens": 27197.7,
+    "avg_cached_tokens": 8643.4,
+    "avg_cache_write_tokens": 1082.7,
+    "avg_non_cached_prompt_tokens": 17471.6,
+    "avg_cost_usd_actual": 0.007025,
+    "avg_messages_sent": 21
+  },
+  "12": {
+    "count": 19,
+    "avg_prompt_tokens": 28296.6,
+    "avg_cached_tokens": 9757,
+    "avg_cache_write_tokens": 1038.7,
+    "avg_non_cached_prompt_tokens": 17500.9,
+    "avg_cost_usd_actual": 0.007471,
+    "avg_messages_sent": 23
+  },
+  "13": {
+    "count": 10,
+    "avg_prompt_tokens": 29449.1,
+    "avg_cached_tokens": 10814.4,
+    "avg_cache_write_tokens": 1213,
+    "avg_non_cached_prompt_tokens": 17421.7,
+    "avg_cost_usd_actual": 0.007311,
+    "avg_messages_sent": 25
+  },
+  "14": {
+    "count": 1,
+    "avg_prompt_tokens": 26884,
+    "avg_cached_tokens": 8915,
+    "avg_cache_write_tokens": 598,
+    "avg_non_cached_prompt_tokens": 17371,
+    "avg_cost_usd_actual": 0.006159,
+    "avg_messages_sent": 27
+  }
+}

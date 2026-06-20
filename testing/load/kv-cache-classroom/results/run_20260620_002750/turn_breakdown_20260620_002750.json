@@ -1,0 +1,11 @@
+{
+  "1": {
+    "count": 251,
+    "avg_prompt_tokens": 17566.4,
+    "avg_cached_tokens": 34.6,
+    "avg_cache_write_tokens": 0.4,
+    "avg_non_cached_prompt_tokens": 17531.4,
+    "avg_cost_usd_actual": 0.00632,
+    "avg_messages_sent": 1
+  }
+}

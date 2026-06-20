@@ -246,7 +246,6 @@ aac_logs/
 skills-lock.json
 test-results/
 testing/load/document-cache-test/
-testing/load/kv-cache-classroom/
 backend/testing/context_dumps/
 
 # Documentación de trabajo y planes
@@ -291,4 +290,3 @@ aac_logs/
 skills-lock.json
 test-results/
 testing/load/document-cache-test/
-testing/load/kv-cache-classroom/
