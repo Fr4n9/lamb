@@ -50,8 +50,12 @@ test.describe.serial("Knowledge Base Detail Modals", () => {
     const submitButton = dialog.getByRole("button", { name: /create knowledge base/i });
     await submitButton.click();
 
-    await expect(dialog).not.toBeVisible({ timeout: 3_000 });
-    await expect(page.getByText(kbName)).toBeVisible({ timeout: 5_000 });
+    // Wait for the create-KB round-trip to complete and the dialog to close.
+    // Under CI load (containers freshly started) the frontend can take several
+    // seconds to process the success response and re-render; 3s was too tight
+    // and caused consistent flakes. The KB API itself responds in ~1.5s.
+    await expect(dialog).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(kbName)).toBeVisible({ timeout: 15_000 });
 
     // Navigate to KB detail
     const kbRow = page.locator("tr").filter({ hasText: kbName });

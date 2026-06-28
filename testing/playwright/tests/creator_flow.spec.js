@@ -37,8 +37,11 @@ test.describe.serial("Creator flow (KB + ingest + query)", () => {
     await submitButton.click();
 
 
-    // Wait for dialog to close and KB to appear in list
-    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+    // Wait for dialog to close and KB to appear in list.
+    // The KB API responds in ~1.5s, but under CI load the frontend can take
+    // longer to process the success response and close the dialog. 10s was
+    // too tight (failed at 11.7s); 20s gives comfortable headroom.
+    await expect(dialog).not.toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(kbName)).toBeVisible({ timeout: 30_000 });
   });
 
