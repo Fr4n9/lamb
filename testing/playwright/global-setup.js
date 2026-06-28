@@ -40,8 +40,13 @@ module.exports = async (config) => {
     // Double-check that SvelteKit has hydrated by polling for its runtime
     // marker. This is a zero-cost guard on fast machines (already true by the
     // time networkidle resolves) and a reliable gate on slow ones.
+    // NOTE: the marker name differs by build mode — dev exposes
+    // `__sveltekit_dev`, SvelteKit 2 production builds expose a hashed name
+    // like `__sveltekit_1u9jzfb` (no stable global), and older versions used
+    // plain `__sveltekit`. Match any property whose name starts with the prefix
+    // so the gate works against both dev and production-served pages.
     await page.waitForFunction(
-      () => typeof window.__sveltekit_dev !== 'undefined' || typeof window.__sveltekit !== 'undefined',
+      () => Object.keys(window).some((k) => k.startsWith('__sveltekit')),
       { timeout: 30_000 }
     );
 
