@@ -1,0 +1,26 @@
+{
+  "run_label": "no_cache",
+  "run_id": "20260608_202427",
+  "timestamp": "2026-06-08T20:24:27.855097",
+  "num_students": 20,
+  "duration_minutes": 15,
+  "total_requests": 152,
+  "successful_requests": 152,
+  "failed_requests": 0,
+  "error_rate": 0.0,
+  "total_time_ms": {
+    "min": 49162.9,
+    "max": 106832.6,
+    "mean": 77014.0,
+    "median": 75723.9
+  },
+  "doc_rag_time_ms": {
+    "min": 8.05,
+    "max": 47.87,
+    "mean": 10.8,
+    "median": 10.18
+  },
+  "cache_hits": 0,
+  "cache_misses": 152,
+  "cache_hit_rate": 0.0
+}
